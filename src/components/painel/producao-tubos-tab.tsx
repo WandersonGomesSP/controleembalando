@@ -49,7 +49,7 @@ export function ProducaoTubosTab() {
   const removeCodigo = (g: CodigoGrupo, i: number) =>
     setCodigos((c) => ({ ...c, [g]: c[g].filter((_, j) => j !== i) }))
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!destino || !espessura || !tubo || !capa)
       return toast.error('Preencha Destino, Espessura, Tubo e Capa.')
@@ -62,18 +62,22 @@ export function ProducaoTubosTab() {
         v.map((x) => x.trim()).filter(Boolean),
       ]),
     ) as Record<CodigoGrupo, string[]>
-    adicionarProducao({
-      destino,
-      data,
-      espessura,
-      tubo,
-      capa,
-      codigos: limpos,
-      operador: operador.trim(),
-      perda: p,
-      container: container.trim(),
-      carrinho: carrinho.trim(),
-    })
+    try {
+      await adicionarProducao({
+        destino,
+        data,
+        espessura,
+        tubo,
+        capa,
+        codigos: limpos,
+        operador: operador.trim(),
+        perda: p,
+        container: container.trim(),
+        carrinho: carrinho.trim(),
+      })
+    } catch {
+      return toast.error('Não foi possível salvar a produção no Supabase.')
+    }
     toast.success('Produção registrada', {
       description: `Tubo ${tubo} · ${espessura} → ${destino}`,
     })

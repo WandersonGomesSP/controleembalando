@@ -44,23 +44,27 @@ export function EntradaTubeteTab() {
     inteiro(caixas) * inteiro(unidades) - inteiro(perda),
   )
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!medida) return toast.error('Selecione a medida.')
     if (inteiro(caixas) < 1) return toast.error('Informe a quantidade de caixas.')
     if (inteiro(unidades) < 1)
       return toast.error('Informe as unidades por caixa.')
     if (!operador.trim()) return toast.error('Informe o operador.')
-    adicionarTubetes({
-      medida,
-      cor,
-      gramatura: inteiro(gramatura),
-      dataProducao,
-      caixas: inteiro(caixas),
-      unidadesPorCaixa: inteiro(unidades),
-      perda: inteiro(perda),
-      operador: operador.trim(),
-    })
+    try {
+      await adicionarTubetes({
+        medida,
+        cor,
+        gramatura: inteiro(gramatura),
+        dataProducao,
+        caixas: inteiro(caixas),
+        unidadesPorCaixa: inteiro(unidades),
+        perda: inteiro(perda),
+        operador: operador.trim(),
+      })
+    } catch {
+      return toast.error('Não foi possível salvar a entrada no Supabase.')
+    }
     toast.success(`${int(total)} tubetes adicionados ao estoque`, {
       description: `${medida} ${cor} · ${inteiro(caixas)} caixa(s)`,
     })

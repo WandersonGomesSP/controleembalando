@@ -30,6 +30,50 @@ export type LoteTubete = {
   operador: string
 }
 
+export type TipoInsumo = 'ROTULO' | 'CAPA'
+export type StatusInsumo = 'DISPONIVEL' | 'BAIXADO'
+
+export type InsumoRolo = {
+  idCodigo: string
+  tipo: TipoInsumo
+  medidaCategoria: string
+  pesoLiqKg: number
+  validade: string
+  dataRegistro: string
+  status: StatusInsumo
+}
+
+export type ReferenciaTubete = {
+  descricao: string
+  medida: string
+  cor: string | null
+  tubetesPorCaixa: number
+  estoqueMin: number | null
+}
+
+export type ReferenciaInsumo = {
+  tipo: TipoInsumo
+  medidaCategoria: string
+  estoqueMinKg: number | null
+  limiteCriticoKg: number | null
+}
+
+export const MEDIDAS_INSUMO = [
+  '12mm',
+  '18mm Fix Baby',
+  '19mm',
+  '19mm Hosp',
+  '24mm',
+  '25mm',
+  '38mm',
+  '45mm',
+  '48mm',
+  '50mm',
+  '70mm',
+  'Capa Branca',
+  'Capa Marrom',
+] as const
+
 export type ProducaoTubo = {
   id: number
   destino: string

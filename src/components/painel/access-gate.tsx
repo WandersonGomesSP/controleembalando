@@ -5,27 +5,14 @@ import {
   Boxes,
   Cylinder,
   Factory,
-  KeyRound,
   LockKeyhole,
-  Plus,
-  ShieldCheck,
-  Trash2,
+  LogOut,
 } from 'lucide-react'
+import type { User } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase'
 
 type AreaId = 'tubeteira' | 'rebobinadeira' | 'estufa'
 type Screen = 'login' | 'areas' | 'development'
-
-type Credential = {
-  id: string
-  name: string
-  username: string
-  salt: string
-  passwordHash: string
-  areas: AreaId[]
-  canManageUsers: boolean
-}
-
-const STORAGE_KEY = 'controle-tubeteira-credentials'
 
 const AREAS: {
   id: AreaId
@@ -56,46 +43,6 @@ const AREAS: {
     available: false,
   },
 ]
-
-function isCredential(value: unknown): value is Credential {
-  if (!value || typeof value !== 'object') return false
-  const entry = value as Partial<Credential>
-  return (
-    typeof entry.id === 'string' &&
-    typeof entry.name === 'string' &&
-    typeof entry.username === 'string' &&
-    typeof entry.salt === 'string' &&
-    typeof entry.passwordHash === 'string' &&
-    Array.isArray(entry.areas) &&
-    typeof entry.canManageUsers === 'boolean'
-  )
-}
-
-function readCredentials(): Credential[] {
-  try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
-    return Array.isArray(parsed) ? parsed.filter(isCredential) : []
-  } catch {
-    return []
-  }
-}
-
-function saveCredentials(credentials: Credential[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(credentials))
-}
-
-function toHex(bytes: Uint8Array) {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
-async function hashPassword(password: string, salt: string) {
-  const encoded = new TextEncoder().encode(`${salt}:${password}`)
-  return toHex(new Uint8Array(await crypto.subtle.digest('SHA-256', encoded)))
-}
-
-function makeSalt() {
-  return toHex(crypto.getRandomValues(new Uint8Array(16)))
-}
 
 function AccessButton({
   children,
@@ -152,31 +99,53 @@ export function AccessGate({
 }) {
   const [screen, setScreen] = React.useState<Screen>('login')
   const [developmentReturn, setDevelopmentReturn] = React.useState<Screen>('login')
-  const [credentials, setCredentials] = React.useState<Credential[]>([])
-  const [activeUser, setActiveUser] = React.useState<Credential | null>(null)
+  const [activeUser, setActiveUser] = React.useState<User | null>(null)
   const [area, setArea] = React.useState<AreaId | null>(null)
-  const [hydrated, setHydrated] = React.useState(false)
+  const [sessionReady, setSessionReady] = React.useState(false)
   const [loginError, setLoginError] = React.useState('')
-  const [developmentMessage, setDevelopmentMessage] = React.useState('')
   const userLabelClicks = React.useRef(0)
   const userLabelReset = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   React.useEffect(() => {
-    setCredentials(readCredentials())
-    setHydrated(true)
-  }, [])
+    let ativo = true
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!ativo) return
+      setActiveUser(session?.user ?? null)
+      if (session) {
+        setScreen('areas')
+      } else {
+        setArea(null)
+        setScreen('login')
+      }
+    })
 
-  function updateCredentials(next: Credential[]) {
-    setCredentials(next)
-    saveCredentials(next)
-  }
+    supabase.auth
+      .getSession()
+      .then(({ data: sessionData, error }) => {
+        if (!ativo) return
+        if (error) setLoginError('Não foi possível validar a sessão.')
+        setActiveUser(sessionData.session?.user ?? null)
+        if (sessionData.session) setScreen('areas')
+        setSessionReady(true)
+      })
+      .catch(() => {
+        if (ativo) {
+          setLoginError('Não foi possível conectar ao Supabase Auth.')
+          setSessionReady(true)
+        }
+      })
+
+    return () => {
+      ativo = false
+      data.subscription.unsubscribe()
+    }
+  }, [])
 
   function handleUserLabelClick() {
     userLabelClicks.current += 1
     if (userLabelReset.current) clearTimeout(userLabelReset.current)
     if (userLabelClicks.current >= 5) {
       userLabelClicks.current = 0
-      setDevelopmentMessage('')
       setDevelopmentReturn('login')
       setScreen('development')
       return
@@ -189,73 +158,50 @@ export function AccessGate({
   async function submitLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    const username = String(form.get('username')).trim().toLowerCase()
+    const email = String(form.get('email')).trim()
     const password = String(form.get('password'))
-    const match = credentials.find((entry) => entry.username === username)
-    if (!match || (await hashPassword(password, match.salt)) !== match.passwordHash) {
-      setLoginError('Usuário ou senha não conferem.')
-      return
-    }
     setLoginError('')
-    setActiveUser(match)
-    setScreen('areas')
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        setLoginError('E-mail ou senha não conferem.')
+        return
+      }
+      setActiveUser(data.user)
+      setScreen('areas')
+    } catch {
+      setLoginError('E-mail ou senha não conferem.')
+    }
   }
 
-  async function createCredential(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const formElement = event.currentTarget
-    const form = new FormData(formElement)
-    const name = String(form.get('name')).trim()
-    const username = String(form.get('username')).trim().toLowerCase()
-    const password = String(form.get('password'))
-    const areas = AREAS.filter((entry) => form.get(`area-${entry.id}`)).map(
-      (entry) => entry.id,
-    )
-    const canManageUsers = form.get('manage-users') === 'on'
-
-    if (credentials.some((entry) => entry.username === username)) {
-      setDevelopmentMessage('Esse usuário já está cadastrado.')
+  async function signOut() {
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      setLoginError('Não foi possível encerrar a sessão.')
       return
     }
-    if (areas.length === 0 && !canManageUsers) {
-      setDevelopmentMessage('Libere ao menos uma área ou o gerenciamento de acessos.')
-      return
-    }
-
-    const salt = makeSalt()
-    const created: Credential = {
-      id: crypto.randomUUID(),
-      name,
-      username,
-      salt,
-      passwordHash: await hashPassword(password, salt),
-      areas,
-      canManageUsers,
-    }
-    updateCredentials([...credentials, created])
-    setDevelopmentMessage(`Acesso de ${name} criado.`)
-    formElement.reset()
-  }
-
-  function removeCredential(id: string) {
-    updateCredentials(credentials.filter((entry) => entry.id !== id))
-    setDevelopmentMessage('Acesso removido.')
-  }
-
-  function enterWithoutCredentials() {
     setActiveUser(null)
-    setScreen('areas')
+    setArea(null)
+    setScreen('login')
   }
 
   function chooseArea(nextArea: AreaId) {
     setArea(nextArea)
   }
 
-  if (area === 'tubeteira') {
+  if (!sessionReady) {
+    return (
+      <main className="grid min-h-screen place-items-center px-5 text-sm text-muted-foreground">
+        Validando sessão...
+      </main>
+    )
+  }
+
+  if (activeUser && area === 'tubeteira') {
     return <>{children(() => setArea(null))}</>
   }
 
-  if (area) {
+  if (activeUser && area) {
     const selected = AREAS.find((entry) => entry.id === area)!
     return (
       <main className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-5 py-12 sm:px-8">
@@ -276,8 +222,6 @@ export function AccessGate({
       </main>
     )
   }
-
-  const hasCredentials = credentials.length > 0
 
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl items-center px-5 py-10 sm:px-8">
@@ -306,57 +250,37 @@ export function AccessGate({
               <p className="text-xs tracking-wide text-primary uppercase">Acesso ao sistema</p>
               <h2 className="mt-3 text-2xl font-semibold">Entrar</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                {hasCredentials
-                  ? 'Use seu usuário e senha para continuar.'
-                  : 'O acesso ainda está aberto enquanto não há credenciais cadastradas.'}
+                Entre com a conta cadastrada no Supabase Auth.
               </p>
 
-              {hasCredentials ? (
-                <form onSubmit={submitLogin} className="mt-7 grid gap-4">
-                  <AccessField
-                    label="Usuário"
-                    name="username"
-                    autoComplete="username"
-                    required
-                    onLabelClick={handleUserLabelClick}
-                  />
-                  <AccessField
-                    label="Senha"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                  />
-                  {loginError && (
-                    <p role="alert" className="text-sm text-destructive-foreground">
-                      {loginError}
-                    </p>
-                  )}
-                  <AccessButton
-                    type="submit"
-                    className="w-full bg-foreground text-background hover:bg-foreground/90"
-                  >
-                    Entrar <ArrowRight className="size-4" />
-                  </AccessButton>
-                </form>
-              ) : (
-                <div className="mt-7 grid gap-4">
-                  <AccessField
-                    label="Usuário"
-                    name="username"
-                    autoComplete="username"
-                    onLabelClick={handleUserLabelClick}
-                  />
-                  <AccessButton
-                    type="button"
-                    disabled={!hydrated}
-                    onClick={enterWithoutCredentials}
-                    className="w-full bg-foreground text-background hover:bg-foreground/90"
-                  >
-                    Acessar sem credenciais <ArrowRight className="size-4" />
-                  </AccessButton>
-                </div>
-              )}
+              <form onSubmit={submitLogin} className="mt-7 grid gap-4">
+                <AccessField
+                  label="E-mail"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  onLabelClick={handleUserLabelClick}
+                />
+                <AccessField
+                  label="Senha"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                />
+                {loginError && (
+                  <p role="alert" className="text-sm text-destructive-foreground">
+                    {loginError}
+                  </p>
+                )}
+                <AccessButton
+                  type="submit"
+                  className="w-full bg-foreground text-background hover:bg-foreground/90"
+                >
+                  Entrar <ArrowRight className="size-4" />
+                </AccessButton>
+              </form>
             </div>
           )}
 
@@ -367,33 +291,28 @@ export function AccessGate({
                   <p className="text-xs tracking-wide text-primary uppercase">Ambientes</p>
                   <h2 className="mt-3 text-2xl font-semibold">Onde vamos trabalhar?</h2>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {activeUser ? `Acesso de ${activeUser.name}` : 'Sessão sem credenciais'}
+                    {activeUser?.email}
                   </p>
                 </div>
                 <AccessButton
                   type="button"
-                  aria-label="Voltar ao login"
-                  onClick={() => {
-                    setActiveUser(null)
-                    setScreen('login')
-                  }}
+                  aria-label="Sair da conta"
+                  onClick={signOut}
                   className="size-9 shrink-0 bg-secondary px-0 text-secondary-foreground hover:bg-accent"
                 >
-                  <ArrowLeft className="size-4" />
+                  <LogOut className="size-4" />
                 </AccessButton>
               </div>
 
               <div className="mt-8 grid gap-3">
                 {AREAS.map((entry) => {
                   const Icon = entry.icon
-                  const allowed = !activeUser || activeUser.areas.includes(entry.id)
                   return (
                     <button
                       key={entry.id}
                       type="button"
-                      disabled={!allowed}
                       onClick={() => chooseArea(entry.id)}
-                      className="group grid grid-cols-[2.5rem_1fr_auto] items-center gap-4 border-b border-border/80 px-3 py-4 text-left transition-colors first:border-t hover:bg-foreground/[0.035] disabled:cursor-not-allowed disabled:opacity-45"
+                      className="group grid grid-cols-[2.5rem_1fr_auto] items-center gap-4 border-b border-border/80 px-3 py-4 text-left transition-colors first:border-t hover:bg-foreground/[0.035]"
                     >
                       <span className="font-mono text-xs text-muted-foreground">
                         0{AREAS.indexOf(entry) + 1}
@@ -425,110 +344,23 @@ export function AccessGate({
               >
                 <ArrowLeft className="size-4" /> Voltar
               </AccessButton>
-              <p className="text-xs tracking-wide text-warning uppercase">Configuração local</p>
+              <p className="text-xs tracking-wide text-warning uppercase">Administração</p>
               <h2 className="mt-3 text-2xl font-semibold">Acessos e permissões</h2>
               <p className="mt-2 flex gap-2 text-sm leading-6 text-muted-foreground">
                 <LockKeyhole className="mt-0.5 size-4 shrink-0 text-warning" />
-                Protótipo: os dados ficam neste navegador. Esta tela não protege o sistema; use autenticação no servidor antes de publicar.
+                Crie e remova contas em Authentication &gt; Users no Supabase. A chave de serviço não deve ser usada no navegador.
               </p>
-
-              <form onSubmit={createCredential} className="mt-7 grid gap-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <AccessField label="Nome" name="name" autoComplete="name" required />
-                  <AccessField
-                    label="Usuário"
-                    name="username"
-                    autoComplete="username"
-                    required
-                  />
-                  <AccessField
-                    label="Senha"
-                    name="password"
-                    type="password"
-                    minLength={6}
-                    autoComplete="new-password"
-                    required
-                  />
-                </div>
-
-                <fieldset className="grid gap-2">
-                  <legend className="mb-1 text-sm font-medium">Áreas permitidas</legend>
-                  {AREAS.map((entry) => (
-                    <label
-                      key={entry.id}
-                      className="flex min-h-10 items-center gap-3 text-sm text-muted-foreground"
-                    >
-                      <input
-                        type="checkbox"
-                        name={`area-${entry.id}`}
-                        defaultChecked={entry.id === 'tubeteira'}
-                        className="size-4 accent-primary"
-                      />
-                      {entry.name}
-                    </label>
-                  ))}
-                  <label className="flex min-h-10 items-center gap-3 text-sm text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      name="manage-users"
-                      className="size-4 accent-primary"
-                    />
-                    <ShieldCheck className="size-4" /> Gerenciar credenciais
-                  </label>
-                </fieldset>
-
-                {developmentMessage && (
-                  <p role="status" className="text-sm text-primary">
-                    {developmentMessage}
-                  </p>
-                )}
-                <AccessButton
-                  type="submit"
-                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-fit"
-                >
-                  <Plus className="size-4" /> Criar credencial
-                </AccessButton>
-              </form>
-
-              <div className="mt-8 border-t border-border pt-6">
-                <h3 className="text-sm font-semibold">Credenciais cadastradas</h3>
-                {credentials.length === 0 ? (
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    Nenhum usuário cadastrado.
-                  </p>
-                ) : (
-                  <ul className="mt-3 divide-y divide-border">
-                    {credentials.map((entry) => (
-                      <li
-                        key={entry.id}
-                        className="flex items-center justify-between gap-4 py-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{entry.name}</p>
-                          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                            <KeyRound className="size-3" /> {entry.username}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {entry.areas
-                              .map((id) => AREAS.find((option) => option.id === id)?.name)
-                              .filter(Boolean)
-                              .join(', ') || 'Sem áreas'}
-                            {entry.canManageUsers ? ' · Gerencia acessos' : ''}
-                          </p>
-                        </div>
-                        <AccessButton
-                          type="button"
-                          aria-label={`Remover acesso de ${entry.name}`}
-                          onClick={() => removeCredential(entry.id)}
-                          className="size-10 shrink-0 bg-transparent px-0 text-muted-foreground hover:bg-destructive/15 hover:text-destructive-foreground"
-                        >
-                          <Trash2 className="size-4" />
-                        </AccessButton>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <a
+                href="https://supabase.com/dashboard/project/aifuunmqdgwceneshksci/auth/users"
+                target="_blank"
+                rel="noreferrer"
+                className="mt-6 inline-flex min-h-10 items-center rounded-md bg-foreground px-4 text-sm font-semibold text-background hover:bg-foreground/90"
+              >
+                Abrir gerenciamento de usuários
+              </a>
+              <p className="mt-6 border-t border-border pt-5 text-sm leading-6 text-muted-foreground">
+                No momento, toda conta autenticada pode acessar todas as áreas e tabelas. Permissões diferentes por operador ainda precisam ser configuradas.
+              </p>
             </div>
           )}
         </section>

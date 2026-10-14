@@ -1,8 +1,12 @@
 import * as React from 'react'
 import { toast } from 'sonner'
 import { Hash, PackageMinus, PackagePlus, Save, Search } from 'lucide-react'
-import { MEDIDAS } from '@/lib/fixtures'
-import { formatId, kg, pesoLiquido, useStore } from '@/lib/store'
+import {
+  MEDIDAS_INSUMO,
+  type InsumoRolo,
+  type TipoInsumo,
+} from '@/lib/fixtures'
+import { kg, useStore } from '@/lib/store'
 import {
   Field,
   Mono,
@@ -22,87 +26,116 @@ function mascaraValidade(v: string) {
 /* ---------------------------------- Entrada --------------------------------- */
 
 export function EntradaTab() {
-  const { proximoId, adicionarRolos } = useStore()
-  const [medida, setMedida] = React.useState('')
-  const [quantidade, setQuantidade] = React.useState('1')
-  const [pesoBruto, setPesoBruto] = React.useState('')
-  const [tara, setTara] = React.useState('')
+  const { adicionarInsumoRolo, sugerirCodigoInsumo } = useStore()
+  const [tipo, setTipo] = React.useState<TipoInsumo>('ROTULO')
+  const [medidaCategoria, setMedidaCategoria] = React.useState('48mm')
+  const [codigo, setCodigo] = React.useState('')
+  const [codigoSugerido, setCodigoSugerido] = React.useState('')
+  const [pesoLiquido, setPesoLiquido] = React.useState('')
   const [validade, setValidade] = React.useState('')
+  const categorias = MEDIDAS_INSUMO.filter((categoria) =>
+    tipo === 'CAPA' ? categoria.startsWith('Capa ') : !categoria.startsWith('Capa '),
+  )
 
-  const qtd = Math.max(0, Math.min(99, Math.floor(num(quantidade) || 0)))
-  const ids =
-    qtd <= 0
-      ? '—'
-      : qtd === 1
-        ? formatId(proximoId)
-        : `${formatId(proximoId)} → ${formatId(proximoId + qtd - 1)}`
+  React.useEffect(() => {
+    let ativo = true
+    sugerirCodigoInsumo(tipo, medidaCategoria)
+      .then((proximo) => {
+        if (!ativo) return
+        setCodigoSugerido(proximo)
+        setCodigo(proximo)
+      })
+      .catch(() => {
+        if (ativo) {
+          setCodigoSugerido('')
+          toast.error('Não foi possível sugerir o próximo código.')
+        }
+      })
+    return () => {
+      ativo = false
+    }
+  }, [tipo, medidaCategoria, sugerirCodigoInsumo])
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault()
-    const bruto = num(pesoBruto)
-    const t = num(tara || '0')
+    const peso = num(pesoLiquido)
     const mes = Number(validade.slice(0, 2))
-    if (!medida) return toast.error('Selecione a medida.')
-    if (qtd < 1) return toast.error('Informe uma quantidade válida.')
-    if (!(bruto > 0)) return toast.error('Informe o peso bruto por rolo.')
-    if (t < 0 || t >= bruto) return toast.error('Tara inválida.')
+    if (!medidaCategoria) return toast.error('Selecione a categoria.')
+    if (!codigo.trim()) return toast.error('Informe o código do rolo.')
+    if (!(peso > 0)) return toast.error('Informe o peso líquido do rolo.')
     if (!/^\d{2}\/\d{2}$/.test(validade) || mes < 1 || mes > 12)
       return toast.error('Validade deve estar no formato MM/AA.')
-    const novos = adicionarRolos(
-      { medida, pesoBruto: bruto, tara: t, validade },
-      qtd,
-    )
-    toast.success(`${novos.length} rolo(s) adicionados ao estoque`, {
-      description: novos.join(', '),
-    })
-    setQuantidade('1')
-    setPesoBruto('')
+    try {
+      const criado = await adicionarInsumoRolo(
+        {
+          idCodigo: codigo.trim().toUpperCase(),
+          tipo,
+          medidaCategoria,
+          pesoLiqKg: peso,
+          validade,
+        },
+        codigoSugerido,
+      )
+      toast.success('Rolo adicionado ao estoque', {
+        description: criado,
+      })
+    } catch {
+      toast.error('Não foi possível adicionar o rolo. Confira se o código já existe.')
+      return
+    }
+    setPesoLiquido('')
     setValidade('')
   }
 
   return (
     <Panel
       title="Entrada de Rolos"
-      description="Registre novos rolos de papel no estoque. Os IDs são gerados em sequência."
+      description="Cadastre rolos individuais de rótulos e capas com código rastreável."
       className="mx-auto max-w-3xl"
     >
       <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
-        <Field label="Medida" htmlFor="e-medida">
+        <Field label="Tipo de insumo" htmlFor="e-tipo">
+          <SelectInput
+            id="e-tipo"
+            value={tipo}
+            onChange={(e) => {
+              const novoTipo = e.target.value as TipoInsumo
+              setTipo(novoTipo)
+              setMedidaCategoria(
+                MEDIDAS_INSUMO.find((categoria) =>
+                  novoTipo === 'CAPA'
+                    ? categoria.startsWith('Capa ')
+                    : !categoria.startsWith('Capa '),
+                ) ?? '',
+              )
+            }}
+            options={['ROTULO', 'CAPA']}
+          />
+        </Field>
+        <Field label="Medida / categoria" htmlFor="e-medida">
           <SelectInput
             id="e-medida"
-            value={medida}
-            onChange={(e) => setMedida(e.target.value)}
-            placeholder="Selecione a medida"
-            options={MEDIDAS.map((m) => m.medida)}
+            value={medidaCategoria}
+            onChange={(e) => setMedidaCategoria(e.target.value)}
+            options={categorias}
           />
         </Field>
-        <Field label="Quantidade" htmlFor="e-qtd">
+        <Field label="Código do rolo" htmlFor="e-codigo" hint="Sugerido pelo banco; pode ser ajustado manualmente.">
           <TextInput
-            id="e-qtd"
-            type="number"
-            min={1}
-            max={99}
-            inputMode="numeric"
-            value={quantidade}
-            onChange={(e) => setQuantidade(e.target.value)}
+            id="e-codigo"
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+            placeholder={codigoSugerido || 'Aguardando código'}
+            className="font-mono uppercase"
           />
         </Field>
-        <Field label="Peso bruto por rolo (kg)" htmlFor="e-bruto">
+        <Field label="Peso líquido (kg)" htmlFor="e-peso">
           <TextInput
-            id="e-bruto"
+            id="e-peso"
             inputMode="decimal"
-            placeholder="Ex: 250,5"
-            value={pesoBruto}
-            onChange={(e) => setPesoBruto(e.target.value)}
-          />
-        </Field>
-        <Field label="Tara (tubete)" htmlFor="e-tara" hint="Peso do tubete em kg">
-          <TextInput
-            id="e-tara"
-            inputMode="decimal"
-            placeholder="Ex: 8,0"
-            value={tara}
-            onChange={(e) => setTara(e.target.value)}
+            placeholder="Ex: 12,5"
+            value={pesoLiquido}
+            onChange={(e) => setPesoLiquido(e.target.value)}
           />
         </Field>
         <Field label="Validade (MM/AA)" htmlFor="e-validade">
@@ -115,18 +148,11 @@ export function EntradaTab() {
           />
         </Field>
 
-        <div
-          role="status"
-          className="flex items-center gap-3 self-end rounded-xl border border-primary/40 bg-primary/10 px-4 py-3"
-        >
-          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/20 text-primary">
-            <Hash className="size-4" />
-          </span>
+        <div role="status" className="flex items-center gap-3 self-end rounded-md border border-border px-4 py-3">
+          <Hash className="size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0">
-            <p className="text-xs font-medium tracking-wide text-primary uppercase">
-              Próximos IDs
-            </p>
-            <Mono className="block truncate text-lg font-semibold">{ids}</Mono>
+            <p className="text-xs text-muted-foreground">Próximo código</p>
+            <Mono className="block truncate text-lg font-semibold">{codigoSugerido || '—'}</Mono>
           </div>
         </div>
 
@@ -142,44 +168,48 @@ export function EntradaTab() {
 /* ----------------------------------- Saída ---------------------------------- */
 
 export function SaidaTab() {
-  const { rolos, darBaixa } = useStore()
+  const { baixarInsumoRolo, buscarInsumos } = useStore()
   const [termo, setTermo] = React.useState('')
   const [busca, setBusca] = React.useState<string | null>(null)
-  const [residuo, setResiduo] = React.useState<Record<string, string>>({})
+  const [resultados, setResultados] = React.useState<InsumoRolo[]>([])
+  const [buscando, setBuscando] = React.useState(false)
+  const buscaAtual = React.useRef(0)
 
-  const resultados = React.useMemo(() => {
-    if (busca === null) return []
-    const t = busca.trim().toLowerCase()
-    if (!t) return rolos
-    return rolos.filter(
-      (r) =>
-        r.id.toLowerCase().includes(t) || r.medida.toLowerCase().includes(t),
-    )
-  }, [busca, rolos])
+  async function buscar(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const requisicao = ++buscaAtual.current
+    setBusca(termo)
+    setBuscando(true)
+    try {
+      const encontrados = await buscarInsumos(termo)
+      if (requisicao === buscaAtual.current) setResultados(encontrados)
+    } catch {
+      if (requisicao === buscaAtual.current) {
+        setResultados([])
+        toast.error('Não foi possível consultar insumos no Supabase.')
+      }
+    } finally {
+      if (requisicao === buscaAtual.current) setBuscando(false)
+    }
+  }
 
-  function baixa(id: string) {
-    const res = num(residuo[id] || '0')
-    if (res < 0 || Number.isNaN(res))
-      return toast.error('Resíduo inválido.')
-    darBaixa(id, res)
-    toast.success(`Saída registrada para ${id}`, {
-      description: res > 0 ? `Resíduo de ${kg(res)} kg registrado.` : undefined,
-    })
+  async function baixa(id: string) {
+    try {
+      await baixarInsumoRolo(id)
+    } catch {
+      toast.error('Não foi possível registrar a saída no Supabase.')
+      return
+    }
+    toast.success(`Rolo ${id} baixado do estoque.`)
   }
 
   return (
     <Panel
       title="Saída de Rolos"
-      description="Localize o rolo pelo ID ou pela medida e registre a baixa."
+      description="Localize um rótulo ou capa pelo código e registre a baixa individual."
       className="mx-auto max-w-4xl"
     >
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          setBusca(termo)
-        }}
-        className="flex flex-col gap-3 sm:flex-row"
-      >
+      <form onSubmit={buscar} className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <TextInput
@@ -190,7 +220,7 @@ export function SaidaTab() {
             className="pl-10"
           />
         </div>
-        <PrimaryButton type="submit" size="md" className="sm:w-32">
+        <PrimaryButton type="submit" size="md" className="sm:w-32" disabled={buscando}>
           <Search className="size-4" />
           Buscar
         </PrimaryButton>
@@ -203,8 +233,10 @@ export function SaidaTab() {
             <p className="font-medium">Nenhum rolo encontrado</p>
             <p className="text-sm text-muted-foreground">
               {busca === null
-                ? 'Digite um ID (ex: R-1030) ou medida (ex: 18mm) e clique em Buscar.'
-                : 'Tente outro ID ou medida.'}
+                ? buscando
+                  ? 'Consultando Supabase...'
+                  : 'Digite um código (ex: 4812) ou categoria e clique em Buscar.'
+                : 'Tente outro código ou categoria.'}
             </p>
           </div>
         ) : (
@@ -213,47 +245,38 @@ export function SaidaTab() {
               <thead className="sticky top-0 z-10 bg-card">
                 <tr className="text-left text-xs tracking-wide text-muted-foreground uppercase">
                   <th className="px-4 py-3 font-medium">ID</th>
-                  <th className="px-3 py-3 font-medium">Medida</th>
+                  <th className="px-3 py-3 font-medium">Tipo / categoria</th>
                   <th className="px-3 py-3 text-right font-medium">
                     Líquido (kg)
                   </th>
                   <th className="px-3 py-3 font-medium">Validade</th>
-                  <th className="px-3 py-3 font-medium">Resíduo (kg)</th>
+                  <th className="px-3 py-3 font-medium">Status</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
                 {resultados.map((r) => (
-                  <tr key={r.id} className="border-t border-border/70">
+                  <tr key={r.idCodigo} className="border-t border-border/70">
                     <td className="px-4 py-2.5">
-                      <Mono className="font-semibold text-primary">{r.id}</Mono>
+                      <Mono className="font-semibold text-foreground">{r.idCodigo}</Mono>
                     </td>
-                    <td className="px-3 py-2.5">{r.medida}</td>
+                    <td className="px-3 py-2.5">{r.tipo} · {r.medidaCategoria}</td>
                     <td className="px-3 py-2.5 text-right">
-                      <Mono>{kg(pesoLiquido(r))}</Mono>
+                      <Mono>{kg(r.pesoLiqKg)}</Mono>
                     </td>
                     <td className="px-3 py-2.5 text-muted-foreground">
                       <Mono>{r.validade}</Mono>
                     </td>
-                    <td className="px-3 py-2">
-                      <TextInput
-                        aria-label={`Resíduo do rolo ${r.id}`}
-                        inputMode="decimal"
-                        placeholder="0,0"
-                        value={residuo[r.id] ?? ''}
-                        onChange={(e) =>
-                          setResiduo((s) => ({ ...s, [r.id]: e.target.value }))
-                        }
-                        className="h-9 w-24"
-                      />
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                      {r.status}
                     </td>
                     <td className="px-4 py-2 text-right">
                       <button
                         type="button"
-                        onClick={() => baixa(r.id)}
+                        onClick={() => baixa(r.idCodigo)}
                         className="h-9 rounded-lg border border-destructive/50 bg-destructive/10 px-3 text-xs font-semibold text-destructive-foreground transition-colors hover:bg-destructive/25 focus-visible:ring-[3px] focus-visible:ring-destructive/40 focus-visible:outline-none"
                       >
-                        Dar baixa
+                        Baixar
                       </button>
                     </td>
                   </tr>
@@ -275,69 +298,96 @@ export function SaidaTab() {
 /* -------------------------------- Ajuste Peso ------------------------------- */
 
 export function AjustePesoTab() {
-  const { rolos, ajustarPeso } = useStore()
+  const { buscarInsumoPorCodigo, ajustarPesoInsumo } = useStore()
   const [id, setId] = React.useState('')
-  const [pesoBruto, setPesoBruto] = React.useState('')
-  const [tara, setTara] = React.useState('')
+  const [pesoLiquido, setPesoLiquido] = React.useState('')
+  const [atual, setAtual] = React.useState<InsumoRolo | null>(null)
+  const [buscando, setBuscando] = React.useState(false)
 
-  const normalizado = id.trim().toUpperCase().replace(/^(\d)/, 'R-$1')
-  const atual = rolos.find((r) => r.id === normalizado)
+  const normalizado = id.trim().toUpperCase()
 
-  function submit(e: React.FormEvent) {
+  React.useEffect(() => {
+    if (!normalizado) return
+
+    let ativo = true
+    const timeout = setTimeout(() => {
+      buscarInsumoPorCodigo(normalizado)
+        .then((rolo) => {
+          if (ativo) setAtual(rolo)
+        })
+        .catch(() => {
+          if (ativo) {
+            setAtual(null)
+            toast.error('Não foi possível consultar o código no Supabase.')
+          }
+        })
+        .finally(() => {
+          if (ativo) setBuscando(false)
+        })
+    }, 250)
+
+    return () => {
+      ativo = false
+      clearTimeout(timeout)
+    }
+  }, [normalizado, buscarInsumoPorCodigo])
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault()
-    const bruto = num(pesoBruto)
-    const t = num(tara || String(atual?.tara ?? 0))
+    const peso = num(pesoLiquido)
+    if (buscando) return toast.error('Aguarde a consulta do rolo.')
     if (!atual) return toast.error(`Rolo ${normalizado || '—'} não encontrado.`)
-    if (!(bruto > 0)) return toast.error('Informe o novo peso bruto.')
-    if (t < 0 || t >= bruto) return toast.error('Tara inválida.')
-    ajustarPeso(atual.id, bruto, t)
-    toast.success(`Peso do rolo ${atual.id} atualizado`, {
-      description: `Novo líquido: ${kg(bruto - t)} kg`,
+    if (!(peso > 0)) return toast.error('Informe o novo peso líquido.')
+    try {
+      const atualizado = await ajustarPesoInsumo(atual.idCodigo, peso)
+      if (!atualizado) return toast.error(`Rolo ${atual.idCodigo} não encontrado.`)
+    } catch {
+      toast.error('Não foi possível salvar o ajuste no Supabase.')
+      return
+    }
+    toast.success(`Peso do rolo ${atual.idCodigo} atualizado`, {
+      description: `Novo líquido: ${kg(peso)} kg`,
     })
-    setPesoBruto('')
-    setTara('')
+    setPesoLiquido('')
   }
 
   return (
     <Panel
       title="Ajuste de Peso"
-      description="Corrija o peso bruto ou a tara de um rolo já cadastrado."
+      description="Corrija o peso líquido de um rótulo ou capa disponível."
       className="mx-auto max-w-xl"
     >
       <form onSubmit={submit} className="flex flex-col gap-5">
         <Field
-          label="ID do Rolo"
+          label="Código do Rolo"
           htmlFor="a-id"
           hint={
             atual
-              ? `${atual.medida} · bruto ${kg(atual.pesoBruto)} kg · tara ${kg(atual.tara)} kg`
-              : 'Ex: R-1030'
+              ? `${atual.tipo} · ${atual.medidaCategoria} · ${kg(atual.pesoLiqKg)} kg`
+              : buscando
+                ? 'Consultando Supabase...'
+                : 'Ex: 4812 ou B1005'
           }
         >
           <TextInput
             id="a-id"
-            placeholder="R-0000"
+            placeholder="Código do rolo"
             value={id}
-            onChange={(e) => setId(e.target.value)}
+            onChange={(e) => {
+              setId(e.target.value)
+              setAtual(null)
+              setBuscando(Boolean(e.target.value.trim()))
+            }}
             className="font-mono uppercase"
           />
         </Field>
-        <Field label="Novo peso bruto (kg)" htmlFor="a-bruto">
+        <Field label="Novo peso líquido (kg)" htmlFor="a-peso">
           <TextInput
-            id="a-bruto"
+            id="a-peso"
             inputMode="decimal"
-            placeholder={atual ? kg(atual.pesoBruto) : 'Ex: 250,5'}
-            value={pesoBruto}
-            onChange={(e) => setPesoBruto(e.target.value)}
-          />
-        </Field>
-        <Field label="Tara" htmlFor="a-tara">
-          <TextInput
-            id="a-tara"
-            inputMode="decimal"
-            placeholder={atual ? kg(atual.tara) : 'Ex: 8,0'}
-            value={tara}
-            onChange={(e) => setTara(e.target.value)}
+            placeholder={atual ? kg(atual.pesoLiqKg) : 'Ex: 12,5'}
+            value={pesoLiquido}
+            onChange={(e) => setPesoLiquido(e.target.value)}
           />
         </Field>
         <PrimaryButton type="submit">
