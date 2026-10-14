@@ -10,7 +10,6 @@ import {
   Plus,
   ShieldCheck,
   Trash2,
-  Wrench,
 } from 'lucide-react'
 
 type AreaId = 'tubeteira' | 'rebobinadeira' | 'estufa'
@@ -105,7 +104,7 @@ function AccessButton({
 }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45 ${className}`}
+      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45 ${className}`}
       {...props}
     >
       {children}
@@ -115,16 +114,34 @@ function AccessButton({
 
 function AccessField({
   label,
+  onLabelClick,
   ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+}: React.InputHTMLAttributes<HTMLInputElement> & {
+  label: string
+  onLabelClick?: () => void
+}) {
+  const inputId = React.useId()
+
   return (
-    <label className="grid gap-2 text-sm font-medium text-foreground">
-      {label}
+    <div className="grid gap-1.5 text-xs font-medium text-muted-foreground">
+      {onLabelClick ? (
+        <button
+          type="button"
+          onClick={onLabelClick}
+          className="w-fit rounded-sm text-left hover:text-foreground focus-visible:outline-none focus-visible:underline"
+        >
+          {label}
+        </button>
+      ) : (
+        <label htmlFor={inputId}>{label}</label>
+      )}
       <input
-        className="h-11 w-full rounded-lg border border-border bg-field px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/65 focus-visible:ring-[3px] focus-visible:ring-ring/40"
+        id={inputId}
+        aria-label={onLabelClick ? label : undefined}
+        className="h-9 w-full rounded-md border border-border bg-field px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/65 focus-visible:ring-[3px] focus-visible:ring-ring/40"
         {...props}
       />
-    </label>
+    </div>
   )
 }
 
@@ -141,6 +158,8 @@ export function AccessGate({
   const [hydrated, setHydrated] = React.useState(false)
   const [loginError, setLoginError] = React.useState('')
   const [developmentMessage, setDevelopmentMessage] = React.useState('')
+  const userLabelClicks = React.useRef(0)
+  const userLabelReset = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   React.useEffect(() => {
     setCredentials(readCredentials())
@@ -150,6 +169,21 @@ export function AccessGate({
   function updateCredentials(next: Credential[]) {
     setCredentials(next)
     saveCredentials(next)
+  }
+
+  function handleUserLabelClick() {
+    userLabelClicks.current += 1
+    if (userLabelReset.current) clearTimeout(userLabelReset.current)
+    if (userLabelClicks.current >= 5) {
+      userLabelClicks.current = 0
+      setDevelopmentMessage('')
+      setDevelopmentReturn('login')
+      setScreen('development')
+      return
+    }
+    userLabelReset.current = setTimeout(() => {
+      userLabelClicks.current = 0
+    }, 1500)
   }
 
   async function submitLogin(event: React.FormEvent<HTMLFormElement>) {
@@ -244,30 +278,24 @@ export function AccessGate({
   }
 
   const hasCredentials = credentials.length > 0
-  const canManageUsers = !activeUser || activeUser.canManageUsers
 
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl items-center px-5 py-10 sm:px-8">
-      <div className="grid w-full overflow-hidden rounded-xl border border-border bg-card shadow-2xl shadow-black/20 lg:grid-cols-[minmax(18rem,0.85fr)_minmax(26rem,1.15fr)]">
-        <aside className="relative flex min-h-64 flex-col justify-between overflow-hidden border-b border-border bg-[linear-gradient(145deg,oklch(0.28_0.08_258),oklch(0.19_0.04_190))] p-7 sm:p-9 lg:min-h-[38rem] lg:border-r lg:border-b-0">
-          <div className="absolute -right-14 -bottom-12 size-56 rounded-full border border-white/10" />
-          <div className="absolute -right-2 -bottom-0 size-32 rounded-full border border-white/10" />
-          <div className="relative">
-            <span className="grid size-12 place-items-center rounded-lg border border-white/15 bg-black/10 text-emerald-200">
+      <div className="grid w-full overflow-hidden rounded-lg border border-border bg-card lg:grid-cols-[minmax(18rem,0.85fr)_minmax(26rem,1.15fr)]">
+        <aside className="flex min-h-64 flex-col justify-between border-b border-border bg-[oklch(0.19_0_0)] p-7 sm:p-9 lg:min-h-[36rem] lg:border-r lg:border-b-0">
+          <div>
+            <span className="grid size-10 place-items-center rounded-md border border-border text-muted-foreground">
               <Cylinder className="size-6" />
             </span>
-            <p className="mt-8 font-mono text-xs uppercase text-emerald-200/80">
+            <p className="mt-8 text-xs tracking-wide text-muted-foreground uppercase">
               Controle de fábrica
             </p>
-            <h1 className="mt-3 max-w-xs text-3xl leading-tight font-semibold text-white sm:text-4xl">
-              Controle Tubeteira
-            </h1>
-            <p className="mt-4 max-w-sm text-sm leading-6 text-white/70">
+            <p className="mt-3 max-w-sm text-sm leading-6 text-foreground/75">
               Produção e estoque organizados para cada etapa da operação.
             </p>
           </div>
-          <div className="relative mt-10 flex items-center gap-2 text-xs text-white/65">
-            <span className="size-2 rounded-full bg-emerald-300" />
+          <div className="mt-10 flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="size-1.5 rounded-full bg-success" />
             Ambiente de operação
           </div>
         </aside>
@@ -275,7 +303,7 @@ export function AccessGate({
         <section className="flex flex-col justify-center p-6 sm:p-10 lg:p-12">
           {screen === 'login' && (
             <div className="mx-auto w-full max-w-md">
-              <p className="font-mono text-xs uppercase text-primary">Acesso ao sistema</p>
+              <p className="text-xs tracking-wide text-primary uppercase">Acesso ao sistema</p>
               <h2 className="mt-3 text-2xl font-semibold">Entrar</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 {hasCredentials
@@ -284,12 +312,13 @@ export function AccessGate({
               </p>
 
               {hasCredentials ? (
-                <form onSubmit={submitLogin} className="mt-8 grid gap-5">
+                <form onSubmit={submitLogin} className="mt-7 grid gap-4">
                   <AccessField
                     label="Usuário"
                     name="username"
                     autoComplete="username"
                     required
+                    onLabelClick={handleUserLabelClick}
                   />
                   <AccessField
                     label="Senha"
@@ -305,35 +334,29 @@ export function AccessGate({
                   )}
                   <AccessButton
                     type="submit"
-                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                    className="w-full bg-foreground text-background hover:bg-foreground/90"
                   >
                     Entrar <ArrowRight className="size-4" />
                   </AccessButton>
                 </form>
               ) : (
-                <AccessButton
-                  type="button"
-                  disabled={!hydrated}
-                  onClick={enterWithoutCredentials}
-                  className="mt-8 w-full bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  Acessar sem credenciais <ArrowRight className="size-4" />
-                </AccessButton>
+                <div className="mt-7 grid gap-4">
+                  <AccessField
+                    label="Usuário"
+                    name="username"
+                    autoComplete="username"
+                    onLabelClick={handleUserLabelClick}
+                  />
+                  <AccessButton
+                    type="button"
+                    disabled={!hydrated}
+                    onClick={enterWithoutCredentials}
+                    className="w-full bg-foreground text-background hover:bg-foreground/90"
+                  >
+                    Acessar sem credenciais <ArrowRight className="size-4" />
+                  </AccessButton>
+                </div>
               )}
-
-              <div className="mt-8 border-t border-border pt-5">
-                <AccessButton
-                  type="button"
-                  onClick={() => {
-                    setDevelopmentMessage('')
-                    setDevelopmentReturn('login')
-                    setScreen('development')
-                  }}
-                  className="w-full justify-start bg-transparent px-0 text-muted-foreground hover:text-foreground"
-                >
-                  <Wrench className="size-4" /> Desenvolvimento e acessos
-                </AccessButton>
-              </div>
             </div>
           )}
 
@@ -341,7 +364,7 @@ export function AccessGate({
             <div className="mx-auto w-full max-w-2xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-mono text-xs uppercase text-primary">Ambientes</p>
+                  <p className="text-xs tracking-wide text-primary uppercase">Ambientes</p>
                   <h2 className="mt-3 text-2xl font-semibold">Onde vamos trabalhar?</h2>
                   <p className="mt-2 text-sm text-muted-foreground">
                     {activeUser ? `Acesso de ${activeUser.name}` : 'Sessão sem credenciais'}
@@ -354,7 +377,7 @@ export function AccessGate({
                     setActiveUser(null)
                     setScreen('login')
                   }}
-                  className="size-11 shrink-0 bg-secondary px-0 text-secondary-foreground hover:bg-accent"
+                  className="size-9 shrink-0 bg-secondary px-0 text-secondary-foreground hover:bg-accent"
                 >
                   <ArrowLeft className="size-4" />
                 </AccessButton>
@@ -370,10 +393,10 @@ export function AccessGate({
                       type="button"
                       disabled={!allowed}
                       onClick={() => chooseArea(entry.id)}
-                      className="group grid grid-cols-[3rem_1fr_auto] items-center gap-4 rounded-lg border border-border bg-background/45 p-4 text-left transition-colors hover:border-primary/60 hover:bg-accent/50 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="group grid grid-cols-[2.5rem_1fr_auto] items-center gap-4 border-b border-border/80 px-3 py-4 text-left transition-colors first:border-t hover:bg-foreground/[0.035] disabled:cursor-not-allowed disabled:opacity-45"
                     >
-                      <span className="grid size-12 place-items-center rounded-lg bg-secondary text-primary">
-                        <Icon className="size-5" />
+                      <span className="font-mono text-xs text-muted-foreground">
+                        0{AREAS.indexOf(entry) + 1}
                       </span>
                       <span className="min-w-0">
                         <span className="block font-semibold">{entry.name}</span>
@@ -381,30 +404,15 @@ export function AccessGate({
                           {entry.description}
                         </span>
                       </span>
-                      <span className="flex items-center gap-2 text-muted-foreground">
-                        {!entry.available && (
-                          <span className="hidden text-xs sm:inline">Em breve</span>
-                        )}
-                        <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                      <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {!entry.available ? 'Em breve' : 'Disponível'}
+                        <Icon className="size-4" />
                       </span>
                     </button>
                   )
                 })}
               </div>
 
-              {canManageUsers && (
-                <AccessButton
-                  type="button"
-                  onClick={() => {
-                    setDevelopmentMessage('')
-                    setDevelopmentReturn('areas')
-                    setScreen('development')
-                  }}
-                  className="mt-6 bg-transparent px-0 text-muted-foreground hover:text-foreground"
-                >
-                  <Wrench className="size-4" /> Gerenciar acessos
-                </AccessButton>
-              )}
             </div>
           )}
 
@@ -417,7 +425,7 @@ export function AccessGate({
               >
                 <ArrowLeft className="size-4" /> Voltar
               </AccessButton>
-              <p className="font-mono text-xs uppercase text-warning">Configuração local</p>
+              <p className="text-xs tracking-wide text-warning uppercase">Configuração local</p>
               <h2 className="mt-3 text-2xl font-semibold">Acessos e permissões</h2>
               <p className="mt-2 flex gap-2 text-sm leading-6 text-muted-foreground">
                 <LockKeyhole className="mt-0.5 size-4 shrink-0 text-warning" />
@@ -497,7 +505,7 @@ export function AccessGate({
                       >
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{entry.name}</p>
-                          <p className="mt-1 flex items-center gap-1 font-mono text-xs text-muted-foreground">
+                          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                             <KeyRound className="size-3" /> {entry.username}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">

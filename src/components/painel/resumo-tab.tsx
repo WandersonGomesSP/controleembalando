@@ -30,24 +30,12 @@ export function ResumoTab() {
   })
   const abaixoDoMinimo = porMedida.filter((m) => m.abaixo).length
 
-  const cards = [
+  const metricasSecundarias = [
     {
       label: 'Rolos Ativos',
       value: int(rolos.length),
       sub: `${MEDIDAS.length} medidas cadastradas`,
       icon: Package,
-    },
-    {
-      label: 'Peso Total KG',
-      value: kg(pesoTotal),
-      sub: 'peso líquido (bruto − tara)',
-      icon: Scale,
-    },
-    {
-      label: 'Histórico Resíduo',
-      value: `${kg(residuoTotal)} kg`,
-      sub: `${ultimos.length} últimos registros`,
-      icon: Recycle,
     },
     {
       label: 'Estoque Tubete',
@@ -65,30 +53,53 @@ export function ResumoTab() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
-        {cards.map((c, i) => (
-          <div
-            key={c.label}
-            className={cn(
-              'relative overflow-hidden rounded-2xl border border-border bg-card/90 p-4 sm:p-5',
-              i === 0 && 'col-span-2 lg:col-span-1',
-            )}
-          >
-            <div className="absolute -top-8 -right-8 size-24 rounded-full bg-primary/10 blur-xl" />
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                {c.label}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.8fr)]">
+        <section className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="flex min-h-44 items-start justify-between gap-4 p-5 sm:p-7">
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">
+                Peso Total Líquido
               </p>
-              <span className="grid size-8 place-items-center rounded-lg bg-primary/15 text-primary">
-                <c.icon className="size-4" />
-              </span>
+              <Mono className="mt-4 block text-4xl leading-none font-semibold tabular-nums text-foreground sm:text-5xl">
+                {kg(pesoTotal)}
+              </Mono>
+              <p className="mt-3 text-xs text-muted-foreground">
+                KG · peso bruto descontada a tara
+              </p>
             </div>
-            <Mono className="mt-3 block text-2xl font-semibold tracking-tight sm:text-[1.7rem]">
-              {c.value}
-            </Mono>
-            <p className="mt-1 text-xs text-muted-foreground">{c.sub}</p>
+            <Scale aria-hidden className="mt-1 size-5 shrink-0 text-muted-foreground" />
           </div>
-        ))}
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border bg-background/35 px-5 py-4 sm:px-7">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Recycle aria-hidden className="size-4" />
+              <span>Histórico de resíduo</span>
+              <span className="text-xs">· {ultimos.length} registros</span>
+            </div>
+            <Mono className="text-xl font-medium tabular-nums text-warning">
+              {kg(residuoTotal)} kg
+            </Mono>
+          </div>
+        </section>
+
+        <div className="divide-y divide-border rounded-lg border border-border bg-card">
+          {metricasSecundarias.map((c) => (
+            <div
+              key={c.label}
+              className="flex min-h-[6.2rem] items-center justify-between gap-4 px-5 py-4"
+            >
+              <div>
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  {c.label}
+                </p>
+                <Mono className="mt-1 block text-2xl leading-none font-semibold tabular-nums">
+                  {c.value}
+                </Mono>
+                <p className="mt-1.5 text-xs text-muted-foreground">{c.sub}</p>
+              </div>
+              <c.icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+            </div>
+          ))}
+        </div>
       </div>
 
       <Panel

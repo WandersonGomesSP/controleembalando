@@ -89,7 +89,7 @@ export function Panel({
   return (
     <section
       className={cn(
-        'rounded-2xl border border-border bg-card/90 shadow-[0_1px_0_0_oklch(1_0_0/0.04)_inset,0_20px_40px_-24px_oklch(0_0_0/0.6)] backdrop-blur',
+        'rounded-lg border border-border bg-card',
         className,
       )}
     >
