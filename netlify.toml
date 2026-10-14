@@ -1,5 +1,5 @@
 [build.environment]
-VITE_SUPABASE_URL = "https://aifuunmqdgwceneshksci.supabase.co"
+VITE_SUPABASE_URL = "https://aifuunmqdgwceneshksc.supabase.co"
 VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpZnV1bm1xZGd3Y2VuZXNoa3NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NDk4MDcsImV4cCI6MjEwNzUyNTgwN30.rZVM7EQNWPTpScO87cnj0oVmsch1Xse6IWm8hgzYjQY"
 
 [build]
