@@ -17,9 +17,14 @@ import {
 } from '@/components/painel/rolos-tabs'
 import { ProducaoTubosTab } from '@/components/painel/producao-tubos-tab'
 import { EntradaTubeteTab } from '@/components/painel/entrada-tubete-tab'
+import { AccessGate } from '@/components/painel/access-gate'
 
 export const Route = createFileRoute('/')({
-  component: Painel,
+  component: () => (
+    <AccessGate>
+      {(onChangeArea) => <Painel onChangeArea={onChangeArea} />}
+    </AccessGate>
+  ),
 })
 
 const ABAS: {
@@ -46,7 +51,7 @@ const ABAS: {
   },
 ]
 
-function Painel() {
+function Painel({ onChangeArea }: { onChangeArea: () => void }) {
   const [aba, setAba] = React.useState('resumo')
   const atual = ABAS.find((a) => a.id === aba) ?? ABAS[0]!
 
@@ -62,17 +67,20 @@ function Painel() {
                 </span>
                 <div>
                   <h1 className="text-lg leading-tight font-semibold tracking-tight">
-                    PCP · Tubos &amp; Tubetes
+                    Controle Tubeteira
                   </h1>
                   <p className="text-xs text-muted-foreground">
                     Controle de produção e estoque
                   </p>
                 </div>
               </div>
-              <span className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground sm:inline-flex">
-                <span className="size-2 rounded-full bg-success" />
-                Turno A · Operação ativa
-              </span>
+              <button
+                type="button"
+                onClick={onChangeArea}
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                Trocar área
+              </button>
             </div>
 
             <nav

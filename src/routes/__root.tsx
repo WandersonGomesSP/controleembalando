@@ -6,9 +6,9 @@ import { NotFoundPage } from '@/components/error-pages'
 
 import '../styles.css'
 
-const siteName = 'PCP · Tubos & Tubetes'
+const siteName = 'Controle Tubeteira'
 const siteDescription =
-  'Painel administrativo de controle de produção e estoque de tubos e tubetes'
+  'Controle de produção e estoque da Tubeteira'
 
 export const Route = createRootRoute({
   head: () => ({
