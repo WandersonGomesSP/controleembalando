@@ -109,6 +109,7 @@ export function AccessGate({
   const [area, setArea] = React.useState<AreaId | null>(null)
   const [sessionReady, setSessionReady] = React.useState(false)
   const [loginError, setLoginError] = React.useState('')
+  const userIdRef = React.useRef<string | null>(null)
   const userLabelClicks = React.useRef(0)
   const userLabelReset = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -116,16 +117,26 @@ export function AccessGate({
     let ativo = true
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!ativo) return
-      setActiveUser(session?.user ?? null)
-      setAccessToken(session?.access_token ?? '')
-      setAccess(null)
-      setAccessLoaded(!session)
       if (session) {
-        setScreen('areas')
-      } else {
-        setArea(null)
-        setScreen('login')
+        const changedUser = userIdRef.current !== session.user.id
+        userIdRef.current = session.user.id
+        setActiveUser(session.user)
+        setAccessToken(session.access_token)
+        if (changedUser) {
+          setAccess(null)
+          setAccessLoaded(false)
+        }
+        setScreen((current) => current === 'login' ? 'areas' : current)
+        return
       }
+
+      userIdRef.current = null
+      setActiveUser(null)
+      setAccessToken('')
+      setAccess(null)
+      setAccessLoaded(true)
+      setArea(null)
+      setScreen('login')
     })
 
     supabase.auth
@@ -133,6 +144,7 @@ export function AccessGate({
       .then(({ data: sessionData, error }) => {
         if (!ativo) return
         if (error) setLoginError('Não foi possível validar a sessão.')
+        userIdRef.current = sessionData.session?.user.id ?? null
         setActiveUser(sessionData.session?.user ?? null)
         setAccessToken(sessionData.session?.access_token ?? '')
         setAccess(null)
@@ -216,6 +228,7 @@ export function AccessGate({
         setLoginError('E-mail ou senha não conferem.')
         return
       }
+      userIdRef.current = data.user.id
       setActiveUser(data.user)
       setAccessToken(data.session?.access_token ?? '')
       setAccess(null)
@@ -233,6 +246,7 @@ export function AccessGate({
       return
     }
     setActiveUser(null)
+    userIdRef.current = null
     setAccessToken('')
     setAccess(null)
     setAccessLoaded(true)
