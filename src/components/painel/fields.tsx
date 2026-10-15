@@ -46,7 +46,7 @@ export function SelectInput({
   ...props
 }: React.ComponentProps<'select'> & {
   placeholder?: string
-  options: string[]
+  options: (string | { value: string; label: string })[]
 }) {
   return (
     <div className="relative">
@@ -60,8 +60,11 @@ export function SelectInput({
           </option>
         )}
         {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
+          <option
+            key={typeof o === 'string' ? o : o.value}
+            value={typeof o === 'string' ? o : o.value}
+          >
+            {typeof o === 'string' ? o : o.label}
           </option>
         ))}
       </select>

@@ -1,12 +1,6 @@
 import * as React from 'react'
 import { toast } from 'sonner'
 import { Boxes, PackageCheck } from 'lucide-react'
-import {
-  CORES_TUBETE,
-  MEDIDAS_TUBETE,
-  TUBETES_POR_CAIXA,
-  unidadesPadrao,
-} from '@/lib/fixtures'
 import { int, useStore } from '@/lib/store'
 import {
   Field,
@@ -21,44 +15,36 @@ import { cn } from '@/lib/utils'
 const inteiro = (v: string) => Math.max(0, Math.floor(Number(v) || 0))
 
 export function EntradaTubeteTab() {
-  const { adicionarTubetes } = useStore()
+  const { adicionarTubetes, referenciasTubetes } = useStore()
   const [medida, setMedida] = React.useState('')
-  const [cor, setCor] = React.useState('Marrom')
   const [gramatura, setGramatura] = React.useState('')
   const [dataProducao, setDataProducao] = React.useState(() =>
     new Date().toISOString().slice(0, 10),
   )
   const [caixas, setCaixas] = React.useState('')
   const [operador, setOperador] = React.useState('')
-  const [unidades, setUnidades] = React.useState('')
   const [perda, setPerda] = React.useState('')
-
-  // Sugere unidades por caixa a partir da tabela de referência.
-  function aplicarPadrao(m: string, c: string) {
-    const u = unidadesPadrao(m, c)
-    if (u) setUnidades(String(u))
-  }
+  const fator = referenciasTubetes.find((item) => item.medida === medida)?.tubetesPorCaixa ?? 0
 
   const total = Math.max(
     0,
-    inteiro(caixas) * inteiro(unidades) - inteiro(perda),
+    inteiro(caixas) * fator - inteiro(perda),
   )
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!medida) return toast.error('Selecione a medida.')
     if (inteiro(caixas) < 1) return toast.error('Informe a quantidade de caixas.')
-    if (inteiro(unidades) < 1)
-      return toast.error('Informe as unidades por caixa.')
+    if (fator < 1) return toast.error('Selecione uma medida configurada.')
     if (!operador.trim()) return toast.error('Informe o operador.')
     try {
       await adicionarTubetes({
         medida,
-        cor,
+        cor: '',
         gramatura: inteiro(gramatura),
         dataProducao,
         caixas: inteiro(caixas),
-        unidadesPorCaixa: inteiro(unidades),
+        unidadesPorCaixa: fator,
         perda: inteiro(perda),
         operador: operador.trim(),
       })
@@ -66,7 +52,7 @@ export function EntradaTubeteTab() {
       return toast.error('Não foi possível salvar a entrada no Supabase.')
     }
     toast.success(`${int(total)} tubetes adicionados ao estoque`, {
-      description: `${medida} ${cor} · ${inteiro(caixas)} caixa(s)`,
+      description: `${medida} · ${inteiro(caixas)} caixa(s)`,
     })
     setCaixas('')
     setPerda('')
@@ -84,23 +70,12 @@ export function EntradaTubeteTab() {
               <SelectInput
                 id="t-medida"
                 value={medida}
-                onChange={(e) => {
-                  setMedida(e.target.value)
-                  aplicarPadrao(e.target.value, cor)
-                }}
+                onChange={(e) => setMedida(e.target.value)}
                 placeholder="Selecione a medida"
-                options={MEDIDAS_TUBETE}
-              />
-            </Field>
-            <Field label="Cor" htmlFor="t-cor">
-              <SelectInput
-                id="t-cor"
-                value={cor}
-                onChange={(e) => {
-                  setCor(e.target.value)
-                  aplicarPadrao(medida, e.target.value)
-                }}
-                options={CORES_TUBETE}
+                options={referenciasTubetes.map((referencia) => ({
+                  value: referencia.medida,
+                  label: referencia.descricao,
+                }))}
               />
             </Field>
             <Field label="Gramatura (g/m²)" htmlFor="t-gram">
@@ -142,17 +117,11 @@ export function EntradaTubeteTab() {
             <Field
               label="Unidades por Caixa"
               htmlFor="t-un"
-              hint="Preenchido pela tabela de referência; ajuste se necessário."
+              hint="Fator fixo definido no modo Desenvolvedora."
             >
-              <TextInput
-                id="t-un"
-                type="number"
-                min={0}
-                inputMode="numeric"
-                placeholder="0"
-                value={unidades}
-                onChange={(e) => setUnidades(e.target.value)}
-              />
+              <output id="t-un" className="flex h-11 items-center rounded-lg border border-border bg-field px-3.5 font-mono tabular-nums text-foreground">
+                {fator > 0 ? int(fator) : '—'}
+              </output>
             </Field>
             <Field label="Perda (unidades)" htmlFor="t-perda">
               <TextInput
@@ -198,22 +167,19 @@ export function EntradaTubeteTab() {
       </Panel>
 
       <Panel
-        title="Quantidade de Tubetes por caixa"
-        description="Valores padrão de referência."
+        title="Referências por caixa"
+        description="Fator industrial aplicado à medida selecionada."
         className="self-start"
       >
         <ul className="-my-1 divide-y divide-border/70">
-          {TUBETES_POR_CAIXA.map((r) => {
-            const ativo =
-              r.medida === medida && (r.cor === null || r.cor === cor)
+          {referenciasTubetes.map((r) => {
+            const ativo = r.medida === medida
             return (
-              <li key={r.medida + r.cor}>
+              <li key={r.medida}>
                 <button
                   type="button"
                   onClick={() => {
                     setMedida(r.medida)
-                    if (r.cor) setCor(r.cor)
-                    setUnidades(String(r.unidades))
                   }}
                   className={cn(
                     'flex w-full items-center justify-between rounded-lg px-2 py-2.5 text-left text-sm transition-colors hover:bg-accent/50 focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none',
@@ -221,14 +187,9 @@ export function EntradaTubeteTab() {
                   )}
                 >
                   <span>
-                    <Mono className="font-medium">{r.medida}</Mono>
-                    {r.cor && (
-                      <span className="ml-1.5 text-muted-foreground">
-                        {r.cor}
-                      </span>
-                    )}
+                    <Mono className="font-medium">{r.descricao}</Mono>
                   </span>
-                  <Mono className="font-semibold">= {r.unidades}</Mono>
+                  <Mono className="font-semibold">= {r.tubetesPorCaixa}</Mono>
                 </button>
               </li>
             )

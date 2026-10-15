@@ -2,11 +2,7 @@ import * as React from 'react'
 import { toast } from 'sonner'
 import { Plus, X, ClipboardPlus } from 'lucide-react'
 import {
-  CAPAS,
   CODIGO_GRUPOS,
-  DESTINOS,
-  ESPESSURAS,
-  TUBOS,
   type CodigoGrupo,
 } from '@/lib/fixtures'
 import { dataBR, kg, useStore } from '@/lib/store'
@@ -30,7 +26,7 @@ const codigosVazios = (): Record<CodigoGrupo, string[]> => ({
 })
 
 export function ProducaoTubosTab() {
-  const { producao, adicionarProducao } = useStore()
+  const { producao, adicionarProducao, catalogos } = useStore()
   const [destino, setDestino] = React.useState('')
   const [data, setData] = React.useState(hoje)
   const [espessura, setEspessura] = React.useState('')
@@ -102,7 +98,7 @@ export function ProducaoTubosTab() {
                 value={destino}
                 onChange={(e) => setDestino(e.target.value)}
                 placeholder="Selecione"
-                options={DESTINOS}
+                options={catalogos.destinos}
               />
             </Field>
             <Field label="Data" htmlFor="p-data">
@@ -119,7 +115,7 @@ export function ProducaoTubosTab() {
                 value={espessura}
                 onChange={(e) => setEspessura(e.target.value)}
                 placeholder="Selecione"
-                options={ESPESSURAS}
+                options={catalogos.espessuras}
               />
             </Field>
             <Field label="Tubo" htmlFor="p-tubo">
@@ -128,7 +124,7 @@ export function ProducaoTubosTab() {
                 value={tubo}
                 onChange={(e) => setTubo(e.target.value)}
                 placeholder="Selecione"
-                options={TUBOS}
+                options={catalogos.tubos}
               />
             </Field>
             <Field label="Capa" htmlFor="p-capa">
@@ -137,7 +133,7 @@ export function ProducaoTubosTab() {
                 value={capa}
                 onChange={(e) => setCapa(e.target.value)}
                 placeholder="Selecione"
-                options={CAPAS}
+                options={catalogos.capas}
               />
             </Field>
           </fieldset>

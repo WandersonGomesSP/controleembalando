@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import {
   type LoteTubete,
   type InsumoRolo,
+  type CatalogoChave,
   type ProducaoTubo,
   type ReferenciaInsumo,
   type ReferenciaTubete,
@@ -13,6 +14,7 @@ import {
 import type {
   LoteTubeteRow,
   InsumoRoloRow,
+  CatalogoOperacionalRow,
   ProducaoTuboRow,
   ReferenciaInsumoRow,
   ReferenciaTubeteRow,
@@ -28,6 +30,7 @@ type Store = {
   insumosRolos: InsumoRolo[]
   referenciasTubetes: ReferenciaTubete[]
   referenciasInsumos: ReferenciaInsumo[]
+  catalogos: Record<CatalogoChave, string[]>
   producao: ProducaoTubo[]
   proximoId: number
   carregando: boolean
@@ -41,7 +44,7 @@ type Store = {
   adicionarTubetes: (l: Omit<LoteTubete, 'id'>) => Promise<void>
   sugerirCodigoInsumo: (tipo: TipoInsumo, medidaCategoria: string) => Promise<string>
   adicionarInsumoRolo: (
-    insumo: Omit<InsumoRolo, 'dataRegistro' | 'status'>,
+    insumo: Omit<InsumoRolo, 'dataRegistro'>,
     codigoSugerido: string,
   ) => Promise<string>
   baixarInsumoRolo: (idCodigo: string) => Promise<void>
@@ -101,7 +104,6 @@ function mapearInsumoRolo(row: InsumoRoloRow): InsumoRolo {
     pesoLiqKg: Number(row.peso_liq_kg),
     validade: row.validade,
     dataRegistro: row.data_registro,
-    status: row.status,
   }
 }
 
@@ -124,6 +126,17 @@ function mapearReferenciaInsumo(row: ReferenciaInsumoRow): ReferenciaInsumo {
   }
 }
 
+function mapearCatalogos(rows: CatalogoOperacionalRow[]): Record<CatalogoChave, string[]> {
+  const catalogos: Record<CatalogoChave, string[]> = {
+    destinos: [],
+    espessuras: [],
+    tubos: [],
+    capas: [],
+  }
+  for (const row of rows) catalogos[row.chave] = row.valores
+  return catalogos
+}
+
 export function formatId(n: number) {
   return `R-${n}`
 }
@@ -135,6 +148,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [insumosRolos, setInsumosRolos] = React.useState<InsumoRolo[]>([])
   const [referenciasTubetes, setReferenciasTubetes] = React.useState<ReferenciaTubete[]>([])
   const [referenciasInsumos, setReferenciasInsumos] = React.useState<ReferenciaInsumo[]>([])
+  const [catalogos, setCatalogos] = React.useState<Record<CatalogoChave, string[]>>({
+    destinos: [],
+    espessuras: [],
+    tubos: [],
+    capas: [],
+  })
   const [producao, setProducao] = React.useState<ProducaoTubo[]>([])
   const [proximoId, setProximoId] = React.useState(PRIMEIRO_ID_LIVRE)
   const [carregando, setCarregando] = React.useState(true)
@@ -151,6 +170,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         insumosResult,
         referenciasTubetesResult,
         referenciasInsumosResult,
+        catalogosResult,
       ] =
         await Promise.all([
           supabase.from('rolos').select('*').order('id'),
@@ -164,6 +184,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             .select('*')
             .order('tipo')
             .order('medida_categoria'),
+          supabase.from('catalogos_operacionais').select('*').order('chave'),
         ])
 
       if (rolosResult.error) throw rolosResult.error
@@ -173,6 +194,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (insumosResult.error) throw insumosResult.error
       if (referenciasTubetesResult.error) throw referenciasTubetesResult.error
       if (referenciasInsumosResult.error) throw referenciasInsumosResult.error
+      if (catalogosResult.error) throw catalogosResult.error
       if (!ativo) return
 
       const rolosCarregados = (rolosResult.data ?? []).map(mapearRolo)
@@ -187,6 +209,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setReferenciasInsumos(
         (referenciasInsumosResult.data ?? []).map(mapearReferenciaInsumo),
       )
+      setCatalogos(mapearCatalogos(catalogosResult.data ?? []))
       setProximoId(
         Math.max(
           PRIMEIRO_ID_LIVRE,
@@ -220,6 +243,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       insumosRolos,
       referenciasTubetes,
       referenciasInsumos,
+      catalogos,
       producao,
       proximoId,
       carregando,
@@ -340,18 +364,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         })
         if (error) throw error
         if (!data) throw new Error('Rolo já baixado ou não encontrado.')
-        setInsumosRolos((list) =>
-          list.map((entry) =>
-            entry.idCodigo === idCodigo ? { ...entry, status: 'BAIXADO' } : entry,
-          ),
-        )
+        setInsumosRolos((list) => list.filter((entry) => entry.idCodigo !== idCodigo))
       },
       ajustarPesoInsumo: async (idCodigo, pesoLiqKg) => {
         const { data, error } = await supabase
           .from('insumos_rolos')
           .update({ peso_liq_kg: pesoLiqKg })
           .eq('id_codigo', idCodigo)
-          .eq('status', 'DISPONIVEL')
           .select('id_codigo')
           .maybeSingle()
         if (error) throw error
@@ -369,7 +388,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const { data, error } = await supabase
             .from('insumos_rolos')
             .select('*')
-            .eq('status', 'DISPONIVEL')
             .order('data_registro', { ascending: false })
           if (error) throw error
           return (data ?? []).map(mapearInsumoRolo)
@@ -379,13 +397,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           supabase
             .from('insumos_rolos')
             .select('*')
-            .eq('id_codigo', filtro.toUpperCase())
-            .eq('status', 'DISPONIVEL'),
+            .eq('id_codigo', filtro.toUpperCase()),
           supabase
             .from('insumos_rolos')
             .select('*')
-            .ilike('medida_categoria', `%${filtro}%`)
-            .eq('status', 'DISPONIVEL'),
+            .ilike('medida_categoria', `%${filtro}%`),
         ])
         if (codigoResult.error) throw codigoResult.error
         if (categoriaResult.error) throw categoriaResult.error
@@ -401,7 +417,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .from('insumos_rolos')
           .select('*')
           .eq('id_codigo', idCodigo.trim().toUpperCase())
-          .eq('status', 'DISPONIVEL')
           .maybeSingle()
         if (error) throw error
         return data ? mapearInsumoRolo(data) : null
@@ -414,6 +429,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       insumosRolos,
       referenciasTubetes,
       referenciasInsumos,
+      catalogos,
       producao,
       proximoId,
       carregando,

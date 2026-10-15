@@ -1,11 +1,7 @@
 import * as React from 'react'
 import { toast } from 'sonner'
 import { Hash, PackageMinus, PackagePlus, Save, Search } from 'lucide-react'
-import {
-  MEDIDAS_INSUMO,
-  type InsumoRolo,
-  type TipoInsumo,
-} from '@/lib/fixtures'
+import type { InsumoRolo, TipoInsumo } from '@/lib/fixtures'
 import { kg, useStore } from '@/lib/store'
 import {
   Field,
@@ -26,16 +22,20 @@ function mascaraValidade(v: string) {
 /* ---------------------------------- Entrada --------------------------------- */
 
 export function EntradaTab() {
-  const { adicionarInsumoRolo, sugerirCodigoInsumo } = useStore()
+  const {
+    adicionarInsumoRolo,
+    sugerirCodigoInsumo,
+    referenciasInsumos,
+  } = useStore()
   const [tipo, setTipo] = React.useState<TipoInsumo>('ROTULO')
   const [medidaCategoria, setMedidaCategoria] = React.useState('48mm')
   const [codigo, setCodigo] = React.useState('')
   const [codigoSugerido, setCodigoSugerido] = React.useState('')
   const [pesoLiquido, setPesoLiquido] = React.useState('')
   const [validade, setValidade] = React.useState('')
-  const categorias = MEDIDAS_INSUMO.filter((categoria) =>
-    tipo === 'CAPA' ? categoria.startsWith('Capa ') : !categoria.startsWith('Capa '),
-  )
+  const categorias = referenciasInsumos
+    .filter((referencia) => referencia.tipo === tipo)
+    .map((referencia) => referencia.medidaCategoria)
 
   React.useEffect(() => {
     let ativo = true
@@ -102,11 +102,8 @@ export function EntradaTab() {
               const novoTipo = e.target.value as TipoInsumo
               setTipo(novoTipo)
               setMedidaCategoria(
-                MEDIDAS_INSUMO.find((categoria) =>
-                  novoTipo === 'CAPA'
-                    ? categoria.startsWith('Capa ')
-                    : !categoria.startsWith('Capa '),
-                ) ?? '',
+                referenciasInsumos.find((referencia) => referencia.tipo === novoTipo)
+                  ?.medidaCategoria ?? '',
               )
             }}
             options={['ROTULO', 'CAPA']}
@@ -250,7 +247,6 @@ export function SaidaTab() {
                     Líquido (kg)
                   </th>
                   <th className="px-3 py-3 font-medium">Validade</th>
-                  <th className="px-3 py-3 font-medium">Status</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -266,9 +262,6 @@ export function SaidaTab() {
                     </td>
                     <td className="px-3 py-2.5 text-muted-foreground">
                       <Mono>{r.validade}</Mono>
-                    </td>
-                    <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                      {r.status}
                     </td>
                     <td className="px-4 py-2 text-right">
                       <button

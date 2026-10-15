@@ -31,7 +31,7 @@ export type LoteTubete = {
 }
 
 export type TipoInsumo = 'ROTULO' | 'CAPA'
-export type StatusInsumo = 'DISPONIVEL' | 'BAIXADO'
+export type CatalogoChave = 'destinos' | 'espessuras' | 'tubos' | 'capas'
 
 export type InsumoRolo = {
   idCodigo: string
@@ -40,7 +40,6 @@ export type InsumoRolo = {
   pesoLiqKg: number
   validade: string
   dataRegistro: string
-  status: StatusInsumo
 }
 
 export type ReferenciaTubete = {
@@ -57,22 +56,6 @@ export type ReferenciaInsumo = {
   estoqueMinKg: number | null
   limiteCriticoKg: number | null
 }
-
-export const MEDIDAS_INSUMO = [
-  '12mm',
-  '18mm Fix Baby',
-  '19mm',
-  '19mm Hosp',
-  '24mm',
-  '25mm',
-  '38mm',
-  '45mm',
-  '48mm',
-  '50mm',
-  '70mm',
-  'Capa Branca',
-  'Capa Marrom',
-] as const
 
 export type ProducaoTubo = {
   id: number
@@ -113,47 +96,6 @@ export const MEDIDAS: { medida: string; minimoKg: number }[] = [
   { medida: '70mm', minimoKg: 900 },
   { medida: '100mm', minimoKg: 350 },
 ]
-
-export const DESTINOS = [
-  'Linha 1 — Espiraladeira',
-  'Linha 2 — Espiraladeira',
-  'Linha 3 — Tubeteira',
-  'Expedição',
-  'Cliente externo',
-]
-export const ESPESSURAS = ['1,5 mm', '2,0 mm', '2,5 mm', '3,0 mm', '4,0 mm']
-export const TUBOS = [
-  '40 mm',
-  '50 mm',
-  '70 mm',
-  '76 mm',
-  '100 mm',
-  '152 mm',
-]
-export const CAPAS = ['Kraft', 'Branca', 'Impressa', 'Sem capa']
-
-export const MEDIDAS_TUBETE = ['70x3,0', '50x2,5', '76x3,0', '40x2,0', '30x1,5']
-export const CORES_TUBETE = ['Marrom', 'Branco', 'Natural', 'Preto']
-
-export const TUBETES_POR_CAIXA: {
-  medida: string
-  cor: string | null
-  unidades: number
-}[] = [
-  { medida: '70x3,0', cor: 'Marrom', unidades: 310 },
-  { medida: '70x3,0', cor: 'Branco', unidades: 300 },
-  { medida: '76x3,0', cor: 'Marrom', unidades: 280 },
-  { medida: '50x2,5', cor: null, unidades: 400 },
-  { medida: '40x2,0', cor: null, unidades: 520 },
-  { medida: '30x1,5', cor: null, unidades: 750 },
-]
-
-export function unidadesPadrao(medida: string, cor: string) {
-  return (
-    TUBETES_POR_CAIXA.find((r) => r.medida === medida && r.cor === cor) ??
-    TUBETES_POR_CAIXA.find((r) => r.medida === medida && r.cor === null)
-  )?.unidades
-}
 
 /** Consumo médio de papel (kg) por tubo produzido — usado na estimativa. */
 export const KG_POR_TUBO = 0.42

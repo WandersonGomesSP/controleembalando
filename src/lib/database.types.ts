@@ -1,6 +1,6 @@
 import type {
   CodigoGrupo,
-  InsumoRolo,
+  CatalogoChave,
   TipoInsumo,
 } from '@/lib/fixtures'
 
@@ -61,7 +61,6 @@ export type InsumoRoloRow = {
   peso_liq_kg: number
   validade: string
   data_registro: string
-  status: InsumoRolo['status']
 }
 
 export type ReferenciaTubeteRow = {
@@ -79,6 +78,24 @@ export type ReferenciaInsumoRow = {
   limite_critico_kg: number | null
 }
 
+export type RoleUsuario = 'ADMIN' | 'OPERATOR'
+
+export type UserRoleRow = {
+  user_id: string
+  role: RoleUsuario
+  area: 'tubeteira' | 'rebobinadeira' | null
+  created_at: string
+}
+
+export type DeveloperAccountRow = {
+  email: string
+}
+
+export type CatalogoOperacionalRow = {
+  chave: CatalogoChave
+  valores: string[]
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -92,12 +109,14 @@ export type Database = {
       referencias_tubetes: Table<ReferenciaTubeteRow>
       insumos_rolos: Table<
         InsumoRoloRow,
-        Omit<InsumoRoloRow, 'data_registro' | 'status'> & {
+        Omit<InsumoRoloRow, 'data_registro'> & {
           data_registro?: string
-          status?: InsumoRoloRow['status']
         }
       >
       referencias_insumos: Table<ReferenciaInsumoRow>
+      user_roles: Table<UserRoleRow, Omit<UserRoleRow, 'created_at'>>
+      developer_accounts: Table<DeveloperAccountRow>
+      catalogos_operacionais: Table<CatalogoOperacionalRow>
     }
     Views: Record<string, never>
     Functions: {
@@ -132,6 +151,10 @@ export type Database = {
       baixar_insumo_rolo: {
         Args: { p_id_codigo: string }
         Returns: boolean
+      }
+      current_user_access: {
+        Args: Record<string, never>
+        Returns: { role: string; area: string | null }[]
       }
     }
     Enums: Record<string, never>

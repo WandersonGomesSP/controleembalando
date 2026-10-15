@@ -13,8 +13,7 @@ export function ResumoTab() {
   const inventarioTubetes = referenciasTubetes.map((referencia) => {
     const lotes = tubetes.filter(
       (lote) =>
-        lote.medida.toLocaleLowerCase() === referencia.medida.toLocaleLowerCase() &&
-        (!referencia.cor || lote.cor.toLocaleLowerCase() === referencia.cor.toLocaleLowerCase()),
+        lote.medida.toLocaleLowerCase() === referencia.medida.toLocaleLowerCase(),
     )
     const qtdCaixas = lotes.reduce((total, lote) => total + lote.caixas, 0)
     const total = qtdCaixas * referencia.tubetesPorCaixa
@@ -27,10 +26,9 @@ export function ResumoTab() {
     }
   })
 
-  const insumosAtivos = insumosRolos.filter((rolo) => rolo.status === 'DISPONIVEL')
-  const pesoTotalInsumos = insumosAtivos.reduce((total, rolo) => total + rolo.pesoLiqKg, 0)
+  const pesoTotalInsumos = insumosRolos.reduce((total, rolo) => total + rolo.pesoLiqKg, 0)
   const balancoInsumos = referenciasInsumos.map((referencia) => {
-    const rolos = insumosAtivos.filter(
+    const rolos = insumosRolos.filter(
       (rolo) =>
         rolo.tipo === referencia.tipo &&
         rolo.medidaCategoria === referencia.medidaCategoria,
@@ -131,7 +129,7 @@ export function ResumoTab() {
             </h2>
           </div>
           <p className="text-xs text-muted-foreground">
-            {int(insumosAtivos.length)} rolos disponíveis
+            {int(insumosRolos.length)} rolos disponíveis
           </p>
         </header>
 

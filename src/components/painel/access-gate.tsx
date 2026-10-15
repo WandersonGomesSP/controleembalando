@@ -7,12 +7,15 @@ import {
   Factory,
   LockKeyhole,
   LogOut,
+  Wrench,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { DeveloperPanel } from '@/components/painel/developer-panel'
 
 type AreaId = 'tubeteira' | 'rebobinadeira' | 'estufa'
 type Screen = 'login' | 'areas' | 'development'
+type UserAccess = { role: 'DEVELOPER' | 'ADMIN' | 'OPERATOR'; area: AreaId | null }
 
 const AREAS: {
   id: AreaId
@@ -100,6 +103,9 @@ export function AccessGate({
   const [screen, setScreen] = React.useState<Screen>('login')
   const [developmentReturn, setDevelopmentReturn] = React.useState<Screen>('login')
   const [activeUser, setActiveUser] = React.useState<User | null>(null)
+  const [accessToken, setAccessToken] = React.useState('')
+  const [access, setAccess] = React.useState<UserAccess | null>(null)
+  const [accessLoaded, setAccessLoaded] = React.useState(false)
   const [area, setArea] = React.useState<AreaId | null>(null)
   const [sessionReady, setSessionReady] = React.useState(false)
   const [loginError, setLoginError] = React.useState('')
@@ -111,6 +117,9 @@ export function AccessGate({
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!ativo) return
       setActiveUser(session?.user ?? null)
+      setAccessToken(session?.access_token ?? '')
+      setAccess(null)
+      setAccessLoaded(!session)
       if (session) {
         setScreen('areas')
       } else {
@@ -125,6 +134,9 @@ export function AccessGate({
         if (!ativo) return
         if (error) setLoginError('Não foi possível validar a sessão.')
         setActiveUser(sessionData.session?.user ?? null)
+        setAccessToken(sessionData.session?.access_token ?? '')
+        setAccess(null)
+        setAccessLoaded(!sessionData.session)
         if (sessionData.session) setScreen('areas')
         setSessionReady(true)
       })
@@ -141,7 +153,44 @@ export function AccessGate({
     }
   }, [])
 
+  const activeUserId = activeUser?.id
+
+  React.useEffect(() => {
+    if (!activeUserId) return
+    let ativo = true
+    void (async () => {
+      try {
+        const { data, error } = await supabase.rpc('current_user_access')
+        if (!ativo) return
+        const current = data?.[0]
+        setAccess(error || !current ? null : (current as UserAccess))
+        if (error || !current) {
+          setLoginError('Esta conta ainda não recebeu uma permissão de acesso.')
+        }
+        setAccessLoaded(true)
+      } catch {
+        if (ativo) {
+          setAccess(null)
+          setLoginError('Não foi possível carregar as permissões da conta.')
+          setAccessLoaded(true)
+        }
+      }
+    })()
+    return () => {
+      ativo = false
+    }
+  }, [activeUserId])
+
+  const isDeveloper = access?.role === 'DEVELOPER'
+  const areasPermitidas = AREAS.filter(
+    (entry) =>
+      access?.role === 'DEVELOPER' ||
+      access?.role === 'ADMIN' ||
+      (access?.role === 'OPERATOR' && access.area === entry.id),
+  )
+
   function handleUserLabelClick() {
+    if (!isDeveloper) return
     userLabelClicks.current += 1
     if (userLabelReset.current) clearTimeout(userLabelReset.current)
     if (userLabelClicks.current >= 5) {
@@ -168,6 +217,9 @@ export function AccessGate({
         return
       }
       setActiveUser(data.user)
+      setAccessToken(data.session?.access_token ?? '')
+      setAccess(null)
+      setAccessLoaded(false)
       setScreen('areas')
     } catch {
       setLoginError('E-mail ou senha não conferem.')
@@ -181,6 +233,9 @@ export function AccessGate({
       return
     }
     setActiveUser(null)
+    setAccessToken('')
+    setAccess(null)
+    setAccessLoaded(true)
     setArea(null)
     setScreen('login')
   }
@@ -189,7 +244,7 @@ export function AccessGate({
     setArea(nextArea)
   }
 
-  if (!sessionReady) {
+  if (!sessionReady || (activeUser && !accessLoaded)) {
     return (
       <main className="grid min-h-screen place-items-center px-5 text-sm text-muted-foreground">
         Validando sessão...
@@ -197,11 +252,11 @@ export function AccessGate({
     )
   }
 
-  if (activeUser && area === 'tubeteira') {
+  if (activeUser && access && area === 'tubeteira' && areasPermitidas.some((entry) => entry.id === area)) {
     return <>{children(() => setArea(null))}</>
   }
 
-  if (activeUser && area) {
+  if (activeUser && access && area && areasPermitidas.some((entry) => entry.id === area)) {
     const selected = AREAS.find((entry) => entry.id === area)!
     return (
       <main className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-5 py-12 sm:px-8">
@@ -216,9 +271,22 @@ export function AccessGate({
           <p className="mb-3 font-mono text-xs uppercase text-warning">Área selecionada</p>
           <h1 className="text-3xl font-semibold">{selected.name}</h1>
           <p className="mt-3 text-muted-foreground">
-            Esta área ainda não está disponível. O acesso à Tubeteira já está funcionando.
+            Esta área ainda está em preparação.
           </p>
         </div>
+      </main>
+    )
+  }
+
+  if (activeUser && accessLoaded && !access) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-5 py-12">
+        <p className="text-xs uppercase tracking-wide text-warning">Acesso pendente</p>
+        <h1 className="mt-2 text-2xl font-semibold">Conta sem permissões</h1>
+        <p className="mt-3 text-sm text-muted-foreground">{activeUser.email} · {loginError}</p>
+        <AccessButton type="button" onClick={signOut} className="mt-6 w-fit bg-secondary text-secondary-foreground hover:bg-accent">
+          <LogOut className="size-4" /> Sair
+        </AccessButton>
       </main>
     )
   }
@@ -291,7 +359,7 @@ export function AccessGate({
                   <p className="text-xs tracking-wide text-primary uppercase">Ambientes</p>
                   <h2 className="mt-3 text-2xl font-semibold">Onde vamos trabalhar?</h2>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {activeUser?.email}
+                    {activeUser?.email} · {access?.role}
                   </p>
                 </div>
                 <AccessButton
@@ -305,7 +373,7 @@ export function AccessGate({
               </div>
 
               <div className="mt-8 grid gap-3">
-                {AREAS.map((entry) => {
+                {areasPermitidas.map((entry) => {
                   const Icon = entry.icon
                   return (
                     <button
@@ -332,11 +400,21 @@ export function AccessGate({
                 })}
               </div>
 
+              {isDeveloper && (
+                <AccessButton
+                  type="button"
+                  onClick={() => setScreen('development')}
+                  className="mt-6 bg-secondary text-secondary-foreground hover:bg-accent"
+                >
+                  <Wrench className="size-4" /> Modo desenvolvedor
+                </AccessButton>
+              )}
+
             </div>
           )}
 
-          {screen === 'development' && (
-            <div className="mx-auto w-full max-w-2xl">
+          {screen === 'development' && isDeveloper && (
+            <div className="mx-auto w-full max-w-5xl">
               <AccessButton
                 type="button"
                 onClick={() => setScreen(developmentReturn)}
@@ -344,23 +422,11 @@ export function AccessGate({
               >
                 <ArrowLeft className="size-4" /> Voltar
               </AccessButton>
-              <p className="text-xs tracking-wide text-warning uppercase">Administração</p>
-              <h2 className="mt-3 text-2xl font-semibold">Acessos e permissões</h2>
-              <p className="mt-2 flex gap-2 text-sm leading-6 text-muted-foreground">
-                <LockKeyhole className="mt-0.5 size-4 shrink-0 text-warning" />
-                Crie e remova contas em Authentication &gt; Users no Supabase. A chave de serviço não deve ser usada no navegador.
-              </p>
-              <a
-                href="https://supabase.com/dashboard/project/aifuunmqdgwceneshksci/auth/users"
-                target="_blank"
-                rel="noreferrer"
-                className="mt-6 inline-flex min-h-10 items-center rounded-md bg-foreground px-4 text-sm font-semibold text-background hover:bg-foreground/90"
-              >
-                Abrir gerenciamento de usuários
-              </a>
               <p className="mt-6 border-t border-border pt-5 text-sm leading-6 text-muted-foreground">
-                No momento, toda conta autenticada pode acessar todas as áreas e tabelas. Permissões diferentes por operador ainda precisam ser configuradas.
+                <LockKeyhole className="mr-2 inline size-4 text-warning" />
+                As alterações administrativas são validadas no servidor. Configure SUPABASE_SERVICE_ROLE_KEY somente nas variáveis privadas do Netlify.
               </p>
+              <div className="mt-5"><DeveloperPanel accessToken={accessToken} /></div>
             </div>
           )}
         </section>
