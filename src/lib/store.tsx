@@ -58,7 +58,7 @@ type Store = {
   adicionarInsumoRolo: (
     insumo: Omit<InsumoRolo, 'dataRegistro' | 'idCodigo'>,
     quantidade: number,
-  ) => Promise<string[]>
+  ) => Promise<InsumoRolo[]>
   baixarInsumoRolo: (idCodigo: string) => Promise<void>
   ajustarPesoInsumo: (idCodigo: string, pesoLiqKg: number) => Promise<boolean>
   buscarInsumos: (termo: string) => Promise<InsumoRolo[]>
@@ -511,7 +511,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const created = data.map(mapearInsumoRolo)
         setInsumosRolos((list) => [...created, ...list])
         await atualizarHistoricoEstoque()
-        return created.map((rolo) => rolo.idCodigo)
+        return created
       },
       baixarInsumoRolo: async (idCodigo) => {
         const { data, error } = await supabase.rpc('baixar_insumo_rolo', {

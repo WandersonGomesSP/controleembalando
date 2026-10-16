@@ -13,3 +13,4 @@ Testando a atualização automática via Git.
 
 As tabelas são iniciadas vazias. Os dados de `src/lib/fixtures.ts` não são importados automaticamente.
 Administradores acessam todas as áreas de operação; operadores ficam limitados à área atribuída. O modo Dev e suas alterações são validados no servidor e protegidos por RLS.
+Na entrada de rolos de rótulo/capa, o sistema baixa automaticamente um PDF com uma etiqueta por rolo em papel Carta, respeitando margens de 0,5 cm. A subguia de indicadores do Resumo também contém a planilha mensal/anual; as correções feitas por administradores são gravadas no banco e auditadas no histórico.

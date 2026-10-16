@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import type { StockOperationLogRow } from '@/lib/database.types'
 import { int, kg, pesoLiquido, useStore } from '@/lib/store'
 import { Field, Mono, Panel, TextInput } from '@/components/painel/fields'
+import { ResumoPlanilha } from '@/components/painel/resumo-planilha'
 
 function isoLocal(date: Date) {
   const year = date.getFullYear()
@@ -136,6 +137,7 @@ export function ResumoIndicadores() {
 
   return (
     <div className="flex flex-col gap-5">
+      <ResumoPlanilha />
       <Panel
         title="Filtros dos indicadores"
         description="Movimentações, produção e perdas calculadas para o período e operador selecionados."

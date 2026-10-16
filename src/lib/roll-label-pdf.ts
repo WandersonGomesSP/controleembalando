@@ -1,0 +1,144 @@
+export type RollLabelData = {
+  code: string
+  measure: string
+  weightKg: number
+  registeredAt: string
+  expiresAt: string | null
+}
+
+const PAGE_WIDTH = 612
+const PAGE_HEIGHT = 792
+const MARGIN = 14.17
+
+function pdfText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7e]/g, '?')
+    .replace(/[\\()]/g, '\\$&')
+}
+
+function textWidth(value: string, fontSize: number) {
+  return value.length * fontSize * 0.52
+}
+
+function centeredText(
+  value: string,
+  y: number,
+  fontSize: number,
+  font: 'F1' | 'F2',
+  maxWidth = PAGE_WIDTH - MARGIN * 2,
+) {
+  const safeValue = pdfText(value)
+  const fittingFontSize = Math.min(fontSize, maxWidth / Math.max(safeValue.length * 0.52, 1))
+  const x = Math.max(
+    MARGIN,
+    (PAGE_WIDTH - textWidth(safeValue, fittingFontSize)) / 2,
+  )
+  return `BT /${font} ${fittingFontSize.toFixed(2)} Tf 1 0 0 1 ${x.toFixed(2)} ${(PAGE_HEIGHT - y).toFixed(2)} Tm (${safeValue}) Tj ET\n`
+}
+
+function labelContent(label: RollLabelData) {
+  const left = MARGIN
+  const right = PAGE_WIDTH - MARGIN
+  const logoWidth = 390
+  const logoLeft = (PAGE_WIDTH - logoWidth) / 2
+  let content = '0 G 0 g\n'
+
+  content += `0 g ${logoLeft} ${PAGE_HEIGHT - 277} ${logoWidth} 185 re f\n`
+  content += `1 g\n${centeredText(`{{${label.code}}}`, 208, 72, 'F2', logoWidth - 32)}`
+  content += `0 g ${logoLeft} ${PAGE_HEIGHT - 302} ${logoWidth} 12 re f\n`
+
+  const fields = [
+    `MEDIDA: ${label.measure}`,
+    `PESO: ${label.weightKg.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}`,
+    'DATA DE REGISTRO:',
+    new Date(`${label.registeredAt}T00:00:00`).toLocaleDateString('pt-BR'),
+  ]
+  if (label.expiresAt) {
+    fields.push('VALIDADE:', label.expiresAt)
+  }
+
+  const firstY = 354
+  fields.forEach((field, index) => {
+    const y = firstY + index * 75
+    const fontSize = field === 'DATA DE REGISTRO:' || field === 'VALIDADE:' ? 46 : 50
+    content += `0 g\n${centeredText(field, y, fontSize, 'F1')}`
+    const underlineWidth = Math.min(
+      right - left - 36,
+      textWidth(pdfText(field), fontSize) + 8,
+    )
+    const underlineLeft = (PAGE_WIDTH - underlineWidth) / 2
+    content += `0 G 1.5 w ${underlineLeft.toFixed(2)} ${PAGE_HEIGHT - (y + 6)} m ${(underlineLeft + underlineWidth).toFixed(2)} ${PAGE_HEIGHT - (y + 6)} l S\n`
+  })
+
+  return content
+}
+
+export function createRollLabelsPdf(labels: RollLabelData[]) {
+  if (labels.length === 0) throw new Error('Não há rolos para gerar etiquetas.')
+
+  const objects: string[] = []
+  const addObject = (value: string) => {
+    objects.push(value)
+    return objects.length
+  }
+
+  const catalogId = addObject('')
+  const pagesId = addObject('')
+  const pageIds: number[] = []
+
+  for (const label of labels) {
+    const stream = labelContent(label)
+    const contentId = addObject(`<< /Length ${stream.length} >>\nstream\n${stream}endstream`)
+    const pageId = addObject(
+      `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] /Resources << /Font << /F1 ${labels.length * 2 + 3} 0 R /F2 ${labels.length * 2 + 4} 0 R >> >> /Contents ${contentId} 0 R >>`,
+    )
+    pageIds.push(pageId)
+  }
+
+  const regularFontId = addObject(
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+  )
+  const boldFontId = addObject(
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+  )
+  objects[catalogId - 1] = `<< /Type /Catalog /Pages ${pagesId} 0 R >>`
+  objects[pagesId - 1] =
+    `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>`
+
+  const encoder = new TextEncoder()
+  const chunks = ['%PDF-1.4\n']
+  const offsets = [0]
+  let byteOffset = encoder.encode(chunks[0]).length
+  for (const [index, object] of objects.entries()) {
+    const serialized = `${index + 1} 0 obj\n${object}\nendobj\n`
+    offsets.push(byteOffset)
+    chunks.push(serialized)
+    byteOffset += encoder.encode(serialized).length
+  }
+  const xrefOffset = byteOffset
+  chunks.push(`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`)
+  for (const offset of offsets.slice(1)) {
+    chunks.push(`${String(offset).padStart(10, '0')} 00000 n \n`)
+  }
+  chunks.push(
+    `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`,
+  )
+
+  return new Blob(chunks, { type: 'application/pdf' })
+}
+
+export function downloadRollLabelsPdf(labels: RollLabelData[]) {
+  const blob = createRollLabelsPdf(labels)
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  const now = new Date()
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  anchor.download = `etiquetas-rolos-${date}.pdf`
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}

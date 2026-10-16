@@ -93,6 +93,186 @@ async function requireDeveloper(accessToken: string) {
   return { client, user: data.user }
 }
 
+async function requireAdminOrDeveloper(accessToken: string) {
+  const client = createAdminClient()
+  const { data, error } = await client.auth.getUser(accessToken)
+  if (error || !data.user?.email) throw new Error('Sessão inválida.')
+
+  const [roleResult, developerResult] = await Promise.all([
+    client
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', data.user.id)
+      .maybeSingle(),
+    client
+      .from('developer_accounts')
+      .select('email')
+      .eq('email', data.user.email.toLowerCase())
+      .maybeSingle(),
+  ])
+  if (roleResult.error || developerResult.error) {
+    throw new Error('Não foi possível validar a permissão administrativa.')
+  }
+  if (roleResult.data?.role !== 'ADMIN' && !developerResult.data) {
+    throw new Error('Apenas administradores podem alterar a planilha.')
+  }
+
+  return { client, user: data.user }
+}
+
+async function loadAdminSummarySnapshot(
+  client: ReturnType<typeof createAdminClient>,
+  entidade: 'Rolo de insumo' | 'Produção de tubos' | 'Lote de tubetes',
+  registroId: string,
+  actorEmail: string,
+) {
+  if (entidade === 'Rolo de insumo') {
+    const { data, error } = await client
+      .from('insumos_rolos')
+      .select('*')
+      .eq('id_codigo', registroId)
+      .maybeSingle()
+    if (error) throw new Error('Não foi possível carregar o rolo para correção.')
+    if (!data) throw new Error('O rolo não existe mais no estoque.')
+    return {
+      details: Object.fromEntries(Object.entries(data)),
+      codes: [data.id_codigo],
+      quantity: 1,
+      operator: actorEmail,
+    }
+  }
+
+  if (entidade === 'Produção de tubos') {
+    if (!/^\d+$/.test(registroId)) throw new Error('Identificador de produção inválido.')
+    const { data, error } = await client
+      .from('producao_tubos')
+      .select('*')
+      .eq('id', Number(registroId))
+      .maybeSingle()
+    if (error) throw new Error('Não foi possível carregar a produção para correção.')
+    if (!data) throw new Error('O registro de produção não existe mais.')
+    const codes = Object.values(data.codigos).flat()
+    return {
+      details: Object.fromEntries(Object.entries(data)),
+      codes,
+      quantity: Math.max(codes.length, 1),
+      operator: data.operador,
+    }
+  }
+
+  if (!/^\d+$/.test(registroId)) throw new Error('Identificador de tubete inválido.')
+  const { data, error } = await client
+    .from('lotes_tubete')
+    .select('*')
+    .eq('id', Number(registroId))
+    .maybeSingle()
+  if (error) throw new Error('Não foi possível carregar o lote de tubetes para correção.')
+  if (!data) throw new Error('O lote de tubetes não existe mais.')
+  return {
+    details: Object.fromEntries(Object.entries(data)),
+    codes: [],
+    quantity: data.caixas,
+    operator: data.operador,
+  }
+}
+
+function canonicalJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalJson)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entry]) => [key, canonicalJson(entry)]),
+    )
+  }
+  return value
+}
+
+export const correctAdminSummaryRecord = createServerFn({ method: 'POST' })
+  .validator(
+    tokenInput.extend({
+      entidade: z.enum(['Rolo de insumo', 'Produção de tubos', 'Lote de tubetes']),
+      registroId: z.string().trim().min(1).max(120),
+      expected: z.record(z.string(), z.unknown()),
+      changes: z.record(z.string(), z.unknown()),
+      motivo: z.string().trim().min(3).max(500),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { client, user } = await requireAdminOrDeveloper(data.accessToken)
+    const changes = stockCorrectionSchemas[data.entidade].safeParse(data.changes)
+    if (!changes.success) {
+      throw new Error('Confira os campos e valores informados na planilha.')
+    }
+
+    const snapshot = await loadAdminSummarySnapshot(
+      client,
+      data.entidade,
+      data.registroId,
+      user.email,
+    )
+    const expectedKeys = Object.keys(data.expected).sort()
+    const changeKeys = Object.keys(changes.data).sort()
+    if (JSON.stringify(expectedKeys) !== JSON.stringify(changeKeys)) {
+      throw new Error('Atualize a planilha antes de salvar a correção.')
+    }
+    const currentValues = Object.fromEntries(
+      expectedKeys.map((key) => [key, snapshot.details[key]]),
+    )
+    if (
+      JSON.stringify(canonicalJson(currentValues)) !==
+      JSON.stringify(canonicalJson(data.expected))
+    ) {
+      throw new Error('O registro mudou durante a edição. Atualize a planilha e tente novamente.')
+    }
+
+    const { data: original, error: logError } = await client
+      .from('stock_operation_logs')
+      .select('id')
+      .eq('entidade', data.entidade)
+      .eq('registro_id', data.registroId)
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (logError) throw new Error('Não foi possível localizar o histórico do registro.')
+    let logId = original?.id
+
+    if (!logId) {
+      const { data: baseline, error: insertError } = await client
+        .from('stock_operation_logs')
+        .insert({
+          acao: 'ALTERAÇÃO',
+          entidade: data.entidade,
+          registro_id: data.registroId,
+          quantidade: snapshot.quantity,
+          codigos: snapshot.codes,
+          operador: snapshot.operator,
+          ator_email: user.email,
+          ator_id: user.id,
+          detalhes: snapshot.details,
+        })
+        .select('id')
+        .single()
+      if (insertError || !baseline) {
+        throw new Error('Não foi possível registrar o estado inicial para auditoria.')
+      }
+      logId = baseline.id
+    }
+
+    const { error } = await client.rpc('correct_stock_record', {
+      p_log_id: logId,
+      p_changes: changes.data,
+      p_motivo: data.motivo,
+      p_actor_email: user.email,
+      p_actor_id: user.id,
+    })
+    if (error?.message.includes('mais recente')) {
+      throw new Error('O registro mudou durante a edição. Atualize a planilha e tente novamente.')
+    }
+    if (error) throw new Error('Não foi possível salvar a correção auditada.')
+    return { success: true }
+  })
+
 export const listDeveloperData = createServerFn({ method: 'POST' })
   .validator(tokenInput)
   .handler(async ({ data }) => {
