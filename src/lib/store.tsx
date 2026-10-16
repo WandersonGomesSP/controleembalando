@@ -64,7 +64,10 @@ type Store = {
     quantidade: number,
   ) => Promise<InsumoRolo[]>
   baixarInsumoRolo: (idCodigo: string) => Promise<void>
-  ajustarPesoInsumo: (idCodigo: string, pesoLiqKg: number) => Promise<boolean>
+  ajustarPesoInsumo: (
+    idCodigo: string,
+    pesoLiqKg: number,
+  ) => Promise<InsumoRolo | null>
   buscarInsumos: (termo: string) => Promise<InsumoRolo[]>
   buscarInsumoPorCodigo: (idCodigo: string) => Promise<InsumoRolo | null>
 }
@@ -144,6 +147,7 @@ function mapearInsumoRolo(row: InsumoRoloRow): InsumoRolo {
     tipo: row.tipo,
     medidaCategoria: row.medida_categoria,
     pesoLiqKg: Number(row.peso_liq_kg),
+    pesoAlterado: row.peso_alterado,
     validade: row.validade,
     dataRegistro: row.data_registro,
   }
@@ -481,29 +485,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return true
       },
       adicionarProducao: async (p) => {
-        const { data, error } = await supabase
-          .from('producao_tubos')
-          .insert({
-            destino: 'Produção',
-            data: p.data,
-            espessura: p.espessura,
-            tubo: p.tubo,
-            capa: p.capa,
-            codigos: p.codigos,
-            operador: p.operador,
-            perda: p.perda,
-            container: p.container,
-            carrinho: p.carrinho,
-            quantidade_carrinhos: p.quantidadeCarrinhos,
-            quantidade_containers: p.quantidadeContainers,
-            tubos_por_carrinho: p.tubosPorCarrinho,
-            tubos_por_container: p.tubosPorContainer,
-            quantidade_tubos: p.quantidadeTubos,
-          })
-          .select('*')
-          .single()
+        const { data, error } = await supabase.rpc(
+          'registrar_producao_tubos_com_baixa',
+          {
+            p_data: p.data,
+            p_espessura: p.espessura,
+            p_tubo: p.tubo,
+            p_capa: p.capa,
+            p_codigos: p.codigos,
+            p_operador: p.operador,
+            p_perda: p.perda,
+            p_container: p.container,
+            p_carrinho: p.carrinho,
+            p_quantidade_carrinhos: p.quantidadeCarrinhos,
+            p_quantidade_containers: p.quantidadeContainers,
+            p_tubos_por_carrinho: p.tubosPorCarrinho,
+            p_tubos_por_container: p.tubosPorContainer,
+          },
+        )
         if (error) throw error
-        const created = mapearProducao(data)
+        const createdRow = data?.[0]
+        if (!createdRow) {
+          throw new Error('O Supabase não retornou a produção registrada.')
+        }
+        const created = mapearProducao(createdRow)
         setProducao((lista) => [created, ...lista])
         await atualizarHistoricoEstoque()
         return created
@@ -566,17 +571,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .from('insumos_rolos')
           .update({ peso_liq_kg: pesoLiqKg })
           .eq('id_codigo', idCodigo)
-          .select('id_codigo')
+          .select('*')
           .maybeSingle()
         if (error) throw error
-        if (!data) return false
+        if (!data) return null
+        const updated = mapearInsumoRolo(data)
         setInsumosRolos((list) =>
           list.map((entry) =>
-            entry.idCodigo === idCodigo ? { ...entry, pesoLiqKg } : entry,
+            entry.idCodigo === idCodigo ? updated : entry,
           ),
         )
         await atualizarHistoricoEstoque()
-        return true
+        return updated
       },
       buscarInsumos: async (termo) => {
         const filtro = termo.trim()

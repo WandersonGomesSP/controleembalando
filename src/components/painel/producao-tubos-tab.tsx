@@ -79,7 +79,7 @@ export function ProducaoTubosTab() {
     const limpos = Object.fromEntries(
       Object.entries(codigos).map(([k, v]) => [
         k,
-        v.map((x) => x.trim()).filter(Boolean),
+        v.map((x) => x.trim().toUpperCase()).filter(Boolean),
       ]),
     ) as Record<CodigoGrupo, string[]>
     let tubosSalvos = totalTubos
@@ -102,8 +102,12 @@ export function ProducaoTubosTab() {
         quantidadeTubos: totalTubos,
       })
       tubosSalvos = producaoSalva.quantidadeTubos
-    } catch {
-      return toast.error('Não foi possível salvar a produção no Supabase.')
+    } catch (error) {
+      return toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível salvar a produção no Supabase.',
+      )
     }
     toast.success('Produção registrada', {
       description: `${tubosSalvos} tubos · ${tubo} × ${espessura}`,

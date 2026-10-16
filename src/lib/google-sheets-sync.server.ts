@@ -162,7 +162,7 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>):
 
   const rollRows: (string | number)[][] = [[
     'Tipo', 'Código', 'Medida / categoria', 'Peso líquido (kg)', 'Validade',
-    'Data de registro',
+    'Data de registro', 'Peso alterado',
   ]]
   for (const row of insumos) {
     rollRows.push([
@@ -172,6 +172,7 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>):
       Number(row.peso_liq_kg),
       row.validade ?? '',
       dataBR(row.data_registro),
+      row.peso_alterado ? 'Sim' : 'Não',
     ])
   }
 

@@ -37,6 +37,7 @@ export type InsumoRolo = {
   tipo: TipoInsumo
   medidaCategoria: string
   pesoLiqKg: number
+  pesoAlterado: boolean
   validade: string | null
   dataRegistro: string
 }

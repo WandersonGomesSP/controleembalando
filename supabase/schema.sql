@@ -40,6 +40,7 @@ create table if not exists public.insumos_rolos (
   tipo text not null check (tipo in ('ROTULO', 'CAPA')),
   medida_categoria text not null,
   peso_liq_kg numeric(12, 3) not null check (peso_liq_kg > 0),
+  peso_alterado boolean not null default false,
   validade text,
   data_registro date not null default current_date
 );
@@ -70,6 +71,23 @@ alter table public.insumos_rolos
 alter table public.insumos_rolos
   add constraint insumos_rolos_validade_check
   check (validade is null or validade ~ '^[0-9]{2}/[0-9]{2}$');
+
+create or replace function public.mark_insumo_weight_changed()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.peso_alterado := coalesce(old.peso_alterado, false)
+    or new.peso_liq_kg is distinct from old.peso_liq_kg;
+  return new;
+end;
+$$;
+
+drop trigger if exists mark_insumo_weight_changed on public.insumos_rolos;
+create trigger mark_insumo_weight_changed
+before update of peso_liq_kg, peso_alterado on public.insumos_rolos
+for each row execute function public.mark_insumo_weight_changed();
 
 drop index if exists public.insumos_rolos_tipo_status_idx;
 
@@ -294,6 +312,158 @@ as $$
     );
 $$;
 
+create or replace function public.registrar_producao_tubos_com_baixa(
+  p_data date,
+  p_espessura text,
+  p_tubo text,
+  p_capa text,
+  p_codigos jsonb,
+  p_operador text,
+  p_perda numeric,
+  p_container text,
+  p_carrinho text,
+  p_quantidade_carrinhos integer,
+  p_quantidade_containers integer,
+  p_tubos_por_carrinho integer,
+  p_tubos_por_container integer
+)
+returns setof public.producao_tubos
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  codigos_capa text[];
+  codigos_rotulo text[];
+  todos_codigos text[];
+  quantidade_esperada integer;
+  quantidade_encontrada integer;
+  quantidade_excluida integer;
+  producao_criada public.producao_tubos%rowtype;
+begin
+  if not public.can_access_area('tubeteira') then
+    raise exception 'Acesso negado à área de tubeteira.';
+  end if;
+  if p_codigos is null or jsonb_typeof(p_codigos) <> 'object' then
+    raise exception 'Os códigos da produção são inválidos.';
+  end if;
+  if exists (
+    select 1
+    from jsonb_each(p_codigos) as grupos(chave, valor)
+    where jsonb_typeof(grupos.valor) <> 'array'
+       or exists (
+         select 1
+         from jsonb_array_elements(
+           case
+             when jsonb_typeof(grupos.valor) = 'array' then grupos.valor
+             else '[]'::jsonb
+           end
+         ) as item(valor)
+         where jsonb_typeof(item.valor) <> 'string'
+            or btrim(item.valor #>> '{}') = ''
+       )
+  ) then
+    raise exception 'Os códigos devem ser listas de textos não vazios.';
+  end if;
+
+  select coalesce(array_agg(upper(btrim(item.valor #>> '{}'))), array[]::text[])
+  into todos_codigos
+  from jsonb_each(p_codigos) as grupos(chave, valor)
+  cross join lateral jsonb_array_elements(grupos.valor) as item(valor);
+
+  if cardinality(todos_codigos) <> (
+    select count(distinct codigo)
+    from unnest(todos_codigos) as codigos(codigo)
+  ) then
+    raise exception 'A produção não pode conter códigos repetidos.';
+  end if;
+
+  select coalesce(
+    array_agg(upper(btrim(item.valor #>> '{}')) order by item.ordem),
+    array[]::text[]
+  )
+  into codigos_capa
+  from jsonb_array_elements(
+    coalesce(p_codigos -> 'codCapa', '[]'::jsonb)
+  ) with ordinality as item(valor, ordem);
+
+  select coalesce(
+    array_agg(upper(btrim(item.valor #>> '{}')) order by item.ordem),
+    array[]::text[]
+  )
+  into codigos_rotulo
+  from jsonb_array_elements(
+    coalesce(p_codigos -> 'codRotulo', '[]'::jsonb)
+  ) with ordinality as item(valor, ordem);
+
+  todos_codigos := codigos_capa || codigos_rotulo;
+  quantidade_esperada := cardinality(todos_codigos);
+
+  perform insumo.id_codigo
+  from public.insumos_rolos as insumo
+  where insumo.id_codigo = any(todos_codigos)
+  order by insumo.id_codigo
+  for update;
+
+  select count(*)::integer
+  into quantidade_encontrada
+  from public.insumos_rolos as insumo
+  where (
+    insumo.tipo = 'CAPA' and insumo.id_codigo = any(codigos_capa)
+  ) or (
+    insumo.tipo = 'ROTULO' and insumo.id_codigo = any(codigos_rotulo)
+  );
+
+  if quantidade_encontrada <> quantidade_esperada then
+    raise exception 'Um ou mais códigos de capa/rótulo não existem no estoque ou são do tipo incorreto.';
+  end if;
+
+  insert into public.producao_tubos (
+    destino,
+    data,
+    espessura,
+    tubo,
+    capa,
+    codigos,
+    operador,
+    perda,
+    container,
+    carrinho,
+    quantidade_carrinhos,
+    quantidade_containers,
+    tubos_por_carrinho,
+    tubos_por_container
+  )
+  values (
+    'Produção',
+    p_data,
+    p_espessura,
+    p_tubo,
+    p_capa,
+    p_codigos,
+    p_operador,
+    p_perda,
+    p_container,
+    p_carrinho,
+    p_quantidade_carrinhos,
+    p_quantidade_containers,
+    p_tubos_por_carrinho,
+    p_tubos_por_container
+  )
+  returning * into producao_criada;
+
+  delete from public.insumos_rolos
+  where id_codigo = any(todos_codigos);
+  get diagnostics quantidade_excluida = row_count;
+
+  if quantidade_excluida <> quantidade_esperada then
+    raise exception 'O estoque mudou durante a produção; nenhum registro foi salvo.';
+  end if;
+
+  return next producao_criada;
+end;
+$$;
+
 create or replace function public.reserve_global_stock_code()
 returns trigger
 language plpgsql
@@ -314,13 +484,6 @@ begin
   end if;
 
   if TG_OP = 'DELETE' then
-    if TG_TABLE_NAME = 'rolos' then
-      delete from public.stock_code_registry
-      where codigo = OLD.id and tabela_origem = TG_TABLE_NAME;
-    else
-      delete from public.stock_code_registry
-      where codigo = OLD.id_codigo and tabela_origem = TG_TABLE_NAME;
-    end if;
     return OLD;
   end if;
 
@@ -328,22 +491,15 @@ begin
     return NEW;
   end if;
 
-  if TG_OP = 'UPDATE' then
-    delete from public.stock_code_registry
-    where codigo = codigo_antigo and tabela_origem = TG_TABLE_NAME;
-  end if;
-
-  insert into public.stock_code_registry as codigos_reservados
+  insert into public.stock_code_registry
     (codigo, tabela_origem)
   values (codigo_novo, TG_TABLE_NAME)
-  on conflict (codigo) do update
-  set tabela_origem = excluded.tabela_origem
-  where codigos_reservados.tabela_origem = excluded.tabela_origem;
+  on conflict (codigo) do nothing;
   get diagnostics linhas_afetadas = row_count;
   if linhas_afetadas = 0 then
     raise exception using
       errcode = '23505',
-      message = 'Código já está cadastrado em outra tabela de estoque: ' || codigo_novo;
+      message = 'Código já foi utilizado no sistema: ' || codigo_novo;
   end if;
   return NEW;
 end;
@@ -935,10 +1091,16 @@ with check (public.can_access_area('tubeteira'));
 
 drop policy if exists "authenticated users manage producao tubos" on public.producao_tubos;
 drop policy if exists "tubeteira users manage producao tubos" on public.producao_tubos;
-create policy "tubeteira users manage producao tubos"
-on public.producao_tubos for all to authenticated
+create policy "tubeteira users read producao tubos"
+on public.producao_tubos for select to authenticated
+using (public.can_access_area('tubeteira'));
+create policy "tubeteira users update producao tubos"
+on public.producao_tubos for update to authenticated
 using (public.can_access_area('tubeteira'))
 with check (public.can_access_area('tubeteira'));
+create policy "tubeteira users delete producao tubos"
+on public.producao_tubos for delete to authenticated
+using (public.can_access_area('tubeteira'));
 
 drop policy if exists "authenticated users manage referencias tubetes" on public.referencias_tubetes;
 drop policy if exists "area users read referencias tubetes" on public.referencias_tubetes;
@@ -997,7 +1159,14 @@ grant select on public.user_roles to authenticated;
 grant select, insert, update, delete on public.rolos to authenticated;
 grant select, insert, update, delete on public.residuos to authenticated;
 grant select, insert, update, delete on public.lotes_tubete to authenticated;
-grant select, insert, update, delete on public.producao_tubos to authenticated;
+grant select, update, delete on public.producao_tubos to authenticated;
+revoke insert on public.producao_tubos from public, anon, authenticated;
+revoke all on function public.registrar_producao_tubos_com_baixa(
+  date, text, text, text, jsonb, text, numeric, text, text, integer, integer, integer, integer
+) from public, anon;
+grant execute on function public.registrar_producao_tubos_com_baixa(
+  date, text, text, text, jsonb, text, numeric, text, text, integer, integer, integer, integer
+) to authenticated;
 grant select, insert, update, delete on public.referencias_tubetes to authenticated;
 grant select, insert, update, delete on public.insumos_rolos to authenticated;
 grant select, insert, update, delete on public.referencias_insumos to authenticated;
@@ -1082,6 +1251,23 @@ values
   ('CAPA', 'Capa Marrom')
 on conflict (tipo, medida_categoria) do nothing;
 
+create or replace function public.codigo_insumo_utilizado(p_codigo text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.stock_code_registry as codigos_reservados
+    where codigos_reservados.codigo = p_codigo
+  );
+$$;
+
+revoke all on function public.codigo_insumo_utilizado(text)
+  from public, anon, authenticated;
+
 create or replace function public.proximo_codigo_insumo(
   p_tipo text,
   p_medida_categoria text
@@ -1143,7 +1329,7 @@ begin
         select 1
         from public.insumos_rolos
         where id_codigo = codigo_candidato
-      ) then
+      ) and not public.codigo_insumo_utilizado(codigo_candidato) then
         return codigo_candidato;
       end if;
     end loop;
@@ -1151,10 +1337,16 @@ begin
     raise exception 'Sequência de dois dígitos esgotada para esta série.';
   end if;
 
-  select coalesce(max(substring(id_codigo from char_length(prefixo) + 1 for 2)::integer), 0) + 1
+  select coalesce(
+    max(substring(codigos.codigo from char_length(prefixo) + 1 for 2)::integer),
+    0
+  ) + 1
     into sequencia
-  from public.insumos_rolos
-  where id_codigo ~ ('^' || prefixo || '[0-9]{2}$');
+  from (
+    select codigos_reservados.codigo
+    from public.stock_code_registry as codigos_reservados
+  ) as codigos
+  where codigos.codigo ~ ('^' || prefixo || '[0-9]{2}$');
 
   if sequencia > 99 then
     raise exception 'Sequência mensal de capa esgotada.';
@@ -1261,12 +1453,15 @@ begin
   perform pg_advisory_xact_lock(hashtext('insumo-codigo:' || chave_serie));
 
   select coalesce(
-    max(substring(estoque.id_codigo from char_length(prefixo) + 1 for 2)::integer),
+    max(substring(codigos.codigo from char_length(prefixo) + 1 for 2)::integer),
     0
   )
   into maior_sequencia
-  from public.insumos_rolos as estoque
-  where estoque.id_codigo ~ ('^' || prefixo || '[0-9]{2}' || sufixo || '$');
+  from (
+    select codigos_reservados.codigo
+    from public.stock_code_registry as codigos_reservados
+  ) as codigos
+  where codigos.codigo ~ ('^' || prefixo || '[0-9]{2}' || sufixo || '$');
 
   if maior_sequencia > 0 then
     maior_codigo := prefixo || lpad(maior_sequencia::text, 2, '0') || sufixo;
@@ -1282,7 +1477,7 @@ begin
         select 1
         from public.insumos_rolos as estoque
         where estoque.id_codigo = codigo_candidato
-      ) then
+      ) and not public.codigo_insumo_utilizado(codigo_candidato) then
         codigos := array_append(codigos, codigo_candidato);
         if cardinality(codigos) = p_quantidade then
           exit;

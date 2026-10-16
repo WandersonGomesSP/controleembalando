@@ -423,9 +423,23 @@ export function AjustePesoTab() {
     if (buscando) return toast.error('Aguarde a consulta do rolo.')
     if (!atual) return toast.error(`Rolo ${normalizado || '—'} não encontrado.`)
     if (!(peso > 0)) return toast.error('Informe o novo peso líquido.')
+    if (peso === atual.pesoLiqKg) return toast.error('O novo peso é igual ao peso atual.')
     try {
       const atualizado = await ajustarPesoInsumo(atual.idCodigo, peso)
       if (!atualizado) return toast.error(`Rolo ${atual.idCodigo} não encontrado.`)
+      setAtual(atualizado)
+      try {
+        downloadRollLabelPdf({
+          code: atualizado.idCodigo,
+          measure: atualizado.medidaCategoria,
+          weightKg: atualizado.pesoLiqKg,
+          registeredAt: atualizado.dataRegistro,
+          expiresAt: atualizado.validade,
+          weightChanged: atualizado.pesoAlterado,
+        })
+      } catch {
+        toast.error('O peso foi atualizado, mas não foi possível gerar a nova etiqueta.')
+      }
     } catch {
       toast.error('Não foi possível salvar o ajuste no Supabase.')
       return
@@ -449,7 +463,7 @@ export function AjustePesoTab() {
           htmlFor="a-id"
           hint={
             atual
-              ? `${atual.tipo} · ${atual.medidaCategoria} · ${kg(atual.pesoLiqKg)} kg`
+              ? `${atual.tipo} · ${atual.medidaCategoria} · ${kg(atual.pesoLiqKg)} kg${atual.pesoAlterado ? ' · Peso já alterado' : ''}`
               : buscando
                 ? 'Consultando Supabase...'
                 : 'Ex: 4812 ou B1005'

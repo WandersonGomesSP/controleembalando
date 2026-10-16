@@ -64,6 +64,7 @@ export type InsumoRoloRow = {
   tipo: TipoInsumo
   medida_categoria: string
   peso_liq_kg: number
+  peso_alterado: boolean
   validade: string | null
   data_registro: string
 }
@@ -135,8 +136,9 @@ export type Database = {
       referencias_tubetes: Table<ReferenciaTubeteRow>
       insumos_rolos: Table<
         InsumoRoloRow,
-        Omit<InsumoRoloRow, 'data_registro'> & {
+        Omit<InsumoRoloRow, 'data_registro' | 'peso_alterado'> & {
           data_registro?: string
+          peso_alterado?: boolean
         }
       >
       referencias_insumos: Table<ReferenciaInsumoRow>
@@ -233,6 +235,24 @@ export type Database = {
           p_actor_id: string
         }
         Returns: Record<string, unknown>
+      }
+      registrar_producao_tubos_com_baixa: {
+        Args: {
+          p_data: string
+          p_espessura: string
+          p_tubo: string
+          p_capa: string
+          p_codigos: Record<CodigoGrupo, string[]>
+          p_operador: string
+          p_perda: number
+          p_container: string
+          p_carrinho: string
+          p_quantidade_carrinhos: number
+          p_quantidade_containers: number
+          p_tubos_por_carrinho: number
+          p_tubos_por_container: number
+        }
+        Returns: ProducaoTuboRow[]
       }
     }
     Enums: Record<string, never>

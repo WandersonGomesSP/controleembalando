@@ -4,11 +4,13 @@ export type RollLabelData = {
   weightKg: number
   registeredAt: string
   expiresAt: string | null
+  weightChanged?: boolean
 }
 
 const PAGE_WIDTH = 612
 const PAGE_HEIGHT = 792
 const MARGIN = 14.17
+const MIN_MEASURE_WIDTH = (9 * 72) / 2.54
 
 function pdfText(value: string) {
   return value
@@ -28,14 +30,17 @@ function centeredText(
   fontSize: number,
   font: 'F1' | 'F2',
   maxWidth = PAGE_WIDTH - MARGIN * 2,
+  minTextWidth = 0,
 ) {
   const safeValue = pdfText(value)
-  const fittingFontSize = Math.min(fontSize, maxWidth / Math.max(safeValue.length * 0.52, 1))
-  const x = Math.max(
-    MARGIN,
-    (PAGE_WIDTH - textWidth(safeValue, fittingFontSize)) / 2,
+  const naturalWidth = Math.max(textWidth(safeValue, fontSize), 1)
+  const horizontalScale = Math.min(
+    Math.max(100, (minTextWidth / naturalWidth) * 100),
+    (maxWidth / naturalWidth) * 100,
   )
-  return `BT /${font} ${fittingFontSize.toFixed(2)} Tf 1 0 0 1 ${x.toFixed(2)} ${(PAGE_HEIGHT - y).toFixed(2)} Tm (${safeValue}) Tj ET\n`
+  const renderedWidth = naturalWidth * (horizontalScale / 100)
+  const x = Math.max(MARGIN, (PAGE_WIDTH - renderedWidth) / 2)
+  return `BT /${font} ${fontSize} Tf ${horizontalScale.toFixed(2)} Tz 1 0 0 1 ${x.toFixed(2)} ${(PAGE_HEIGHT - y).toFixed(2)} Tm (${safeValue}) Tj ET\n`
 }
 
 function labelContent(label: RollLabelData) {
@@ -46,7 +51,7 @@ function labelContent(label: RollLabelData) {
   let content = '0 G 0 g\n'
 
   content += `0 g ${logoLeft} ${PAGE_HEIGHT - 277} ${logoWidth} 185 re f\n`
-  content += `1 g\n${centeredText(label.code, 208, 80, 'F2', logoWidth - 32)}`
+  content += `1 g\n${centeredText(label.code, 208, 80, 'F2', logoWidth - 32, MIN_MEASURE_WIDTH)}`
   content += `0 g ${logoLeft} ${PAGE_HEIGHT - 302} ${logoWidth} 12 re f\n`
 
   const fields = [
@@ -54,19 +59,32 @@ function labelContent(label: RollLabelData) {
     `PESO: ${label.weightKg.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}`,
     'DATA DE REGISTRO:',
     new Date(`${label.registeredAt}T00:00:00`).toLocaleDateString('pt-BR'),
-  ]
+  ].map((text) => ({ text, minWidth: MIN_MEASURE_WIDTH }))
   if (label.expiresAt) {
-    fields.push('VALIDADE:', label.expiresAt)
+    fields.push(
+      { text: 'VALIDADE:', minWidth: MIN_MEASURE_WIDTH },
+      { text: label.expiresAt, minWidth: MIN_MEASURE_WIDTH },
+    )
+  }
+  if (label.weightChanged) {
+    fields.push({ text: 'PESO ALTERADO', minWidth: MIN_MEASURE_WIDTH })
   }
 
   const firstY = 354
-  fields.forEach((field, index) => {
-    const y = firstY + index * 75
+  const lastY = PAGE_HEIGHT - 54
+  const fieldSpacing =
+    fields.length > 1
+      ? Math.min(75, (lastY - firstY) / (fields.length - 1))
+      : 75
+  fields.forEach(({ text: field, minWidth = 0 }, index) => {
+    const y = firstY + index * fieldSpacing
     const fontSize = 27
-    content += `0 g\n${centeredText(field, y, fontSize, 'F1')}`
+    const safeField = pdfText(field)
+    const naturalWidth = textWidth(safeField, fontSize)
+    content += `0 g\n${centeredText(field, y, fontSize, 'F1', PAGE_WIDTH - MARGIN * 2, minWidth)}`
     const underlineWidth = Math.min(
       right - left - 36,
-      textWidth(pdfText(field), fontSize) + 8,
+      Math.max(naturalWidth, minWidth) + 8,
     )
     const underlineLeft = (PAGE_WIDTH - underlineWidth) / 2
     content += `0 G 1.5 w ${underlineLeft.toFixed(2)} ${PAGE_HEIGHT - (y + 6)} m ${(underlineLeft + underlineWidth).toFixed(2)} ${PAGE_HEIGHT - (y + 6)} l S\n`
@@ -134,7 +152,8 @@ export function downloadRollLabelPdf(label: RollLabelData) {
   anchor.href = url
   const date = label.registeredAt.replace(/-/g, '')
   const code = label.code.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
-  anchor.download = `${code}-${date}.pdf`
+  const weightChangedSuffix = label.weightChanged ? '-PESO-ALTERADO' : ''
+  anchor.download = `${code}-${date}${weightChangedSuffix}.pdf`
   document.body.append(anchor)
   anchor.click()
   anchor.remove()
