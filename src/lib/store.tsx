@@ -33,6 +33,9 @@ type Store = {
   historicoTemMais: boolean
   atualizarHistoricoEstoque: () => Promise<void>
   carregarMaisHistoricoEstoque: () => Promise<void>
+  consultarHistoricoEstoque: (
+    filtros: FiltrosHistoricoEstoque,
+  ) => Promise<{ registros: StockOperationLogRow[]; temMais: boolean }>
   referenciasTubetes: ReferenciaTubete[]
   referenciasInsumos: ReferenciaInsumo[]
   catalogos: Record<CatalogoChave, string[]>
@@ -60,6 +63,17 @@ type Store = {
   ajustarPesoInsumo: (idCodigo: string, pesoLiqKg: number) => Promise<boolean>
   buscarInsumos: (termo: string) => Promise<InsumoRolo[]>
   buscarInsumoPorCodigo: (idCodigo: string) => Promise<InsumoRolo | null>
+}
+
+export type FiltrosHistoricoEstoque = {
+  entidades?: string[]
+  acao?: StockOperationLogRow['acao'] | ''
+  busca?: string
+  operador?: string
+  de?: string
+  ate?: string
+  inicio?: number
+  limite?: number
 }
 
 const StoreContext = React.createContext<Store | null>(null)
@@ -92,11 +106,10 @@ function mapearTubete(row: LoteTubeteRow): LoteTubete {
     id: row.id,
     medida: row.medida,
     cor: row.cor,
-    gramatura: row.gramatura,
     dataProducao: row.data_producao,
     caixas: row.caixas,
     unidadesPorCaixa: row.unidades_por_caixa,
-    perda: row.perda,
+    perdaKg: Number(row.perda_kg),
     operador: row.operador,
   }
 }
@@ -205,6 +218,49 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setHistoricoEstoque((logs) => [...logs, ...(data ?? [])])
     setHistoricoTemMais((data?.length ?? 0) === 100)
   }, [historicoEstoque.length])
+
+  const consultarHistoricoEstoque = React.useCallback(
+    async (filtros: FiltrosHistoricoEstoque) => {
+      const inicio = filtros.inicio ?? 0
+      const limite = filtros.limite ?? 50
+      let query = supabase
+        .from('stock_operation_logs')
+        .select('*')
+        .order('ocorrido_em', { ascending: false })
+        .order('id', { ascending: false })
+      if (filtros.entidades?.length) query = query.in('entidade', filtros.entidades)
+      if (filtros.acao) query = query.eq('acao', filtros.acao)
+      if (filtros.operador?.trim()) {
+        query = query.ilike('operador', `%${filtros.operador.trim()}%`)
+      }
+      if (filtros.de) {
+        query = query.gte(
+          'ocorrido_em',
+          new Date(`${filtros.de}T00:00:00`).toISOString(),
+        )
+      }
+      if (filtros.ate) {
+        const exclusiveEnd = new Date(`${filtros.ate}T00:00:00`)
+        exclusiveEnd.setDate(exclusiveEnd.getDate() + 1)
+        query = query.lt('ocorrido_em', exclusiveEnd.toISOString())
+      }
+      const termo = filtros.busca?.trim()
+      if (termo) {
+        const termoSeguro = termo.replace(/[^\p{L}\p{N}._@ -]/gu, ' ')
+        const codigo = /^[a-zA-Z0-9._-]+$/.test(termoSeguro)
+          ? `,codigos.cs.{${termoSeguro}}`
+          : ''
+        query = query.or(
+          `registro_id.ilike.%${termoSeguro}%,entidade.ilike.%${termoSeguro}%,operador.ilike.%${termoSeguro}%,ator_email.ilike.%${termoSeguro}${codigo}`,
+        )
+      }
+      const { data, error } = await query.range(inicio, inicio + limite)
+      if (error) throw error
+      const registros = data ?? []
+      return { registros: registros.slice(0, limite), temMais: registros.length > limite }
+    },
+    [],
+  )
 
   React.useEffect(() => {
     let ativo = true
@@ -338,6 +394,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       historicoTemMais,
       atualizarHistoricoEstoque,
       carregarMaisHistoricoEstoque,
+      consultarHistoricoEstoque,
       adicionarRolos: async (dados, quantidade) => {
         const { data, error } = await supabase.rpc('adicionar_rolos', {
           p_medida: dados.medida,
@@ -418,11 +475,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .insert({
             medida: l.medida,
             cor: l.cor,
-            gramatura: l.gramatura,
             data_producao: l.dataProducao,
             caixas: l.caixas,
             unidades_por_caixa: l.unidadesPorCaixa,
-            perda: l.perda,
+            perda_kg: l.perdaKg,
             operador: l.operador,
           })
           .select('*')
@@ -538,6 +594,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       historicoTemMais,
       atualizarHistoricoEstoque,
       carregarMaisHistoricoEstoque,
+      consultarHistoricoEstoque,
     ],
   )
 

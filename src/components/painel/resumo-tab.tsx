@@ -1,7 +1,10 @@
+import * as React from 'react'
 import { int, kg, useStore } from '@/lib/store'
 import { Mono } from '@/components/painel/fields'
+import { ResumoIndicadores } from '@/components/painel/resumo-indicadores'
 
 export function ResumoTab() {
+  const [subaba, setSubaba] = React.useState<'estoque' | 'indicadores'>('estoque')
   const {
     tubetes,
     referenciasTubetes,
@@ -17,12 +20,7 @@ export function ResumoTab() {
         lote.cor.toLocaleLowerCase() === (referencia.cor ?? '').toLocaleLowerCase(),
     )
     const qtdCaixas = lotes.reduce((total, lote) => total + lote.caixas, 0)
-    const total = lotes.reduce(
-      (soma, lote) =>
-        soma +
-        Math.max(0, lote.caixas * lote.unidadesPorCaixa - lote.perda),
-      0,
-    )
+    const total = lotes.reduce((soma, lote) => soma + lote.caixas * lote.unidadesPorCaixa, 0)
 
     return {
       ...referencia,
@@ -55,7 +53,31 @@ export function ResumoTab() {
   ).length
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
+      <div role="tablist" aria-label="Subguias do resumo" className="flex flex-wrap gap-2 border-b border-border pb-3">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={subaba === 'estoque'}
+          onClick={() => setSubaba('estoque')}
+          className={`rounded-md px-4 py-2 text-sm ${subaba === 'estoque' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
+        >
+          Estoque atual
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={subaba === 'indicadores'}
+          onClick={() => setSubaba('indicadores')}
+          className={`rounded-md px-4 py-2 text-sm ${subaba === 'indicadores' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
+        >
+          Indicadores detalhados
+        </button>
+      </div>
+      {subaba === 'indicadores' ? (
+        <ResumoIndicadores />
+      ) : (
+      <div className="flex flex-col gap-8">
       <section aria-labelledby="tubete-inventory-heading" className="space-y-4">
         <header className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
           <div>
@@ -193,6 +215,8 @@ export function ResumoTab() {
           </div>
         </div>
       </section>
+      </div>
+      )}
     </div>
   )
 }

@@ -18,6 +18,7 @@ import type {
   UserRoleRow,
 } from '@/lib/database.types'
 import { Field, Panel, PrimaryButton, SelectInput, TextInput } from '@/components/painel/fields'
+import { DeveloperStockLogs } from '@/components/painel/developer-stock-logs'
 
 type ManagedUser = {
   id: string
@@ -218,6 +219,8 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
 
       {!loading && data && (
         <>
+          <DeveloperStockLogs accessToken={accessToken} />
+
           <Panel title="Usuários e permissões" description="Dev controla usuários; Admin acessa áreas operacionais; Operador fica restrito à sua área.">
             <form onSubmit={submitNewUser} className="grid gap-4 border-b border-border pb-5 sm:grid-cols-2 xl:grid-cols-5">
               <Field label="E-mail" htmlFor="dev-user-email">

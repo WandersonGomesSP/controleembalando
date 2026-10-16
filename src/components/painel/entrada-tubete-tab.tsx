@@ -1,8 +1,7 @@
 import * as React from 'react'
 import { toast } from 'sonner'
-import { Boxes, Clock3, PackageCheck, RefreshCw } from 'lucide-react'
+import { Boxes, PackageCheck } from 'lucide-react'
 import { int, useStore } from '@/lib/store'
-import type { StockOperationLogRow } from '@/lib/database.types'
 import {
   Field,
   Mono,
@@ -11,170 +10,51 @@ import {
   SelectInput,
   TextInput,
 } from '@/components/painel/fields'
+import { StockOperationHistory } from '@/components/painel/stock-operation-history'
 import { cn } from '@/lib/utils'
 
 const inteiro = (v: string) => Math.max(0, Math.floor(Number(v) || 0))
-
-function textoDetalhe(valor: unknown) {
-  if (valor === null || valor === undefined || valor === '') return '—'
-  if (Array.isArray(valor)) return valor.join(', ')
-  if (typeof valor === 'object') return JSON.stringify(valor)
-  return String(valor)
-}
-
-function HistoricoOperacoes({
-  historico,
-  temMais,
-  atualizar,
-  carregarMais,
-}: {
-  historico: StockOperationLogRow[]
-  temMais: boolean
-  atualizar: () => Promise<void>
-  carregarMais: () => Promise<void>
-}) {
-  const coresAcao = {
-    ENTRADA: 'text-success',
-    'SAÍDA': 'text-warning',
-    ALTERAÇÃO: 'text-primary',
-  }
-
-  return (
-    <Panel
-      title="Histórico de operações"
-      description="Entradas, saídas e alterações registradas no estoque."
-      action={
-        <button
-          type="button"
-          onClick={() => void atualizar()}
-          aria-label="Atualizar histórico"
-          className="grid size-9 place-items-center rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <RefreshCw className="size-4" />
-        </button>
-      }
-      className="self-start"
-    >
-      <div className="scroll-area max-h-[34rem] space-y-3 overflow-y-auto pr-1">
-        {historico.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            Nenhuma operação registrada ainda.
-          </p>
-        ) : (
-          historico.map((registro) => (
-            <article
-              key={registro.id}
-              className="rounded-lg border border-border/80 bg-background/40 p-3"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className={`text-xs font-semibold ${coresAcao[registro.acao]}`}>
-                  {registro.acao} · {registro.entidade}
-                </span>
-                <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-                  <Clock3 className="size-3" />
-                  {new Intl.DateTimeFormat('pt-BR', {
-                    dateStyle: 'short',
-                    timeStyle: 'short',
-                  }).format(new Date(registro.ocorrido_em))}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {registro.operador}
-                {registro.ator_email && registro.ator_email !== registro.operador
-                  ? ` · ${registro.ator_email}`
-                  : ''}
-              </p>
-              <p className="mt-2 text-sm">
-                Registro <Mono className="font-semibold">{registro.registro_id}</Mono>
-                {' · '}
-                <Mono>{registro.quantidade.toLocaleString('pt-BR')}</Mono>
-                {registro.entidade === 'Lote de tubetes'
-                  ? ' unidades'
-                  : registro.entidade === 'Rolo' ||
-                      registro.entidade === 'Rolo de insumo'
-                    ? ' rolo(s)'
-                    : ' item(ns)'}
-              </p>
-              {registro.codigos.length > 0 && (
-                <p className="mt-1 break-words text-xs text-muted-foreground">
-                  Códigos: <Mono>{registro.codigos.join(', ')}</Mono>
-                </p>
-              )}
-              <details className="mt-2 text-xs text-muted-foreground">
-                <summary className="cursor-pointer select-none">Ver detalhes</summary>
-                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
-                  {Object.entries(registro.detalhes).map(([chave, valor]) => (
-                    <React.Fragment key={chave}>
-                      <dt className="capitalize">{chave.replaceAll('_', ' ')}</dt>
-                      <dd className="break-words text-foreground">
-                        {textoDetalhe(valor)}
-                      </dd>
-                    </React.Fragment>
-                  ))}
-                </dl>
-              </details>
-            </article>
-          ))
-        )}
-      </div>
-      {temMais && (
-        <button
-          type="button"
-          onClick={() => void carregarMais()}
-          className="mt-3 w-full rounded-md border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          Carregar operações anteriores
-        </button>
-      )}
-    </Panel>
-  )
-}
 
 export function EntradaTubeteTab() {
   const {
     adicionarTubetes,
     referenciasTubetes,
-    historicoEstoque,
-    historicoTemMais,
-    atualizarHistoricoEstoque,
-    carregarMaisHistoricoEstoque,
   } = useStore()
   const [descricaoReferencia, setDescricaoReferencia] = React.useState('')
-  const [gramatura, setGramatura] = React.useState('')
   const [dataProducao, setDataProducao] = React.useState(() =>
     new Date().toISOString().slice(0, 10),
   )
   const [caixas, setCaixas] = React.useState('')
   const [operador, setOperador] = React.useState('')
   const [perda, setPerda] = React.useState('')
-  React.useEffect(() => {
-    void atualizarHistoricoEstoque()
-  }, [atualizarHistoricoEstoque])
   const referencia = referenciasTubetes.find(
     (item) => item.descricao === descricaoReferencia,
   )
   const fator = referencia?.tubetesPorCaixa ?? 0
 
-  const total = Math.max(
-    0,
-    inteiro(caixas) * fator - inteiro(perda),
-  )
+  const total = Math.max(0, Number(caixas) || 0) * fator
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    const caixasQuantidade = Number(caixas)
+    const perdaKg = Number(perda.replace(',', '.'))
     if (!referencia) return toast.error('Selecione a medida.')
-    if (inteiro(caixas) < 1) return toast.error('Informe a quantidade de caixas.')
+    if (!Number.isInteger(caixasQuantidade) || caixasQuantidade < 1) {
+      return toast.error('Informe uma quantidade inteira de caixas maior que zero.')
+    }
     if (fator < 1) return toast.error('Selecione uma medida configurada.')
+    if (!Number.isFinite(perdaKg) || perdaKg < 0) {
+      return toast.error('Informe uma perda de material em kg igual ou maior que zero.')
+    }
     if (!operador.trim()) return toast.error('Informe o operador.')
     try {
       await adicionarTubetes({
         medida: referencia.medida,
         cor: referencia.cor ?? '',
-        gramatura: inteiro(gramatura),
         dataProducao,
-        caixas: inteiro(caixas),
+        caixas: caixasQuantidade,
         unidadesPorCaixa: fator,
-        perda: inteiro(perda),
+        perdaKg,
         operador: operador.trim(),
       })
     } catch {
@@ -207,15 +87,6 @@ export function EntradaTubeteTab() {
                 }))}
               />
             </Field>
-            <Field label="Gramatura (g/m²)" htmlFor="t-gram">
-              <TextInput
-                id="t-gram"
-                inputMode="numeric"
-                placeholder="Ex: 380"
-                value={gramatura}
-                onChange={(e) => setGramatura(e.target.value)}
-              />
-            </Field>
             <Field label="Data de Produção" htmlFor="t-data">
               <TextInput
                 id="t-data"
@@ -229,6 +100,7 @@ export function EntradaTubeteTab() {
                 id="t-caixas"
                 type="number"
                 min={0}
+                step={1}
                 inputMode="numeric"
                 placeholder="0"
                 value={caixas}
@@ -252,12 +124,11 @@ export function EntradaTubeteTab() {
                 {fator > 0 ? int(fator) : '—'}
               </output>
             </Field>
-            <Field label="Perda (unidades)" htmlFor="t-perda">
+            <Field label="Perda de material (kg)" htmlFor="t-perda">
               <TextInput
                 id="t-perda"
-                type="number"
+                inputMode="decimal"
                 min={0}
-                inputMode="numeric"
                 placeholder="0"
                 value={perda}
                 onChange={(e) => setPerda(e.target.value)}
@@ -278,7 +149,7 @@ export function EntradaTubeteTab() {
                   Quantidade total
                 </label>
                 <p className="text-xs text-muted-foreground">
-                  caixas × unidades − perda
+                  caixas × unidades por caixa
                 </p>
               </div>
             </div>
@@ -296,11 +167,10 @@ export function EntradaTubeteTab() {
       </Panel>
 
       <div className="flex flex-col gap-6">
-        <HistoricoOperacoes
-          historico={historicoEstoque}
-          temMais={historicoTemMais}
-          atualizar={atualizarHistoricoEstoque}
-          carregarMais={carregarMaisHistoricoEstoque}
+        <StockOperationHistory
+          title="Histórico de tubetes"
+          description="Somente entradas e alterações dos lotes de tubetes."
+          entidades={['Lote de tubetes']}
         />
         <Panel
           title="Referências por caixa"

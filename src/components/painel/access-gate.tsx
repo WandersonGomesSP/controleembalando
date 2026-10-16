@@ -110,6 +110,7 @@ export function AccessGate({
   const [sessionReady, setSessionReady] = React.useState(false)
   const [loginError, setLoginError] = React.useState('')
   const userIdRef = React.useRef<string | null>(null)
+  const authEventSeenRef = React.useRef(false)
   const userLabelClicks = React.useRef(0)
   const userLabelReset = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -117,6 +118,7 @@ export function AccessGate({
     let ativo = true
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!ativo) return
+      authEventSeenRef.current = true
       if (session) {
         const changedUser = userIdRef.current !== session.user.id
         userIdRef.current = session.user.id
@@ -144,13 +146,14 @@ export function AccessGate({
       .then(({ data: sessionData, error }) => {
         if (!ativo) return
         if (error) setLoginError('Não foi possível validar a sessão.')
+        setSessionReady(true)
+        if (authEventSeenRef.current) return
         userIdRef.current = sessionData.session?.user.id ?? null
         setActiveUser(sessionData.session?.user ?? null)
         setAccessToken(sessionData.session?.access_token ?? '')
         setAccess(null)
         setAccessLoaded(!sessionData.session)
         if (sessionData.session) setScreen('areas')
-        setSessionReady(true)
       })
       .catch(() => {
         if (ativo) {

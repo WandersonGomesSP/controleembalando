@@ -32,11 +32,10 @@ export type LoteTubeteRow = {
   id: number
   medida: string
   cor: string
-  gramatura: number
   data_producao: string
   caixas: number
   unidades_por_caixa: number
-  perda: number
+  perda_kg: number
   operador: string
 }
 
@@ -90,6 +89,7 @@ export type StockOperationLogRow = {
   ator_email: string | null
   ator_id: string | null
   detalhes: Record<string, unknown>
+  corrige_log_id: number | null
 }
 
 export type RoleUsuario = 'ADMIN' | 'OPERATOR'
@@ -189,6 +189,16 @@ export type Database = {
       current_user_access: {
         Args: Record<string, never>
         Returns: { role: string; area: string | null }[]
+      }
+      correct_stock_record: {
+        Args: {
+          p_log_id: number
+          p_changes: Record<string, unknown>
+          p_motivo: string
+          p_actor_email: string
+          p_actor_id: string
+        }
+        Returns: Record<string, unknown>
       }
     }
     Enums: Record<string, never>

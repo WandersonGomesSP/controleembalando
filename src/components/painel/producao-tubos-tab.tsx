@@ -14,6 +14,7 @@ import {
   SelectInput,
   TextInput,
 } from '@/components/painel/fields'
+import { StockOperationHistory } from '@/components/painel/stock-operation-history'
 
 const hoje = () => new Date().toISOString().slice(0, 10)
 
@@ -229,6 +230,7 @@ export function ProducaoTubosTab() {
         </form>
       </Panel>
 
+      <div className="flex flex-col gap-6">
       <Panel title="Últimos registros" description={`${producao.length} lançamento(s)`}>
         <ul className="scroll-area -mr-2 flex max-h-[44rem] flex-col gap-3 overflow-auto pr-2">
           {producao.map((p) => (
@@ -269,6 +271,12 @@ export function ProducaoTubosTab() {
           ))}
         </ul>
       </Panel>
+      <StockOperationHistory
+        title="Histórico de produção"
+        description="Entradas e alterações registradas na produção de tubos."
+        entidades={['Produção de tubos']}
+      />
+      </div>
     </div>
   )
 }

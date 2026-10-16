@@ -22,11 +22,10 @@ export type LoteTubete = {
   id: number
   medida: string
   cor: string
-  gramatura: number
   dataProducao: string
   caixas: number
   unidadesPorCaixa: number
-  perda: number
+  perdaKg: number
   operador: string
 }
 
@@ -152,33 +151,30 @@ export const TUBETES_INICIAIS: LoteTubete[] = [
     id: 1,
     medida: '70x3,0',
     cor: 'Marrom',
-    gramatura: 380,
     dataProducao: '2026-10-10',
     caixas: 24,
     unidadesPorCaixa: 310,
-    perda: 35,
+    perdaKg: 0,
     operador: 'Juliana R.',
   },
   {
     id: 2,
     medida: '50x2,5',
     cor: 'Marrom',
-    gramatura: 340,
     dataProducao: '2026-10-11',
     caixas: 18,
     unidadesPorCaixa: 400,
-    perda: 20,
+    perdaKg: 0,
     operador: 'Carlos M.',
   },
   {
     id: 3,
     medida: '76x3,0',
     cor: 'Marrom',
-    gramatura: 400,
     dataProducao: '2026-10-13',
     caixas: 12,
     unidadesPorCaixa: 280,
-    perda: 12,
+    perdaKg: 0,
     operador: 'Bruna S.',
   },
 ]

@@ -6,6 +6,66 @@ import type { Database, RoleUsuario } from '@/lib/database.types'
 const tokenInput = z.object({ accessToken: z.string().min(20) })
 const areaSchema = z.enum(['tubeteira', 'rebobinadeira'])
 const roleSchema = z.enum(['ADMIN', 'OPERATOR'])
+const isoDate = z.iso.date()
+
+const stockCorrectionSchemas = {
+  'Lote de tubetes': z
+    .object({
+      medida: z.string().trim().min(1).max(80),
+      cor: z.string().max(80),
+      data_producao: isoDate,
+      caixas: z.number().int().min(1),
+      unidades_por_caixa: z.number().int().min(1),
+      perda_kg: z.number().min(0),
+      operador: z.string().trim().min(1).max(120),
+    })
+    .strict(),
+  'Rolo de insumo': z
+    .object({
+      id_codigo: z.string().trim().min(1).max(80),
+      tipo: z.enum(['ROTULO', 'CAPA']),
+      medida_categoria: z.string().trim().min(1).max(80),
+      peso_liq_kg: z.number().positive(),
+      validade: z.string().regex(/^\d{2}\/\d{2}$/).nullable(),
+      data_registro: isoDate,
+    })
+    .strict(),
+  Rolo: z
+    .object({
+      id: z.string().trim().min(1).max(80),
+      medida: z.string().trim().min(1).max(80),
+      peso_bruto: z.number().positive(),
+      tara: z.number().min(0),
+      validade: z.string().min(1).max(20),
+      entrada: isoDate,
+    })
+    .strict()
+    .refine((registro) => registro.tara < registro.peso_bruto, {
+      message: 'A tara deve ser menor que o peso bruto.',
+    }),
+  'Produção de tubos': z
+    .object({
+      destino: z.string().trim().min(1).max(120),
+      data: isoDate,
+      espessura: z.string().trim().min(1).max(80),
+      tubo: z.string().trim().min(1).max(80),
+      capa: z.string().trim().min(1).max(80),
+      codigos: z.record(z.string(), z.array(z.string().max(120))),
+      operador: z.string().trim().min(1).max(120),
+      perda: z.number().min(0),
+      container: z.string().max(120),
+      carrinho: z.string().max(120),
+    })
+    .strict(),
+  Resíduo: z
+    .object({
+      data: isoDate,
+      origem: z.string().trim().min(1).max(160),
+      peso: z.number().positive(),
+      operador: z.string().trim().min(1).max(120),
+    })
+    .strict(),
+} as const
 
 function createAdminClient() {
   const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
@@ -90,6 +150,102 @@ export const listDeveloperData = createServerFn({ method: 'POST' })
       insumos: insumosResult.data,
       catalogos: catalogosResult.data,
     }
+  })
+
+export const listDeveloperStockLogs = createServerFn({ method: 'POST' })
+  .validator(
+    tokenInput.extend({
+      busca: z.string().max(120).default(''),
+      entidade: z.string().max(80).default(''),
+      acao: z.enum(['', 'ENTRADA', 'SAÍDA', 'ALTERAÇÃO']).default(''),
+      operador: z.string().max(120).default(''),
+      de: z.union([z.literal(''), z.iso.date()]).default(''),
+      ate: z.union([z.literal(''), z.iso.date()]).default(''),
+      inicio: z.number().int().min(0).default(0),
+      limite: z.number().int().min(1).max(100).default(50),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { client } = await requireDeveloper(data.accessToken)
+    let query = client
+      .from('stock_operation_logs')
+      .select('*')
+      .order('ocorrido_em', { ascending: false })
+      .order('id', { ascending: false })
+    if (data.entidade) query = query.eq('entidade', data.entidade)
+    if (data.acao) query = query.eq('acao', data.acao)
+    if (data.operador) query = query.ilike('operador', `%${data.operador}%`)
+    if (data.de) {
+      query = query.gte(
+        'ocorrido_em',
+        new Date(`${data.de}T00:00:00-03:00`).toISOString(),
+      )
+    }
+    if (data.ate) {
+      const exclusiveEnd = new Date(`${data.ate}T00:00:00-03:00`)
+      exclusiveEnd.setUTCDate(exclusiveEnd.getUTCDate() + 1)
+      query = query.lt('ocorrido_em', exclusiveEnd.toISOString())
+    }
+    if (data.busca.trim()) {
+      const termoSeguro = data.busca.trim().replace(/[^\p{L}\p{N}._@ -]/gu, ' ')
+      const codigo = /^[a-zA-Z0-9._-]+$/.test(termoSeguro)
+        ? `,codigos.cs.{${termoSeguro}}`
+        : ''
+      query = query.or(
+        `registro_id.ilike.%${termoSeguro}%,entidade.ilike.%${termoSeguro}%,operador.ilike.%${termoSeguro}%,ator_email.ilike.%${termoSeguro}${codigo}`,
+      )
+    }
+    const { data: logs, error } = await query.range(
+      data.inicio,
+      data.inicio + data.limite,
+    )
+    if (error) throw new Error('Não foi possível consultar o histórico completo.')
+    const registros = logs ?? []
+    return {
+      registros: registros.slice(0, data.limite),
+      temMais: registros.length > data.limite,
+    }
+  })
+
+export const correctDeveloperStockRecord = createServerFn({ method: 'POST' })
+  .validator(
+    tokenInput.extend({
+      logId: z.number().int().positive(),
+      changes: z.record(z.string(), z.unknown()),
+      motivo: z.string().trim().min(3).max(500),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { client, user } = await requireDeveloper(data.accessToken)
+    const { data: original, error: logError } = await client
+      .from('stock_operation_logs')
+      .select('entidade')
+      .eq('id', data.logId)
+      .single()
+    if (logError || !original) throw new Error('Operação original não encontrada.')
+    const schema =
+      stockCorrectionSchemas[original.entidade as keyof typeof stockCorrectionSchemas]
+    if (!schema) throw new Error('Este tipo de operação não pode ser corrigido.')
+    const changes = schema.safeParse(data.changes)
+    if (!changes.success) {
+      throw new Error('Confira os campos informados para corrigir o registro.')
+    }
+
+    const { data: corrected, error } = await client.rpc('correct_stock_record', {
+      p_log_id: data.logId,
+      p_changes: changes.data,
+      p_motivo: data.motivo,
+      p_actor_email: user.email ?? '',
+      p_actor_id: user.id,
+    })
+    if (error?.message.includes('mais recente')) {
+      throw new Error('Abra e corrija o evento mais recente desse registro no log.')
+    }
+    if (error?.message.includes('já está ativo')) {
+      throw new Error('Este código já está ativo; a saída antiga não pode alterar esse registro.')
+    }
+    if (error) throw new Error('Não foi possível aplicar a correção no estoque.')
+    return corrected
   })
 
 export const saveOperationalCatalog = createServerFn({ method: 'POST' })

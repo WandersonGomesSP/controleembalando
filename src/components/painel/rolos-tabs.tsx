@@ -11,6 +11,7 @@ import {
   SelectInput,
   TextInput,
 } from '@/components/painel/fields'
+import { StockOperationHistory } from '@/components/painel/stock-operation-history'
 
 const num = (v: string) => Number(v.replace(',', '.'))
 
@@ -122,11 +123,12 @@ export function EntradaTab() {
   }
 
   return (
-    <Panel
-      title="Entrada de Rolos"
-      description="Cadastre rolos individuais de rótulos e capas com código rastreável."
-      className="mx-auto max-w-3xl"
-    >
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <Panel
+        title="Entrada de Rolos"
+        description="Cadastre rolos individuais de rótulos e capas com código rastreável."
+        className="self-start"
+      >
       <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
         <Field label="Tipo de insumo" htmlFor="e-tipo">
           <SelectInput
@@ -219,7 +221,14 @@ export function EntradaTab() {
           {salvando ? 'Adicionando...' : 'Adicionar ao Estoque'}
         </PrimaryButton>
       </form>
-    </Panel>
+      </Panel>
+      <StockOperationHistory
+        title="Histórico de entradas"
+        description="Somente rolos cadastrados pela guia de entrada."
+        entidades={['Rolo de insumo', 'Rolo']}
+        acaoInicial="ENTRADA"
+      />
+    </div>
   )
 }
 
@@ -262,11 +271,12 @@ export function SaidaTab() {
   }
 
   return (
-    <Panel
-      title="Saída de Rolos"
-      description="Localize um rótulo ou capa pelo código e registre a baixa individual."
-      className="mx-auto max-w-4xl"
-    >
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <Panel
+        title="Saída de Rolos"
+        description="Localize um rótulo ou capa pelo código e registre a baixa individual."
+        className="self-start"
+      >
       <form onSubmit={buscar} className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -345,7 +355,14 @@ export function SaidaTab() {
           {resultados.length} rolo(s) encontrado(s)
         </p>
       )}
-    </Panel>
+      </Panel>
+      <StockOperationHistory
+        title="Histórico de saídas"
+        description="Somente baixas de rolos registradas nesta área."
+        entidades={['Rolo de insumo', 'Rolo']}
+        acaoInicial="SAÍDA"
+      />
+    </div>
   )
 }
 
@@ -406,11 +423,12 @@ export function AjustePesoTab() {
   }
 
   return (
-    <Panel
-      title="Ajuste de Peso"
-      description="Corrija o peso líquido de um rótulo ou capa disponível."
-      className="mx-auto max-w-xl"
-    >
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <Panel
+        title="Ajuste de Peso"
+        description="Corrija o peso líquido de um rótulo ou capa disponível."
+        className="self-start"
+      >
       <form onSubmit={submit} className="flex flex-col gap-5">
         <Field
           label="Código do Rolo"
@@ -449,6 +467,13 @@ export function AjustePesoTab() {
           Salvar Alteração
         </PrimaryButton>
       </form>
-    </Panel>
+      </Panel>
+      <StockOperationHistory
+        title="Histórico de ajustes"
+        description="Alterações realizadas nos registros de rolos."
+        entidades={['Rolo de insumo', 'Rolo']}
+        acaoInicial="ALTERAÇÃO"
+      />
+    </div>
   )
 }
