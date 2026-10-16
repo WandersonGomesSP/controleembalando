@@ -10,7 +10,8 @@ export type RollLabelData = {
 const PAGE_WIDTH = 612
 const PAGE_HEIGHT = 792
 const MARGIN = 14.17
-const MIN_MEASURE_WIDTH = (9 * 72) / 2.54
+const TEXT_SCALE = 1.5
+const MIN_TEXT_WIDTH = (9 * 72) / 2.54
 
 function pdfText(value: string) {
   return value
@@ -33,61 +34,61 @@ function centeredText(
   minTextWidth = 0,
 ) {
   const safeValue = pdfText(value)
-  const naturalWidth = Math.max(textWidth(safeValue, fontSize), 1)
-  const horizontalScale = Math.min(
-    Math.max(100, (minTextWidth / naturalWidth) * 100),
-    (maxWidth / naturalWidth) * 100,
+  const scaledFontSize = fontSize * TEXT_SCALE
+  const naturalWidth = Math.max(textWidth(safeValue, scaledFontSize), 1)
+  const horizontalScale = Math.min(100, (maxWidth / naturalWidth) * 100)
+  const finalHorizontalScale = Math.max(
+    horizontalScale,
+    Math.min(100, (minTextWidth / naturalWidth) * 100),
   )
-  const renderedWidth = naturalWidth * (horizontalScale / 100)
+  const renderedWidth = naturalWidth * (finalHorizontalScale / 100)
   const x = Math.max(MARGIN, (PAGE_WIDTH - renderedWidth) / 2)
-  return `BT /${font} ${fontSize} Tf ${horizontalScale.toFixed(2)} Tz 1 0 0 1 ${x.toFixed(2)} ${(PAGE_HEIGHT - y).toFixed(2)} Tm (${safeValue}) Tj ET\n`
+  return `BT /${font} ${scaledFontSize.toFixed(2)} Tf ${finalHorizontalScale.toFixed(2)} Tz 1 0 0 1 ${x.toFixed(2)} ${(PAGE_HEIGHT - y).toFixed(2)} Tm (${safeValue}) Tj ET\n`
 }
 
 function labelContent(label: RollLabelData) {
-  const left = MARGIN
-  const right = PAGE_WIDTH - MARGIN
-  const logoWidth = 390
+  const logoWidth = PAGE_WIDTH - MARGIN * 2
   const logoLeft = (PAGE_WIDTH - logoWidth) / 2
+  const logoHeight = 210
+  const logoBottom = PAGE_HEIGHT - 260
   let content = '0 G 0 g\n'
 
-  content += `0 g ${logoLeft} ${PAGE_HEIGHT - 277} ${logoWidth} 185 re f\n`
-  content += `1 g\n${centeredText(label.code, 208, 80, 'F2', logoWidth - 32, MIN_MEASURE_WIDTH)}`
-  content += `0 g ${logoLeft} ${PAGE_HEIGHT - 302} ${logoWidth} 12 re f\n`
+  content += `0 g ${logoLeft} ${logoBottom} ${logoWidth} ${logoHeight} re f\n`
+  content += `1 g\n${centeredText(label.code, 175, 80, 'F2', logoWidth - 30)}`
+  content += `0 g ${logoLeft} ${logoBottom - 18} ${logoWidth} 10 re f\n`
 
   const fields = [
     `MEDIDA: ${label.measure}`,
     `PESO: ${label.weightKg.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}`,
     'DATA DE REGISTRO:',
     new Date(`${label.registeredAt}T00:00:00`).toLocaleDateString('pt-BR'),
-  ].map((text) => ({ text, minWidth: MIN_MEASURE_WIDTH }))
+  ].map((text) => ({ text }))
   if (label.expiresAt) {
-    fields.push(
-      { text: 'VALIDADE:', minWidth: MIN_MEASURE_WIDTH },
-      { text: label.expiresAt, minWidth: MIN_MEASURE_WIDTH },
-    )
+    fields.push({ text: 'VALIDADE:' }, { text: label.expiresAt })
   }
   if (label.weightChanged) {
-    fields.push({ text: 'PESO ALTERADO', minWidth: MIN_MEASURE_WIDTH })
+    fields.push({ text: 'PESO ALTERADO' })
   }
 
-  const firstY = 354
-  const lastY = PAGE_HEIGHT - 54
+  const firstY = 310
+  const lastY = 730
   const fieldSpacing =
     fields.length > 1
-      ? Math.min(75, (lastY - firstY) / (fields.length - 1))
+      ? (lastY - firstY) / (fields.length - 1)
       : 75
-  fields.forEach(({ text: field, minWidth = 0 }, index) => {
+  fields.forEach(({ text: field }, index) => {
     const y = firstY + index * fieldSpacing
-    const fontSize = 27
+    const fontSize = 27 * TEXT_SCALE
     const safeField = pdfText(field)
     const naturalWidth = textWidth(safeField, fontSize)
-    content += `0 g\n${centeredText(field, y, fontSize, 'F1', PAGE_WIDTH - MARGIN * 2, minWidth)}`
+    content += `0 g\n${centeredText(field, y, 27, 'F1', PAGE_WIDTH - MARGIN * 2, MIN_TEXT_WIDTH)}`
     const underlineWidth = Math.min(
-      right - left - 36,
-      Math.max(naturalWidth, minWidth) + 8,
+      PAGE_WIDTH - MARGIN * 2,
+      Math.max(naturalWidth, MIN_TEXT_WIDTH) + 8,
     )
     const underlineLeft = (PAGE_WIDTH - underlineWidth) / 2
-    content += `0 G 1.5 w ${underlineLeft.toFixed(2)} ${PAGE_HEIGHT - (y + 6)} m ${(underlineLeft + underlineWidth).toFixed(2)} ${PAGE_HEIGHT - (y + 6)} l S\n`
+    const underlineY = PAGE_HEIGHT - y - 9
+    content += `0 G 2 w ${underlineLeft.toFixed(2)} ${underlineY.toFixed(2)} m ${(underlineLeft + underlineWidth).toFixed(2)} ${underlineY.toFixed(2)} l S\n`
   })
 
   return content
