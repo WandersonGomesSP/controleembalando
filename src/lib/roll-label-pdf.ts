@@ -10,7 +10,7 @@ export type RollLabelData = {
 const PAGE_WIDTH = 612
 const PAGE_HEIGHT = 792
 const MARGIN = 14.17
-const ID_FONT_SIZE = 110
+const ID_FONT_SIZE = 115
 const FIELD_FONT_SIZE = 27 * 1.6 + 20
 const MIN_TEXT_WIDTH = (9 * 72) / 2.54
 
@@ -49,17 +49,10 @@ function centeredText(
 function labelContent(label: RollLabelData) {
   const availableWidth = PAGE_WIDTH - MARGIN * 2
   const idPanelHeight = 140
-  const idPanelWidth = Math.min(
-    availableWidth,
-    textWidth(pdfText(label.code), ID_FONT_SIZE) + 40,
-  )
-  const idPanelLeft = (PAGE_WIDTH - idPanelWidth) / 2
-  const idPanelBottom = PAGE_HEIGHT - MARGIN - idPanelHeight
   const idBaseline = MARGIN + idPanelHeight / 2 + ID_FONT_SIZE * 0.3
   let content = '0 G 0 g\n'
 
-  content += `0 g ${idPanelLeft} ${idPanelBottom} ${idPanelWidth} ${idPanelHeight} re f\n`
-  content += `1 g\n${centeredText(label.code, idBaseline, ID_FONT_SIZE, 'F2', idPanelWidth - 24)}`
+  content += `0 g\n${centeredText(label.code, idBaseline, ID_FONT_SIZE, 'F2', availableWidth)}`
 
   const fields = [
     `MEDIDA: ${label.measure}`,
@@ -85,7 +78,7 @@ function labelContent(label: RollLabelData) {
     const fontSize = FIELD_FONT_SIZE
     const safeField = pdfText(field)
     const naturalWidth = textWidth(safeField, fontSize)
-    content += `0 g\n${centeredText(field, y, fontSize, 'F1', availableWidth, MIN_TEXT_WIDTH)}`
+    content += `0 g\n${centeredText(field, y, fontSize, 'F2', availableWidth, MIN_TEXT_WIDTH)}`
     const underlineWidth = Math.min(
       availableWidth,
       Math.max(naturalWidth, MIN_TEXT_WIDTH) + 8,
