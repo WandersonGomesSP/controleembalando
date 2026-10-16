@@ -19,69 +19,103 @@ function mascaraValidade(v: string) {
   return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d
 }
 
+function mensagemErro(error: unknown) {
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String(error.message)
+  }
+  return 'Verifique sua conexão e tente novamente.'
+}
+
 /* ---------------------------------- Entrada --------------------------------- */
 
 export function EntradaTab() {
-  const {
-    adicionarInsumoRolo,
-    sugerirCodigoInsumo,
-    referenciasInsumos,
-  } = useStore()
+  const { adicionarInsumoRolo, sugerirCodigosInsumo, referenciasInsumos } =
+    useStore()
   const [tipo, setTipo] = React.useState<TipoInsumo>('ROTULO')
   const [medidaCategoria, setMedidaCategoria] = React.useState('48mm')
-  const [codigo, setCodigo] = React.useState('')
-  const [codigoSugerido, setCodigoSugerido] = React.useState('')
+  const [quantidade, setQuantidade] = React.useState('1')
+  const [codigosSugeridos, setCodigosSugeridos] = React.useState<string[]>([])
+  const [maiorCodigo, setMaiorCodigo] = React.useState<string | null>(null)
   const [pesoLiquido, setPesoLiquido] = React.useState('')
   const [validade, setValidade] = React.useState('')
+  const [salvando, setSalvando] = React.useState(false)
   const categorias = referenciasInsumos
     .filter((referencia) => referencia.tipo === tipo)
     .map((referencia) => referencia.medidaCategoria)
+  const quantidadeNumerica = Number(quantidade)
 
   React.useEffect(() => {
     let ativo = true
-    sugerirCodigoInsumo(tipo, medidaCategoria)
-      .then((proximo) => {
+    if (
+      !Number.isInteger(quantidadeNumerica) ||
+      quantidadeNumerica < 1 ||
+      quantidadeNumerica > 99
+    ) {
+      setCodigosSugeridos([])
+      setMaiorCodigo(null)
+      return
+    }
+    setCodigosSugeridos([])
+    setMaiorCodigo(null)
+    sugerirCodigosInsumo(tipo, medidaCategoria, quantidadeNumerica)
+      .then((preview) => {
         if (!ativo) return
-        setCodigoSugerido(proximo)
-        setCodigo(proximo)
+        setCodigosSugeridos(preview.codigos)
+        setMaiorCodigo(preview.maiorCodigo)
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (ativo) {
-          setCodigoSugerido('')
-          toast.error('Não foi possível sugerir o próximo código.')
+          setCodigosSugeridos([])
+          setMaiorCodigo(null)
+          toast.error('Não foi possível consultar os próximos códigos.', {
+            description: mensagemErro(error),
+          })
         }
       })
     return () => {
       ativo = false
     }
-  }, [tipo, medidaCategoria, sugerirCodigoInsumo])
+  }, [tipo, medidaCategoria, quantidadeNumerica, sugerirCodigosInsumo])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     const peso = num(pesoLiquido)
     const mes = Number(validade.slice(0, 2))
     if (!medidaCategoria) return toast.error('Selecione a categoria.')
-    if (!codigo.trim()) return toast.error('Informe o código do rolo.')
+    if (
+      !Number.isInteger(quantidadeNumerica) ||
+      quantidadeNumerica < 1 ||
+      quantidadeNumerica > 99
+    )
+      return toast.error('Informe uma quantidade entre 1 e 99 rolos.')
     if (!(peso > 0)) return toast.error('Informe o peso líquido do rolo.')
-    if (!/^\d{2}\/\d{2}$/.test(validade) || mes < 1 || mes > 12)
+    if (
+      tipo === 'ROTULO' &&
+      (!/^\d{2}\/\d{2}$/.test(validade) || mes < 1 || mes > 12)
+    )
       return toast.error('Validade deve estar no formato MM/AA.')
+    setSalvando(true)
     try {
-      const criado = await adicionarInsumoRolo(
+      const criados = await adicionarInsumoRolo(
         {
-          idCodigo: codigo.trim().toUpperCase(),
           tipo,
           medidaCategoria,
           pesoLiqKg: peso,
-          validade,
+          validade: tipo === 'ROTULO' ? validade : null,
         },
-        codigoSugerido,
+        quantidadeNumerica,
       )
-      toast.success('Rolo adicionado ao estoque', {
-        description: criado,
+      toast.success(`${criados.length} rolo(s) adicionado(s) ao estoque`, {
+        description: criados.join(', '),
       })
-    } catch {
-      toast.error('Não foi possível adicionar o rolo. Confira se o código já existe.')
+    } catch (error: unknown) {
+      toast.error(
+        'Não foi possível adicionar os rolos. Atualize os códigos e tente novamente.',
+        { description: mensagemErro(error) },
+      )
       return
+    } finally {
+      setSalvando(false)
     }
     setPesoLiquido('')
     setValidade('')
@@ -117,13 +151,20 @@ export function EntradaTab() {
             options={categorias}
           />
         </Field>
-        <Field label="Código do rolo" htmlFor="e-codigo" hint="Sugerido pelo banco; pode ser ajustado manualmente.">
+        <Field
+          label="Quantidade de rolos"
+          htmlFor="e-quantidade"
+          hint="Escolha de 1 a 99 rolos para cadastrar de uma vez."
+        >
           <TextInput
-            id="e-codigo"
-            value={codigo}
-            onChange={(e) => setCodigo(e.target.value.toUpperCase())}
-            placeholder={codigoSugerido || 'Aguardando código'}
-            className="font-mono uppercase"
+            id="e-quantidade"
+            type="number"
+            min={1}
+            max={99}
+            step={1}
+            value={quantidade}
+            onChange={(e) => setQuantidade(e.target.value)}
+            className="font-mono"
           />
         </Field>
         <Field label="Peso líquido (kg)" htmlFor="e-peso">
@@ -135,27 +176,47 @@ export function EntradaTab() {
             onChange={(e) => setPesoLiquido(e.target.value)}
           />
         </Field>
-        <Field label="Validade (MM/AA)" htmlFor="e-validade">
-          <TextInput
-            id="e-validade"
-            inputMode="numeric"
-            placeholder="MM/AA"
-            value={validade}
-            onChange={(e) => setValidade(mascaraValidade(e.target.value))}
-          />
-        </Field>
+        {tipo === 'ROTULO' && (
+          <Field label="Validade (MM/AA)" htmlFor="e-validade">
+            <TextInput
+              id="e-validade"
+              inputMode="numeric"
+              placeholder="MM/AA"
+              value={validade}
+              onChange={(e) => setValidade(mascaraValidade(e.target.value))}
+            />
+          </Field>
+        )}
 
-        <div role="status" className="flex items-center gap-3 self-end rounded-md border border-border px-4 py-3">
+        <div role="status" className="rounded-md border border-border px-4 py-3">
           <Hash className="size-4 shrink-0 text-muted-foreground" />
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">Próximo código</p>
-            <Mono className="block truncate text-lg font-semibold">{codigoSugerido || '—'}</Mono>
+          <div className="mt-2 min-w-0">
+            <p className="text-xs text-muted-foreground">
+              Maior código já ocupado
+            </p>
+            <Mono className="block truncate text-base font-semibold">
+              {maiorCodigo || '—'}
+            </Mono>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Próximos {codigosSugeridos.length} código(s)
+            </p>
+            <div className="flex flex-wrap gap-x-2">
+              {codigosSugeridos.length ? (
+                codigosSugeridos.map((proximo) => (
+                  <Mono key={proximo} className="text-base font-semibold">
+                    {proximo}
+                  </Mono>
+                ))
+              ) : (
+                <Mono className="text-base font-semibold">—</Mono>
+              )}
+            </div>
           </div>
         </div>
 
-        <PrimaryButton type="submit" className="sm:col-span-2">
+        <PrimaryButton type="submit" className="sm:col-span-2" disabled={salvando}>
           <PackagePlus className="size-5" />
-          Adicionar ao Estoque
+          {salvando ? 'Adicionando...' : 'Adicionar ao Estoque'}
         </PrimaryButton>
       </form>
     </Panel>
@@ -261,7 +322,7 @@ export function SaidaTab() {
                       <Mono>{kg(r.pesoLiqKg)}</Mono>
                     </td>
                     <td className="px-3 py-2.5 text-muted-foreground">
-                      <Mono>{r.validade}</Mono>
+                      <Mono>{r.validade || '—'}</Mono>
                     </td>
                     <td className="px-4 py-2 text-right">
                       <button

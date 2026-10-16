@@ -266,6 +266,27 @@ export function AccessGate({
     )
   }
 
+  if (screen === 'development' && activeUser && isDeveloper) {
+    return (
+      <main className="min-h-screen overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-[100rem]">
+          <AccessButton
+            type="button"
+            onClick={() => setScreen(developmentReturn)}
+            className="mb-5 bg-transparent pl-0 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="size-4" /> Voltar
+          </AccessButton>
+          <p className="mb-5 border-b border-border pb-5 text-sm leading-6 text-muted-foreground">
+            <LockKeyhole className="mr-2 inline size-4 text-warning" />
+            As alterações administrativas são validadas no servidor. Configure SUPABASE_SERVICE_ROLE_KEY somente nas variáveis privadas do Netlify.
+          </p>
+          <DeveloperPanel accessToken={accessToken} />
+        </div>
+      </main>
+    )
+  }
+
   if (activeUser && access && area === 'tubeteira' && areasPermitidas.some((entry) => entry.id === area)) {
     return <>{children(() => setArea(null))}</>
   }
@@ -427,22 +448,6 @@ export function AccessGate({
             </div>
           )}
 
-          {screen === 'development' && isDeveloper && (
-            <div className="mx-auto w-full max-w-5xl">
-              <AccessButton
-                type="button"
-                onClick={() => setScreen(developmentReturn)}
-                className="mb-5 -ml-4 bg-transparent text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="size-4" /> Voltar
-              </AccessButton>
-              <p className="mt-6 border-t border-border pt-5 text-sm leading-6 text-muted-foreground">
-                <LockKeyhole className="mr-2 inline size-4 text-warning" />
-                As alterações administrativas são validadas no servidor. Configure SUPABASE_SERVICE_ROLE_KEY somente nas variáveis privadas do Netlify.
-              </p>
-              <div className="mt-5"><DeveloperPanel accessToken={accessToken} /></div>
-            </div>
-          )}
         </section>
       </div>
     </main>

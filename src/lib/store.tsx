@@ -20,6 +20,7 @@ import type {
   ReferenciaTubeteRow,
   ResiduoRow,
   RoloRow,
+  StockOperationLogRow,
 } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 
@@ -28,6 +29,10 @@ type Store = {
   residuos: Residuo[]
   tubetes: LoteTubete[]
   insumosRolos: InsumoRolo[]
+  historicoEstoque: StockOperationLogRow[]
+  historicoTemMais: boolean
+  atualizarHistoricoEstoque: () => Promise<void>
+  carregarMaisHistoricoEstoque: () => Promise<void>
   referenciasTubetes: ReferenciaTubete[]
   referenciasInsumos: ReferenciaInsumo[]
   catalogos: Record<CatalogoChave, string[]>
@@ -42,11 +47,15 @@ type Store = {
   ajustarPeso: (id: string, pesoBruto: number, tara: number) => Promise<boolean>
   adicionarProducao: (p: Omit<ProducaoTubo, 'id'>) => Promise<void>
   adicionarTubetes: (l: Omit<LoteTubete, 'id'>) => Promise<void>
-  sugerirCodigoInsumo: (tipo: TipoInsumo, medidaCategoria: string) => Promise<string>
+  sugerirCodigosInsumo: (
+    tipo: TipoInsumo,
+    medidaCategoria: string,
+    quantidade: number,
+  ) => Promise<{ codigos: string[]; maiorCodigo: string | null }>
   adicionarInsumoRolo: (
-    insumo: Omit<InsumoRolo, 'dataRegistro'>,
-    codigoSugerido: string,
-  ) => Promise<string>
+    insumo: Omit<InsumoRolo, 'dataRegistro' | 'idCodigo'>,
+    quantidade: number,
+  ) => Promise<string[]>
   baixarInsumoRolo: (idCodigo: string) => Promise<void>
   ajustarPesoInsumo: (idCodigo: string, pesoLiqKg: number) => Promise<boolean>
   buscarInsumos: (termo: string) => Promise<InsumoRolo[]>
@@ -146,6 +155,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [residuos, setResiduos] = React.useState<Residuo[]>([])
   const [tubetes, setTubetes] = React.useState<LoteTubete[]>([])
   const [insumosRolos, setInsumosRolos] = React.useState<InsumoRolo[]>([])
+  const [historicoEstoque, setHistoricoEstoque] = React.useState<
+    StockOperationLogRow[]
+  >([])
+  const [historicoTemMais, setHistoricoTemMais] = React.useState(false)
   const [referenciasTubetes, setReferenciasTubetes] = React.useState<ReferenciaTubete[]>([])
   const [referenciasInsumos, setReferenciasInsumos] = React.useState<ReferenciaInsumo[]>([])
   const [catalogos, setCatalogos] = React.useState<Record<CatalogoChave, string[]>>({
@@ -157,6 +170,41 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [producao, setProducao] = React.useState<ProducaoTubo[]>([])
   const [proximoId, setProximoId] = React.useState(PRIMEIRO_ID_LIVRE)
   const [carregando, setCarregando] = React.useState(true)
+
+  const atualizarHistoricoEstoque = React.useCallback(async () => {
+    const { data, error } = await supabase
+      .from('stock_operation_logs')
+      .select('*')
+      .order('ocorrido_em', { ascending: false })
+      .order('id', { ascending: false })
+      .range(0, 99)
+    if (error) {
+      toast.error('Não foi possível atualizar o histórico de operações.', {
+        description: erroMensagem(error),
+      })
+      return
+    }
+    setHistoricoEstoque(data ?? [])
+    setHistoricoTemMais((data?.length ?? 0) === 100)
+  }, [])
+
+  const carregarMaisHistoricoEstoque = React.useCallback(async () => {
+    const inicio = historicoEstoque.length
+    const { data, error } = await supabase
+      .from('stock_operation_logs')
+      .select('*')
+      .order('ocorrido_em', { ascending: false })
+      .order('id', { ascending: false })
+      .range(inicio, inicio + 99)
+    if (error) {
+      toast.error('Não foi possível carregar mais operações.', {
+        description: erroMensagem(error),
+      })
+      return
+    }
+    setHistoricoEstoque((logs) => [...logs, ...(data ?? [])])
+    setHistoricoTemMais((data?.length ?? 0) === 100)
+  }, [historicoEstoque.length])
 
   React.useEffect(() => {
     let ativo = true
@@ -171,6 +219,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         referenciasTubetesResult,
         referenciasInsumosResult,
         catalogosResult,
+        historicoResult,
       ] =
         await Promise.all([
           supabase.from('rolos').select('*').order('id'),
@@ -185,6 +234,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             .order('tipo')
             .order('medida_categoria'),
           supabase.from('catalogos_operacionais').select('*').order('chave'),
+          supabase
+            .from('stock_operation_logs')
+            .select('*')
+            .order('ocorrido_em', { ascending: false })
+            .order('id', { ascending: false })
+            .range(0, 99),
         ])
 
       if (rolosResult.error) throw rolosResult.error
@@ -195,6 +250,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (referenciasTubetesResult.error) throw referenciasTubetesResult.error
       if (referenciasInsumosResult.error) throw referenciasInsumosResult.error
       if (catalogosResult.error) throw catalogosResult.error
+      if (historicoResult.error) throw historicoResult.error
       if (!ativo) return
 
       const rolosCarregados = (rolosResult.data ?? []).map(mapearRolo)
@@ -203,6 +259,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setTubetes((tubetesResult.data ?? []).map(mapearTubete))
       setProducao((producaoResult.data ?? []).map(mapearProducao))
       setInsumosRolos((insumosResult.data ?? []).map(mapearInsumoRolo))
+      setHistoricoEstoque(historicoResult.data ?? [])
+      setHistoricoTemMais((historicoResult.data?.length ?? 0) === 100)
       setReferenciasTubetes(
         (referenciasTubetesResult.data ?? []).map(mapearReferenciaTubete),
       )
@@ -235,6 +293,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  React.useEffect(() => {
+    let erroNotificado = false
+    const channel = supabase
+      .channel('stock-operation-history')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'stock_operation_logs' },
+        () => void atualizarHistoricoEstoque(),
+      )
+      .subscribe((status, error) => {
+        if (status === 'SUBSCRIBED') {
+          erroNotificado = false
+          return
+        }
+        if (
+          (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') &&
+          !erroNotificado
+        ) {
+          erroNotificado = true
+          toast.error('Atualização automática do histórico indisponível.', {
+            description: error?.message ?? 'Use o botão para atualizar manualmente.',
+          })
+        }
+      })
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [atualizarHistoricoEstoque])
+
   const value = React.useMemo<Store>(
     () => ({
       rolos,
@@ -247,6 +334,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       producao,
       proximoId,
       carregando,
+      historicoEstoque,
+      historicoTemMais,
+      atualizarHistoricoEstoque,
+      carregarMaisHistoricoEstoque,
       adicionarRolos: async (dados, quantidade) => {
         const { data, error } = await supabase.rpc('adicionar_rolos', {
           p_medida: dados.medida,
@@ -259,6 +350,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const novos = (data ?? []).map(mapearRolo)
         setRolos((lista) => [...lista, ...novos])
         setProximoId((atual) => atual + novos.length)
+        await atualizarHistoricoEstoque()
         return novos.map((rolo) => rolo.id)
       },
       darBaixa: async (id, residuoKg) => {
@@ -282,6 +374,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             ...list,
           ])
         }
+        await atualizarHistoricoEstoque()
       },
       ajustarPeso: async (id, pesoBruto, tara) => {
         const { data, error } = await supabase
@@ -295,6 +388,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setRolos((r) =>
           r.map((x) => (x.id === id ? { ...x, pesoBruto, tara } : x)),
         )
+        await atualizarHistoricoEstoque()
         return true
       },
       adicionarProducao: async (p) => {
@@ -316,6 +410,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .single()
         if (error) throw error
         setProducao((lista) => [mapearProducao(data), ...lista])
+        await atualizarHistoricoEstoque()
       },
       adicionarTubetes: async (l) => {
         const { data, error } = await supabase
@@ -334,29 +429,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .single()
         if (error) throw error
         setTubetes((lista) => [mapearTubete(data), ...lista])
+        await atualizarHistoricoEstoque()
       },
-      sugerirCodigoInsumo: async (tipo, medidaCategoria) => {
-        const { data, error } = await supabase.rpc('proximo_codigo_insumo', {
+      sugerirCodigosInsumo: async (tipo, medidaCategoria, quantidade) => {
+        const { data, error } = await supabase.rpc('consultar_codigos_insumo', {
           p_tipo: tipo,
           p_medida_categoria: medidaCategoria,
+          p_quantidade: quantidade,
         })
         if (error) throw error
-        return data
+        const preview = data?.[0]
+        if (!preview) throw new Error('O Supabase não retornou os códigos disponíveis.')
+        return { codigos: preview.codigos, maiorCodigo: preview.maior_codigo }
       },
-      adicionarInsumoRolo: async (insumo, codigoSugerido) => {
-        const { data, error } = await supabase.rpc('registrar_insumo_rolo', {
+      adicionarInsumoRolo: async (insumo, quantidade) => {
+        const { data, error } = await supabase.rpc('registrar_insumos_rolos', {
           p_tipo: insumo.tipo,
           p_medida_categoria: insumo.medidaCategoria,
           p_peso_liq_kg: insumo.pesoLiqKg,
           p_validade: insumo.validade,
-          p_id_codigo: insumo.idCodigo === codigoSugerido ? null : insumo.idCodigo,
+          p_quantidade: quantidade,
         })
         if (error) throw error
-        const row = data?.[0]
-        if (!row) throw new Error('O Supabase não retornou o rolo inserido.')
-        const created = mapearInsumoRolo(row)
-        setInsumosRolos((list) => [created, ...list])
-        return created.idCodigo
+        if (!data?.length) throw new Error('O Supabase não retornou os rolos inseridos.')
+        const created = data.map(mapearInsumoRolo)
+        setInsumosRolos((list) => [...created, ...list])
+        await atualizarHistoricoEstoque()
+        return created.map((rolo) => rolo.idCodigo)
       },
       baixarInsumoRolo: async (idCodigo) => {
         const { data, error } = await supabase.rpc('baixar_insumo_rolo', {
@@ -365,6 +464,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (error) throw error
         if (!data) throw new Error('Rolo já baixado ou não encontrado.')
         setInsumosRolos((list) => list.filter((entry) => entry.idCodigo !== idCodigo))
+        await atualizarHistoricoEstoque()
       },
       ajustarPesoInsumo: async (idCodigo, pesoLiqKg) => {
         const { data, error } = await supabase
@@ -380,6 +480,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             entry.idCodigo === idCodigo ? { ...entry, pesoLiqKg } : entry,
           ),
         )
+        await atualizarHistoricoEstoque()
         return true
       },
       buscarInsumos: async (termo) => {
@@ -433,6 +534,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       producao,
       proximoId,
       carregando,
+      historicoEstoque,
+      historicoTemMais,
+      atualizarHistoricoEstoque,
+      carregarMaisHistoricoEstoque,
     ],
   )
 

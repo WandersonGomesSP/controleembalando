@@ -13,10 +13,16 @@ export function ResumoTab() {
   const inventarioTubetes = referenciasTubetes.map((referencia) => {
     const lotes = tubetes.filter(
       (lote) =>
-        lote.medida.toLocaleLowerCase() === referencia.medida.toLocaleLowerCase(),
+        lote.medida.toLocaleLowerCase() === referencia.medida.toLocaleLowerCase() &&
+        lote.cor.toLocaleLowerCase() === (referencia.cor ?? '').toLocaleLowerCase(),
     )
     const qtdCaixas = lotes.reduce((total, lote) => total + lote.caixas, 0)
-    const total = qtdCaixas * referencia.tubetesPorCaixa
+    const total = lotes.reduce(
+      (soma, lote) =>
+        soma +
+        Math.max(0, lote.caixas * lote.unidadesPorCaixa - lote.perda),
+      0,
+    )
 
     return {
       ...referencia,

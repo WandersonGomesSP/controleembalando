@@ -59,7 +59,7 @@ export type InsumoRoloRow = {
   tipo: TipoInsumo
   medida_categoria: string
   peso_liq_kg: number
-  validade: string
+  validade: string | null
   data_registro: string
 }
 
@@ -76,6 +76,20 @@ export type ReferenciaInsumoRow = {
   medida_categoria: string
   estoque_min_kg: number | null
   limite_critico_kg: number | null
+}
+
+export type StockOperationLogRow = {
+  id: number
+  ocorrido_em: string
+  acao: 'ENTRADA' | 'SAÍDA' | 'ALTERAÇÃO'
+  entidade: string
+  registro_id: string
+  quantidade: number
+  codigos: string[]
+  operador: string
+  ator_email: string | null
+  ator_id: string | null
+  detalhes: Record<string, unknown>
 }
 
 export type RoleUsuario = 'ADMIN' | 'OPERATOR'
@@ -117,6 +131,8 @@ export type Database = {
       user_roles: Table<UserRoleRow, Omit<UserRoleRow, 'created_at'>>
       developer_accounts: Table<DeveloperAccountRow>
       catalogos_operacionais: Table<CatalogoOperacionalRow>
+      stock_operation_logs: Table<StockOperationLogRow>
+      stock_code_registry: Table<{ codigo: string; tabela_origem: string }>
     }
     Views: Record<string, never>
     Functions: {
@@ -138,12 +154,30 @@ export type Database = {
         Args: { p_tipo: TipoInsumo; p_medida_categoria: string }
         Returns: string
       }
+      consultar_codigos_insumo: {
+        Args: {
+          p_tipo: TipoInsumo
+          p_medida_categoria: string
+          p_quantidade: number
+        }
+        Returns: { codigos: string[]; maior_codigo: string | null }[]
+      }
+      registrar_insumos_rolos: {
+        Args: {
+          p_tipo: TipoInsumo
+          p_medida_categoria: string
+          p_peso_liq_kg: number
+          p_validade: string | null
+          p_quantidade: number
+        }
+        Returns: InsumoRoloRow[]
+      }
       registrar_insumo_rolo: {
         Args: {
           p_tipo: TipoInsumo
           p_medida_categoria: string
           p_peso_liq_kg: number
-          p_validade: string
+          p_validade: string | null
           p_id_codigo?: string | null
         }
         Returns: InsumoRoloRow[]

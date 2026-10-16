@@ -212,6 +212,7 @@ export const saveTubeteReference = createServerFn({ method: 'POST' })
     tokenInput.extend({
       originalDescription: z.string().nullable(),
       originalMeasure: z.string().nullable(),
+      originalColor: z.string().nullable(),
       descricao: z.string().trim().min(1).max(80),
       tubetesPorCaixa: z.number().int().min(1).max(100000),
       estoqueMin: z.number().int().min(0).nullable(),
@@ -222,7 +223,7 @@ export const saveTubeteReference = createServerFn({ method: 'POST' })
     const row = {
       descricao: data.descricao,
       medida: data.originalMeasure ?? data.descricao,
-      cor: null,
+      cor: data.originalColor,
       tubetes_por_caixa: data.tubetesPorCaixa,
       estoque_min: data.estoqueMin,
     }

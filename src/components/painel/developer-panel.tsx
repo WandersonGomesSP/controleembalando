@@ -49,6 +49,8 @@ function numeroOuNulo(value: FormDataEntryValue | null) {
 }
 
 export function DeveloperPanel({ accessToken }: { accessToken: string }) {
+  const accessTokenRef = React.useRef(accessToken)
+  accessTokenRef.current = accessToken
   const [data, setData] = React.useState<DeveloperData | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [message, setMessage] = React.useState('')
@@ -56,7 +58,9 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
   async function reload() {
     setLoading(true)
     try {
-      const loaded = await listDeveloperData({ data: { accessToken } })
+      const loaded = await listDeveloperData({
+        data: { accessToken: accessTokenRef.current },
+      })
       setData(loaded)
       setMessage('')
     } catch {
@@ -68,7 +72,7 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
 
   React.useEffect(() => {
     let active = true
-    listDeveloperData({ data: { accessToken } })
+    listDeveloperData({ data: { accessToken: accessTokenRef.current } })
       .then((loaded) => {
         if (!active) return
         setData(loaded)
@@ -85,7 +89,7 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
     return () => {
       active = false
     }
-  }, [accessToken])
+  }, [])
 
   async function submitNewUser(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -151,6 +155,7 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
           accessToken,
           originalDescription: original?.descricao ?? null,
           originalMeasure: original?.medida ?? null,
+          originalColor: original?.cor ?? null,
           descricao: String(values.get('description')),
           tubetesPorCaixa: factor,
           estoqueMin: minimum,
