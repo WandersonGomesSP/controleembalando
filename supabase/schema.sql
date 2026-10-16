@@ -336,7 +336,7 @@ create or replace function public.proximo_codigo_insumo(
 )
 returns text
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 declare
@@ -346,6 +346,10 @@ declare
   sequencia integer;
   codigo_candidato text;
 begin
+  if not public.can_access_area('tubeteira') then
+    raise exception 'Acesso negado à área de tubeteira.';
+  end if;
+
   if not exists (
     select 1
     from public.referencias_insumos
