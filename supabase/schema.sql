@@ -476,14 +476,37 @@ declare
   linhas_afetadas integer;
 begin
   if TG_TABLE_NAME = 'rolos' then
-    codigo_novo := NEW.id;
-    if TG_OP = 'UPDATE' then codigo_antigo := OLD.id; end if;
+    if TG_OP = 'INSERT' then
+      codigo_antigo := null;
+    else
+      codigo_antigo := OLD.id;
+    end if;
+    if TG_OP = 'DELETE' then
+      codigo_novo := null;
+    else
+      codigo_novo := NEW.id;
+    end if;
   else
-    codigo_novo := NEW.id_codigo;
-    if TG_OP = 'UPDATE' then codigo_antigo := OLD.id_codigo; end if;
+    if TG_OP = 'INSERT' then
+      codigo_antigo := null;
+    else
+      codigo_antigo := OLD.id_codigo;
+    end if;
+    if TG_OP = 'DELETE' then
+      codigo_novo := null;
+    else
+      codigo_novo := NEW.id_codigo;
+    end if;
   end if;
 
   if TG_OP = 'DELETE' then
+    if TG_TABLE_NAME = 'rolos' then
+      delete from public.stock_code_registry
+      where codigo = OLD.id and tabela_origem = TG_TABLE_NAME;
+    else
+      delete from public.stock_code_registry
+      where codigo = OLD.id_codigo and tabela_origem = TG_TABLE_NAME;
+    end if;
     return OLD;
   end if;
 
@@ -491,15 +514,22 @@ begin
     return NEW;
   end if;
 
+  if TG_OP = 'UPDATE' then
+    delete from public.stock_code_registry
+    where codigo = codigo_antigo and tabela_origem = TG_TABLE_NAME;
+  end if;
+
   insert into public.stock_code_registry
     (codigo, tabela_origem)
   values (codigo_novo, TG_TABLE_NAME)
-  on conflict (codigo) do nothing;
+  on conflict (codigo) do update
+  set tabela_origem = excluded.tabela_origem
+  where public.stock_code_registry.tabela_origem = excluded.tabela_origem;
   get diagnostics linhas_afetadas = row_count;
   if linhas_afetadas = 0 then
     raise exception using
       errcode = '23505',
-      message = 'Código já foi utilizado no sistema: ' || codigo_novo;
+      message = 'Código já está cadastrado em outro estoque: ' || codigo_novo;
   end if;
   return NEW;
 end;
@@ -1259,9 +1289,7 @@ security definer
 set search_path = ''
 as $$
   select exists (
-    select 1
-    from public.stock_code_registry as codigos_reservados
-    where codigos_reservados.codigo = p_codigo
+    select 1 from public.insumos_rolos where id_codigo = p_codigo
   );
 $$;
 
@@ -1338,15 +1366,12 @@ begin
   end if;
 
   select coalesce(
-    max(substring(codigos.codigo from char_length(prefixo) + 1 for 2)::integer),
+    max(substring(id_codigo from char_length(prefixo) + 1 for 2)::integer),
     0
   ) + 1
     into sequencia
-  from (
-    select codigos_reservados.codigo
-    from public.stock_code_registry as codigos_reservados
-  ) as codigos
-  where codigos.codigo ~ ('^' || prefixo || '[0-9]{2}$');
+  from public.insumos_rolos
+  where id_codigo ~ ('^' || prefixo || '[0-9]{2}$');
 
   if sequencia > 99 then
     raise exception 'Sequência mensal de capa esgotada.';
@@ -1453,15 +1478,12 @@ begin
   perform pg_advisory_xact_lock(hashtext('insumo-codigo:' || chave_serie));
 
   select coalesce(
-    max(substring(codigos.codigo from char_length(prefixo) + 1 for 2)::integer),
+    max(substring(id_codigo from char_length(prefixo) + 1 for 2)::integer),
     0
   )
   into maior_sequencia
-  from (
-    select codigos_reservados.codigo
-    from public.stock_code_registry as codigos_reservados
-  ) as codigos
-  where codigos.codigo ~ ('^' || prefixo || '[0-9]{2}' || sufixo || '$');
+  from public.insumos_rolos
+  where id_codigo ~ ('^' || prefixo || '[0-9]{2}' || sufixo || '$');
 
   if maior_sequencia > 0 then
     maior_codigo := prefixo || lpad(maior_sequencia::text, 2, '0') || sufixo;

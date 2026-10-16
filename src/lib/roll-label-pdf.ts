@@ -10,7 +10,7 @@ export type RollLabelData = {
 const PAGE_WIDTH = 612
 const PAGE_HEIGHT = 792
 const MARGIN = 14.17
-const TEXT_SCALE = 1.5
+const TEXT_SCALE = 1.6
 const MIN_TEXT_WIDTH = (9 * 72) / 2.54
 
 function pdfText(value: string) {
@@ -32,9 +32,10 @@ function centeredText(
   font: 'F1' | 'F2',
   maxWidth = PAGE_WIDTH - MARGIN * 2,
   minTextWidth = 0,
+  enlargeText = true,
 ) {
   const safeValue = pdfText(value)
-  const scaledFontSize = fontSize * TEXT_SCALE
+  const scaledFontSize = fontSize * (enlargeText ? TEXT_SCALE : 1)
   const naturalWidth = Math.max(textWidth(safeValue, scaledFontSize), 1)
   const horizontalScale = Math.min(100, (maxWidth / naturalWidth) * 100)
   const finalHorizontalScale = Math.max(
@@ -54,7 +55,7 @@ function labelContent(label: RollLabelData) {
   let content = '0 G 0 g\n'
 
   content += `0 g ${logoLeft} ${logoBottom} ${logoWidth} ${logoHeight} re f\n`
-  content += `1 g\n${centeredText(label.code, 175, 80, 'F2', logoWidth - 30)}`
+  content += `1 g\n${centeredText(label.code, 175, 80, 'F2', logoWidth - 30, 0, false)}`
   content += `0 g ${logoLeft} ${logoBottom - 18} ${logoWidth} 10 re f\n`
 
   const fields = [
