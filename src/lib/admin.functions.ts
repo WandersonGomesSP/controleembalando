@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import type { Database, RoleUsuario } from '@/lib/database.types'
+import { syncGoogleSheets } from '@/lib/google-sheets-sync.server'
 
 const tokenInput = z.object({ accessToken: z.string().min(20) })
 const areaSchema = z.enum(['tubeteira', 'rebobinadeira'])
@@ -55,6 +56,11 @@ const stockCorrectionSchemas = {
       perda: z.number().min(0),
       container: z.string().max(120),
       carrinho: z.string().max(120),
+      quantidade_carrinhos: z.number().int().min(0).optional(),
+      quantidade_containers: z.number().int().min(0).optional(),
+      tubos_por_carrinho: z.number().int().min(0).optional(),
+      tubos_por_container: z.number().int().min(0).optional(),
+      quantidade_tubos: z.number().int().min(0).optional(),
     })
     .strict(),
   Resíduo: z
@@ -155,7 +161,7 @@ async function loadAdminSummarySnapshot(
     return {
       details: Object.fromEntries(Object.entries(data)),
       codes,
-      quantity: Math.max(codes.length, 1),
+      quantity: data.quantidade_tubos,
       operator: data.operador,
     }
   }
@@ -273,10 +279,37 @@ export const correctAdminSummaryRecord = createServerFn({ method: 'POST' })
     return { success: true }
   })
 
+export const deleteAdminSummaryRecord = createServerFn({ method: 'POST' })
+  .validator(
+    tokenInput.extend({
+      entidade: z.enum(['Rolo de insumo', 'Produção de tubos', 'Lote de tubetes']),
+      registroId: z.string().trim().min(1).max(120),
+      motivo: z.string().trim().min(3).max(500),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { client, user } = await requireAdminOrDeveloper(data.accessToken)
+    if (data.entidade !== 'Rolo de insumo' && !/^\d+$/.test(data.registroId)) {
+      throw new Error('Identificador do registro inválido.')
+    }
+    const { error } = await client.rpc('delete_admin_summary_record', {
+      p_entidade: data.entidade,
+      p_registro_id: data.registroId,
+      p_motivo: data.motivo,
+      p_actor_email: user.email,
+      p_actor_id: user.id,
+    })
+    if (error?.message.includes('não existe')) {
+      throw new Error('O registro já não existe mais.')
+    }
+    if (error) throw new Error('Não foi possível excluir o registro com auditoria.')
+    return { success: true }
+  })
+
 export const listDeveloperData = createServerFn({ method: 'POST' })
   .validator(tokenInput)
   .handler(async ({ data }) => {
-    const { client } = await requireDeveloper(data.accessToken)
+    const { client, user } = await requireDeveloper(data.accessToken)
     const [
       usersResult,
       rolesResult,
@@ -284,6 +317,8 @@ export const listDeveloperData = createServerFn({ method: 'POST' })
       insumosResult,
       developerAccountsResult,
       catalogosResult,
+      operadoresResult,
+      capacidadesResult,
     ] =
       await Promise.all([
         client.auth.admin.listUsers({ page: 1, perPage: 1000 }),
@@ -296,6 +331,8 @@ export const listDeveloperData = createServerFn({ method: 'POST' })
           .order('medida_categoria'),
         client.from('developer_accounts').select('email'),
         client.from('catalogos_operacionais').select('*').order('chave'),
+        client.from('operadores_operacionais').select('nome').order('nome'),
+        client.from('capacidades_producao').select('*').order('medida'),
       ])
 
     if (usersResult.error) throw new Error('Não foi possível listar as contas.')
@@ -306,12 +343,17 @@ export const listDeveloperData = createServerFn({ method: 'POST' })
       throw new Error('Não foi possível validar os administradores Dev.')
     }
     if (catalogosResult.error) throw new Error('Não foi possível carregar os catálogos.')
+    if (operadoresResult.error || capacidadesResult.error) {
+      throw new Error('Não foi possível carregar operadores e capacidades de produção.')
+    }
 
     const roles = new Map(rolesResult.data.map((entry) => [entry.user_id, entry]))
     const developerEmails = new Set(
       developerAccountsResult.data.map((entry) => entry.email),
     )
     return {
+      googleSheetsPermissionsConfirmed:
+        user.app_metadata.google_sheets_permissions_confirmed === true,
       users: usersResult.data.users.map((user) => {
         const access = roles.get(user.id)
         const developer = developerEmails.has(user.email?.toLowerCase() ?? '')
@@ -329,7 +371,72 @@ export const listDeveloperData = createServerFn({ method: 'POST' })
       tubetes: tubetesResult.data,
       insumos: insumosResult.data,
       catalogos: catalogosResult.data,
+      operadores: operadoresResult.data,
+      capacidades: capacidadesResult.data,
     }
+  })
+
+export const saveOperationalOperator = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ nome: z.string().trim().min(1).max(120) }))
+  .handler(async ({ data }) => {
+    const { client } = await requireDeveloper(data.accessToken)
+    const { error } = await client
+      .from('operadores_operacionais')
+      .upsert({ nome: data.nome })
+    if (error) throw new Error('Não foi possível salvar o operador.')
+    return { success: true }
+  })
+
+export const deleteOperationalOperator = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ nome: z.string().trim().min(1).max(120) }))
+  .handler(async ({ data }) => {
+    const { client } = await requireDeveloper(data.accessToken)
+    const { error } = await client
+      .from('operadores_operacionais')
+      .delete()
+      .eq('nome', data.nome)
+    if (error) throw new Error('Não foi possível remover o operador.')
+    return { success: true }
+  })
+
+export const saveProductionCapacity = createServerFn({ method: 'POST' })
+  .validator(
+    tokenInput.extend({
+      medida: z.enum(['12mm', '18mm', '19mm', '25mm', '38mm', '45mm', '48mm', '50mm', '70mm']),
+      tubosPorCarrinho: z.number().int().min(0).max(100000),
+      tubosPorContainer: z.number().int().min(0).max(100000),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { client } = await requireDeveloper(data.accessToken)
+    const { error } = await client.from('capacidades_producao').upsert({
+      medida: data.medida,
+      tubos_por_carrinho: data.tubosPorCarrinho,
+      tubos_por_container: data.tubosPorContainer,
+    })
+    if (error) throw new Error('Não foi possível salvar as capacidades desta medida.')
+    return { success: true }
+  })
+
+export const synchronizeGoogleSheetsNow = createServerFn({ method: 'POST' })
+  .validator(tokenInput)
+  .handler(async ({ data }) => {
+    await requireDeveloper(data.accessToken)
+    return syncGoogleSheets()
+  })
+
+export const confirmGoogleSheetsPermissions = createServerFn({ method: 'POST' })
+  .validator(tokenInput)
+  .handler(async ({ data }) => {
+    const { client, user } = await requireDeveloper(data.accessToken)
+    const { error } = await client.auth.admin.updateUserById(user.id, {
+      app_metadata: {
+        ...user.app_metadata,
+        google_sheets_permissions_confirmed: true,
+      },
+    })
+    if (error) throw new Error('Não foi possível salvar a confirmação das permissões.')
+    return { success: true }
   })
 
 export const listDeveloperStockLogs = createServerFn({ method: 'POST' })
@@ -411,13 +518,18 @@ export const correctDeveloperStockRecord = createServerFn({ method: 'POST' })
       throw new Error('Confira os campos informados para corrigir o registro.')
     }
 
-    const { data: corrected, error } = await client.rpc('correct_stock_record', {
+    const correctionInput = {
       p_log_id: data.logId,
       p_changes: changes.data,
       p_motivo: data.motivo,
       p_actor_email: user.email ?? '',
       p_actor_id: user.id,
-    })
+    }
+    const correction =
+      original.entidade === 'Produção de tubos'
+        ? await client.rpc('correct_production_record', correctionInput)
+        : await client.rpc('correct_stock_record', correctionInput)
+    const { data: corrected, error } = correction
     if (error?.message.includes('mais recente')) {
       throw new Error('Abra e corrija o evento mais recente desse registro no log.')
     }

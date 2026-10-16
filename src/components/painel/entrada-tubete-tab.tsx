@@ -19,6 +19,7 @@ export function EntradaTubeteTab() {
   const {
     adicionarTubetes,
     referenciasTubetes,
+    operadores,
   } = useStore()
   const [descricaoReferencia, setDescricaoReferencia] = React.useState('')
   const [dataProducao, setDataProducao] = React.useState(() =>
@@ -46,7 +47,7 @@ export function EntradaTubeteTab() {
     if (!Number.isFinite(perdaKg) || perdaKg < 0) {
       return toast.error('Informe uma perda de material em kg igual ou maior que zero.')
     }
-    if (!operador.trim()) return toast.error('Informe o operador.')
+    if (!operador) return toast.error('Selecione o operador.')
     try {
       await adicionarTubetes({
         medida: referencia.medida,
@@ -55,7 +56,7 @@ export function EntradaTubeteTab() {
         caixas: caixasQuantidade,
         unidadesPorCaixa: fator,
         perdaKg,
-        operador: operador.trim(),
+        operador,
       })
     } catch {
       return toast.error('Não foi possível salvar a entrada no Supabase.')
@@ -108,11 +109,12 @@ export function EntradaTubeteTab() {
               />
             </Field>
             <Field label="Operador" htmlFor="t-op">
-              <TextInput
+              <SelectInput
                 id="t-op"
-                placeholder="Nome do operador"
                 value={operador}
                 onChange={(e) => setOperador(e.target.value)}
+                placeholder="Selecione o operador"
+                options={operadores}
               />
             </Field>
             <Field

@@ -1,4 +1,5 @@
 import type {
+  CapacidadeProducao,
   CodigoGrupo,
   CatalogoChave,
   TipoInsumo,
@@ -51,6 +52,11 @@ export type ProducaoTuboRow = {
   perda: number
   container: string
   carrinho: string
+  quantidade_carrinhos: number
+  quantidade_containers: number
+  tubos_por_carrinho: number
+  tubos_por_container: number
+  quantidade_tubos: number
 }
 
 export type InsumoRoloRow = {
@@ -110,6 +116,12 @@ export type CatalogoOperacionalRow = {
   valores: string[]
 }
 
+export type CapacidadeProducaoRow = {
+  medida: string
+  tubos_por_carrinho: number
+  tubos_por_container: number
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -131,6 +143,8 @@ export type Database = {
       user_roles: Table<UserRoleRow, Omit<UserRoleRow, 'created_at'>>
       developer_accounts: Table<DeveloperAccountRow>
       catalogos_operacionais: Table<CatalogoOperacionalRow>
+      operadores_operacionais: Table<{ nome: string }>
+      capacidades_producao: Table<CapacidadeProducaoRow>
       stock_operation_logs: Table<StockOperationLogRow>
       stock_code_registry: Table<{ codigo: string; tabela_origem: string }>
     }
@@ -191,6 +205,26 @@ export type Database = {
         Returns: { role: string; area: string | null }[]
       }
       correct_stock_record: {
+        Args: {
+          p_log_id: number
+          p_changes: Record<string, unknown>
+          p_motivo: string
+          p_actor_email: string
+          p_actor_id: string
+        }
+        Returns: Record<string, unknown>
+      }
+      delete_admin_summary_record: {
+        Args: {
+          p_entidade: string
+          p_registro_id: string
+          p_motivo: string
+          p_actor_email: string
+          p_actor_id: string
+        }
+        Returns: undefined
+      }
+      correct_production_record: {
         Args: {
           p_log_id: number
           p_changes: Record<string, unknown>

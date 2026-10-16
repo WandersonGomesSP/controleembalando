@@ -46,7 +46,7 @@ function labelContent(label: RollLabelData) {
   let content = '0 G 0 g\n'
 
   content += `0 g ${logoLeft} ${PAGE_HEIGHT - 277} ${logoWidth} 185 re f\n`
-  content += `1 g\n${centeredText(`{{${label.code}}}`, 208, 72, 'F2', logoWidth - 32)}`
+  content += `1 g\n${centeredText(label.code, 208, 80, 'F2', logoWidth - 32)}`
   content += `0 g ${logoLeft} ${PAGE_HEIGHT - 302} ${logoWidth} 12 re f\n`
 
   const fields = [
@@ -62,7 +62,7 @@ function labelContent(label: RollLabelData) {
   const firstY = 354
   fields.forEach((field, index) => {
     const y = firstY + index * 75
-    const fontSize = field === 'DATA DE REGISTRO:' || field === 'VALIDADE:' ? 46 : 50
+    const fontSize = 27
     content += `0 g\n${centeredText(field, y, fontSize, 'F1')}`
     const underlineWidth = Math.min(
       right - left - 36,
@@ -75,9 +75,7 @@ function labelContent(label: RollLabelData) {
   return content
 }
 
-export function createRollLabelsPdf(labels: RollLabelData[]) {
-  if (labels.length === 0) throw new Error('Não há rolos para gerar etiquetas.')
-
+export function createRollLabelPdf(label: RollLabelData) {
   const objects: string[] = []
   const addObject = (value: string) => {
     objects.push(value)
@@ -88,20 +86,20 @@ export function createRollLabelsPdf(labels: RollLabelData[]) {
   const pagesId = addObject('')
   const pageIds: number[] = []
 
-  for (const label of labels) {
-    const stream = labelContent(label)
-    const contentId = addObject(`<< /Length ${stream.length} >>\nstream\n${stream}endstream`)
-    const pageId = addObject(
-      `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] /Resources << /Font << /F1 ${labels.length * 2 + 3} 0 R /F2 ${labels.length * 2 + 4} 0 R >> >> /Contents ${contentId} 0 R >>`,
-    )
-    pageIds.push(pageId)
-  }
-
-  const regularFontId = addObject(
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+  const stream = labelContent(label)
+  const contentId = addObject(`<< /Length ${stream.length} >>\nstream\n${stream}endstream`)
+  const regularFontId = objects.length + 2
+  const boldFontId = objects.length + 3
+  const pageId = addObject(
+    `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] /Resources << /Font << /F1 ${regularFontId} 0 R /F2 ${boldFontId} 0 R >> >> /Contents ${contentId} 0 R >>`,
   )
-  const boldFontId = addObject(
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+  pageIds.push(pageId)
+
+  addObject(
+    '<< /Type /Font /Subtype /Type1 /BaseFont /HelveticaNeue /Encoding /WinAnsiEncoding >>',
+  )
+  addObject(
+    '<< /Type /Font /Subtype /Type1 /BaseFont /HelveticaNeue-Bold /Encoding /WinAnsiEncoding >>',
   )
   objects[catalogId - 1] = `<< /Type /Catalog /Pages ${pagesId} 0 R >>`
   objects[pagesId - 1] =
@@ -129,14 +127,14 @@ export function createRollLabelsPdf(labels: RollLabelData[]) {
   return new Blob(chunks, { type: 'application/pdf' })
 }
 
-export function downloadRollLabelsPdf(labels: RollLabelData[]) {
-  const blob = createRollLabelsPdf(labels)
+export function downloadRollLabelPdf(label: RollLabelData) {
+  const blob = createRollLabelPdf(label)
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
-  const now = new Date()
-  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  anchor.download = `etiquetas-rolos-${date}.pdf`
+  const date = label.registeredAt.replace(/-/g, '')
+  const code = label.code.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+  anchor.download = `${code}-${date}.pdf`
   document.body.append(anchor)
   anchor.click()
   anchor.remove()

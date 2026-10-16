@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { toast } from 'sonner'
 import type { StockOperationLogRow } from '@/lib/database.types'
-import { int, kg, pesoLiquido, useStore } from '@/lib/store'
+import { int, kg, useStore } from '@/lib/store'
 import { Field, Mono, Panel, TextInput } from '@/components/painel/fields'
 import { ResumoPlanilha } from '@/components/painel/resumo-planilha'
 
@@ -18,7 +18,6 @@ function diaInclusivo(date: string, de: string, ate: string) {
 
 export function ResumoIndicadores() {
   const {
-    rolos,
     insumosRolos,
     tubetes,
     producao,
@@ -94,9 +93,8 @@ export function ResumoIndicadores() {
       diaInclusivo(item.data, de, ate) &&
       (!operador || item.operador.toLocaleLowerCase().includes(operador.toLocaleLowerCase())),
   )
-  const codigosProduzidos = producaoPeriodo.reduce(
-    (total, item) =>
-      total + Object.values(item.codigos).reduce((soma, codigos) => soma + codigos.length, 0),
+  const tubosProduzidos = producaoPeriodo.reduce(
+    (total, item) => total + item.quantidadeTubos,
     0,
   )
   const perdaPorOperador = new Map<string, number>()
@@ -116,16 +114,10 @@ export function ResumoIndicadores() {
   const maioresPerdas = [...perdaPorOperador.entries()].sort((a, b) => b[1] - a[1])
 
   const cards = [
-    { title: 'Rolos disponíveis', value: int(rolos.length), unit: 'rolos' },
     {
-      title: 'Insumos disponíveis',
+      title: 'Rótulos / capas disponíveis',
       value: `${int(insumosRolos.length)} · ${kg(insumosRolos.reduce((sum, row) => sum + row.pesoLiqKg, 0))}`,
       unit: 'rolos · kg',
-    },
-    {
-      title: 'Peso dos rolos disponíveis',
-      value: `${kg(rolos.reduce((sum, row) => sum + pesoLiquido(row), 0))} kg`,
-      unit: 'peso líquido',
     },
     {
       title: 'Tubetes em estoque',
@@ -207,9 +199,9 @@ export function ResumoIndicadores() {
         <Panel title="Produção e perdas" description="Perdas em kg são informadas separadamente do saldo contado em unidades.">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-md border border-border p-4">
-              <p className="text-xs text-muted-foreground">Produção de tubos</p>
-              <Mono className="mt-2 block text-2xl font-semibold">{int(producaoPeriodo.length)}</Mono>
-              <p className="mt-1 text-xs text-muted-foreground">{int(codigosProduzidos)} códigos / itens associados</p>
+              <p className="text-xs text-muted-foreground">Tubos produzidos</p>
+              <Mono className="mt-2 block text-2xl font-semibold">{int(tubosProduzidos)}</Mono>
+              <p className="mt-1 text-xs text-muted-foreground">{int(producaoPeriodo.length)} lançamento(s) no período</p>
             </div>
             <div className="rounded-md border border-border p-4">
               <p className="text-xs text-muted-foreground">Perda total no período</p>

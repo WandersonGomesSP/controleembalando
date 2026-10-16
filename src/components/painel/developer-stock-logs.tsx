@@ -45,6 +45,11 @@ const EDITABLE_FIELDS: Record<string, { key: string; label: string }[]> = {
     { key: 'perda', label: 'Perda (kg)' },
     { key: 'container', label: 'Container' },
     { key: 'carrinho', label: 'Carrinho' },
+    { key: 'quantidade_carrinhos', label: 'Quantidade de carrinhos' },
+    { key: 'quantidade_containers', label: 'Quantidade de containers' },
+    { key: 'tubos_por_carrinho', label: 'Tubos por carrinho' },
+    { key: 'tubos_por_container', label: 'Tubos por container' },
+    { key: 'quantidade_tubos', label: 'Total de tubos produzidos' },
   ],
   Resíduo: [
     { key: 'data', label: 'Data' },
@@ -63,13 +68,27 @@ const NUMBER_FIELDS = new Set([
   'tara',
   'perda',
   'peso',
+  'quantidade_carrinhos',
+  'quantidade_containers',
+  'tubos_por_carrinho',
+  'tubos_por_container',
+  'quantidade_tubos',
 ])
 const DATE_FIELDS = new Set(['data_producao', 'data_registro', 'entrada', 'data'])
 
 function valorInicial(log: StockOperationLogRow) {
   return Object.fromEntries(
     (EDITABLE_FIELDS[log.entidade] ?? []).map(({ key }) => {
-      const valor = log.detalhes[key]
+      const valor = log.detalhes[key] ??
+        ([
+          'quantidade_carrinhos',
+          'quantidade_containers',
+          'tubos_por_carrinho',
+          'tubos_por_container',
+          'quantidade_tubos',
+        ].includes(key)
+          ? 0
+          : undefined)
       return [
         key,
         valor === null || valor === undefined
@@ -102,7 +121,6 @@ function EditorCorrecao({
 }) {
   const fields = EDITABLE_FIELDS[log.entidade] ?? []
   const [values, setValues] = React.useState(() => valorInicial(log))
-  const [motivo, setMotivo] = React.useState('')
   const [saving, setSaving] = React.useState(false)
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -129,7 +147,12 @@ function EditorCorrecao({
     setSaving(true)
     try {
       await correctDeveloperStockRecord({
-        data: { accessToken, logId: log.id, changes, motivo },
+        data: {
+          accessToken,
+          logId: log.id,
+          changes,
+          motivo: 'Correção administrativa pelo histórico Dev',
+        },
       })
       toast.success('Registro corrigido no banco e correção adicionada ao histórico.')
       onSaved()
@@ -191,17 +214,6 @@ function EditorCorrecao({
           </Field>
         ))}
       </div>
-      <Field label="Motivo da correção" htmlFor={`edit-log-${log.id}-reason`}>
-        <TextInput
-          id={`edit-log-${log.id}-reason`}
-          value={motivo}
-          onChange={(event) => setMotivo(event.target.value)}
-          minLength={3}
-          maxLength={500}
-          placeholder="Explique o que estava errado"
-          required
-        />
-      </Field>
       <div className="flex flex-wrap gap-2">
         <PrimaryButton type="submit" size="md" disabled={saving}>
           <Save className="size-4" /> {saving ? 'Salvando...' : 'Salvar correção'}

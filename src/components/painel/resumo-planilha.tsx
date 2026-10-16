@@ -1,8 +1,11 @@
 import * as React from 'react'
-import { Pencil, Save, X } from 'lucide-react'
+import { Pencil, Save, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Field, Mono, Panel, PrimaryButton, SelectInput, TextInput } from '@/components/painel/fields'
-import { correctAdminSummaryRecord } from '@/lib/admin.functions'
+import {
+  correctAdminSummaryRecord,
+  deleteAdminSummaryRecord,
+} from '@/lib/admin.functions'
 import type { InsumoRolo, LoteTubete, ProducaoTubo } from '@/lib/fixtures'
 import { int, kg, useStore } from '@/lib/store'
 import { supabase } from '@/lib/supabase'
@@ -22,7 +25,7 @@ type SheetRow = {
 type FieldDefinition = {
   key: string
   label: string
-  type?: 'date' | 'number' | 'json' | 'tipo'
+  type?: 'dateBR' | 'number' | 'json' | 'tipo'
 }
 
 const FIELDS: Record<Entity, FieldDefinition[]> = {
@@ -32,11 +35,11 @@ const FIELDS: Record<Entity, FieldDefinition[]> = {
     { key: 'medida_categoria', label: 'Medida / categoria' },
     { key: 'peso_liq_kg', label: 'Peso líquido (kg)', type: 'number' },
     { key: 'validade', label: 'Validade (MM/AA)' },
-    { key: 'data_registro', label: 'Data de registro', type: 'date' },
+    { key: 'data_registro', label: 'Data de registro', type: 'dateBR' },
   ],
   'Produção de tubos': [
     { key: 'destino', label: 'Destino' },
-    { key: 'data', label: 'Data', type: 'date' },
+    { key: 'data', label: 'Data', type: 'dateBR' },
     { key: 'espessura', label: 'Espessura' },
     { key: 'tubo', label: 'Tubo' },
     { key: 'capa', label: 'Capa' },
@@ -49,7 +52,7 @@ const FIELDS: Record<Entity, FieldDefinition[]> = {
   'Lote de tubetes': [
     { key: 'medida', label: 'Medida' },
     { key: 'cor', label: 'Cor' },
-    { key: 'data_producao', label: 'Data da produção', type: 'date' },
+    { key: 'data_producao', label: 'Data da produção', type: 'dateBR' },
     { key: 'caixas', label: 'Caixas', type: 'number' },
     { key: 'unidades_por_caixa', label: 'Unidades por caixa', type: 'number' },
     { key: 'perda_kg', label: 'Perda (kg)', type: 'number' },
@@ -60,6 +63,33 @@ const FIELDS: Record<Entity, FieldDefinition[]> = {
 const MESES = Array.from({ length: 12 }, (_, index) =>
   new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date(2024, index, 1)),
 )
+
+function dataParaBR(iso: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : iso
+}
+
+function dataBRParaIso(data: string) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(data)
+  if (!match) throw new Error('Informe a data no formato DD/MM/AAAA.')
+  const [, dia, mes, ano] = match
+  const date = new Date(Number(ano), Number(mes) - 1, Number(dia))
+  if (
+    date.getFullYear() !== Number(ano) ||
+    date.getMonth() !== Number(mes) - 1 ||
+    date.getDate() !== Number(dia)
+  ) {
+    throw new Error('Informe uma data válida no formato DD/MM/AAAA.')
+  }
+  return `${ano}-${mes}-${dia}`
+}
+
+function mascaraDataBR(valor: string) {
+  const digitos = valor.replace(/\D/g, '').slice(0, 8)
+  if (digitos.length <= 2) return digitos
+  if (digitos.length <= 4) return `${digitos.slice(0, 2)}/${digitos.slice(2)}`
+  return `${digitos.slice(0, 2)}/${digitos.slice(2, 4)}/${digitos.slice(4)}`
+}
 
 function registroRolo(rolo: InsumoRolo): SheetRow {
   const values: RecordValues = {
@@ -94,18 +124,19 @@ function registroProducao(item: ProducaoTubo): SheetRow {
     perda: item.perda,
     container: item.container,
     carrinho: item.carrinho,
+    quantidade_carrinhos: item.quantidadeCarrinhos,
+    quantidade_containers: item.quantidadeContainers,
+    tubos_por_carrinho: item.tubosPorCarrinho,
+    tubos_por_container: item.tubosPorContainer,
+    quantidade_tubos: item.quantidadeTubos,
   }
-  const quantidadeCodigos = Object.values(item.codigos).reduce(
-    (total, codigos) => total + codigos.length,
-    0,
-  )
   return {
     key: `Produção de tubos:${item.id}`,
     entity: 'Produção de tubos',
     recordId: String(item.id),
     date: item.data,
     reference: `${item.tubo} · ${item.capa} · ${item.espessura}`,
-    quantity: `${int(quantidadeCodigos)} códigos · perda ${kg(item.perda)} kg`,
+    quantity: `${int(item.quantidadeTubos)} tubos · perda ${kg(item.perda)} kg`,
     operator: item.operador,
     values,
   }
@@ -152,12 +183,13 @@ function EditarRegistro({
             ? ''
             : type === 'json'
               ? JSON.stringify(value, null, 2)
+              : type === 'dateBR'
+                ? dataParaBR(String(value))
               : String(value),
         ]
       }),
     ),
   )
-  const [motivo, setMotivo] = React.useState('')
   const [saving, setSaving] = React.useState(false)
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -169,12 +201,13 @@ function EditarRegistro({
           const value = values[key] ?? ''
           if (type === 'json') return [key, JSON.parse(value)]
           if (type === 'number') return [key, Number(value.replace(',', '.'))]
+          if (type === 'dateBR') return [key, dataBRParaIso(value)]
           if (key === 'validade' && value === '') return [key, null]
           return [key, value]
         }),
       )
-    } catch {
-      toast.error('Confira o JSON de códigos informado.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Confira os campos informados.')
       return
     }
 
@@ -188,9 +221,11 @@ function EditarRegistro({
           accessToken,
           entidade: row.entity,
           registroId: row.recordId,
-          expected: row.values,
+          expected: Object.fromEntries(
+            Object.keys(changes).map((key) => [key, row.values[key]]),
+          ),
           changes,
-          motivo,
+          motivo: 'Correção administrativa pela planilha do Resumo',
         },
       })
       toast.success('Registro atualizado e correção adicionada ao histórico.')
@@ -231,30 +266,26 @@ function EditarRegistro({
             ) : (
               <TextInput
                 id={`sheet-${row.key}-${key}`}
-                type={type === 'date' ? 'date' : 'text'}
+                type="text"
                 inputMode={type === 'number' ? 'decimal' : undefined}
+                placeholder={type === 'dateBR' ? 'DD/MM/AAAA' : undefined}
                 value={values[key] ?? ''}
                 onChange={(event) =>
-                  setValues((current) => ({ ...current, [key]: event.target.value }))
+                  setValues((current) => ({
+                    ...current,
+                    [key]:
+                      type === 'dateBR'
+                        ? mascaraDataBR(event.target.value)
+                        : event.target.value,
+                  }))
                 }
               />
             )}
           </Field>
         ))}
-        <Field label="Motivo da correção" htmlFor={`sheet-${row.key}-motivo`} className="sm:col-span-2">
-          <TextInput
-            id={`sheet-${row.key}-motivo`}
-            value={motivo}
-            maxLength={500}
-            minLength={3}
-            required
-            onChange={(event) => setMotivo(event.target.value)}
-            placeholder="Explique a correção"
-          />
-        </Field>
       </div>
       <p className="text-xs text-muted-foreground">
-        A planilha salva no banco e registra a correção com o motivo no histórico.
+        A planilha salva no banco e registra a alteração, o responsável e o horário no histórico.
       </p>
       <div className="flex flex-wrap gap-2">
         <PrimaryButton type="submit" size="md" disabled={saving}>
@@ -279,9 +310,16 @@ export function ResumoPlanilha() {
   const { insumosRolos, producao, tubetes, carregando } = useStore()
   const [mes, setMes] = React.useState('todos')
   const [ano, setAno] = React.useState('todos')
+  const [tipoInsumo, setTipoInsumo] = React.useState('todos')
+  const [medida, setMedida] = React.useState('todos')
   const [administrador, setAdministrador] = React.useState(false)
   const [checandoPermissao, setChecandoPermissao] = React.useState(true)
   const [editando, setEditando] = React.useState<string | null>(null)
+  const [excluindo, setExcluindo] = React.useState<string | null>(null)
+  const [excluindoAgora, setExcluindoAgora] = React.useState(false)
+  const [registrosExcluidos, setRegistrosExcluidos] = React.useState<Set<string>>(
+    () => new Set(),
+  )
   const [alteracoesLocais, setAlteracoesLocais] = React.useState<Record<string, RecordValues>>({})
 
   React.useEffect(() => {
@@ -327,13 +365,11 @@ export function ResumoPlanilha() {
         }
       }
       if (row.entity === 'Produção de tubos') {
-        const codigos = values.codigos as Record<string, string[]>
-        const quantidade = Object.values(codigos).reduce((total, group) => total + group.length, 0)
         return {
           ...row,
           date: String(values.data),
           reference: `${values.tubo} · ${values.capa} · ${values.espessura}`,
-          quantity: `${int(quantidade)} códigos · perda ${kg(Number(values.perda))} kg`,
+          quantity: `${int(Number(values.quantidade_tubos))} tubos · perda ${kg(Number(values.perda))} kg`,
           operator: String(values.operador),
           values,
         }
@@ -350,10 +386,28 @@ export function ResumoPlanilha() {
   }, [insumosRolos, producao, tubetes, alteracoesLocais])
 
   const anos = [...new Set(linhas.map((row) => row.date.slice(0, 4)).filter(Boolean))].sort().reverse()
+  const medidas = [...new Set(
+    linhas.flatMap((row) => {
+      if (row.entity === 'Rolo de insumo') return [String(row.values.medida_categoria)]
+      if (row.entity === 'Produção de tubos') return [String(row.values.tubo)]
+      return [String(row.values.medida)]
+    }),
+  )].sort((left, right) => left.localeCompare(right, 'pt-BR'))
   const filtradas = linhas.filter((row) => {
+    if (registrosExcluidos.has(row.key)) return false
     const correspondeAno = ano === 'todos' || row.date.startsWith(`${ano}-`)
     const correspondeMes = mes === 'todos' || row.date.slice(5, 7) === mes
-    return correspondeAno && correspondeMes
+    const correspondeTipo =
+      tipoInsumo === 'todos' ||
+      (row.entity === 'Rolo de insumo' && row.values.tipo === tipoInsumo)
+    const medidaRegistro =
+      row.entity === 'Rolo de insumo'
+        ? String(row.values.medida_categoria)
+        : row.entity === 'Produção de tubos'
+          ? String(row.values.tubo)
+          : String(row.values.medida)
+    const correspondeMedida = medida === 'todos' || medidaRegistro === medida
+    return correspondeAno && correspondeMes && correspondeTipo && correspondeMedida
   })
   const grupos: { title: string; entity: Entity }[] = [
     { title: 'Rolos de rótulo / capa', entity: 'Rolo de insumo' },
@@ -361,12 +415,38 @@ export function ResumoPlanilha() {
     { title: 'Tubetes produzidos', entity: 'Lote de tubetes' },
   ]
 
+  async function excluirRegistro(row: SheetRow) {
+    if (!window.confirm(`Excluir o registro ${row.recordId}? A operação ficará preservada no Histórico.`)) return
+    setExcluindoAgora(true)
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (sessionError || !accessToken) throw new Error('Sessão inválida. Entre novamente.')
+      await deleteAdminSummaryRecord({
+        data: {
+          accessToken,
+          entidade: row.entity,
+          registroId: row.recordId,
+          motivo: 'Exclusão administrativa pela planilha do Resumo',
+        },
+      })
+      setRegistrosExcluidos((current) => new Set(current).add(row.key))
+      setEditando(null)
+      setExcluindo(null)
+      toast.success('Registro excluído e exclusão gravada no histórico.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível excluir o registro.')
+    } finally {
+      setExcluindoAgora(false)
+    }
+  }
+
   return (
     <Panel
       title="Planilha de registros"
       description="Consulte os registros por mês e ano. Administradores podem editar; cada ajuste fica registrado no histórico."
     >
-      <div className="mb-5 grid gap-4 sm:grid-cols-2">
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Field label="Mês" htmlFor="sheet-month">
           <SelectInput
             id="sheet-month"
@@ -389,6 +469,29 @@ export function ResumoPlanilha() {
             options={[
               { value: 'todos', label: 'Todos os anos' },
               ...anos.map((year) => ({ value: year, label: year })),
+            ]}
+          />
+        </Field>
+        <Field label="Tipo de rolo" htmlFor="sheet-type">
+          <SelectInput
+            id="sheet-type"
+            value={tipoInsumo}
+            onChange={(event) => setTipoInsumo(event.target.value)}
+            options={[
+              { value: 'todos', label: 'Rótulo e capa' },
+              { value: 'ROTULO', label: 'Rótulo' },
+              { value: 'CAPA', label: 'Capa' },
+            ]}
+          />
+        </Field>
+        <Field label="Medida" htmlFor="sheet-measure">
+          <SelectInput
+            id="sheet-measure"
+            value={medida}
+            onChange={(event) => setMedida(event.target.value)}
+            options={[
+              { value: 'todos', label: 'Todas as medidas' },
+              ...medidas,
             ]}
           />
         </Field>
@@ -419,22 +522,39 @@ export function ResumoPlanilha() {
                   {rows.map((row) => (
                     <React.Fragment key={row.key}>
                       <tr className="border-b border-border/70 hover:bg-accent/30">
-                        <td className="whitespace-nowrap px-3 py-2"><Mono>{row.date}</Mono></td>
+                        <td className="whitespace-nowrap px-3 py-2"><Mono>{dataParaBR(row.date)}</Mono></td>
                         <td className="px-3 py-2">{row.reference}</td>
                         <td className="px-3 py-2"><Mono>{row.quantity}</Mono></td>
                         <td className="px-3 py-2">{row.operator}</td>
                         <td className="px-3 py-2"><Mono>{row.recordId}</Mono></td>
                         {administrador && (
                           <td className="px-3 py-2">
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
-                              onClick={() => setEditando(editando === row.key ? null : row.key)}
-                              disabled={checandoPermissao}
-                            >
-                              <Pencil className="size-3.5" />
-                              Editar
-                            </button>
+                            <div className="flex flex-wrap gap-1">
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
+                                onClick={() => {
+                                  setExcluindo(null)
+                                  setEditando(editando === row.key ? null : row.key)
+                                }}
+                                disabled={checandoPermissao || excluindoAgora}
+                              >
+                                <Pencil className="size-3.5" />
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 rounded-md border border-destructive/60 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                                onClick={() => {
+                                  setEditando(null)
+                                  setExcluindo(excluindo === row.key ? null : row.key)
+                                }}
+                                disabled={checandoPermissao || excluindoAgora}
+                              >
+                                <Trash2 className="size-3.5" />
+                                Excluir
+                              </button>
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -452,6 +572,35 @@ export function ResumoPlanilha() {
                                 setEditando(null)
                               }}
                             />
+                          </td>
+                        </tr>
+                      )}
+                      {excluindo === row.key && administrador && (
+                        <tr className="border-b border-border">
+                          <td colSpan={6} className="p-3">
+                            <div className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/40 bg-background/40 p-4">
+                              <p className="mr-auto text-sm text-muted-foreground">
+                                Confirme para excluir {row.recordId}. O histórico com os dados anteriores será preservado.
+                              </p>
+                              <button
+                                type="button"
+                                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-destructive px-4 text-sm font-semibold text-destructive-foreground hover:opacity-90 disabled:opacity-50"
+                                onClick={() => void excluirRegistro(row)}
+                                disabled={excluindoAgora}
+                              >
+                                <Trash2 className="size-4" />
+                                {excluindoAgora ? 'Excluindo...' : 'Confirmar exclusão'}
+                              </button>
+                              <button
+                                type="button"
+                                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm hover:bg-accent"
+                                onClick={() => setExcluindo(null)}
+                                disabled={excluindoAgora}
+                              >
+                                <X className="size-4" />
+                                Cancelar
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )}

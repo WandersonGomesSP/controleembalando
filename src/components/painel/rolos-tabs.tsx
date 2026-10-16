@@ -12,7 +12,7 @@ import {
   TextInput,
 } from '@/components/painel/fields'
 import { StockOperationHistory } from '@/components/painel/stock-operation-history'
-import { downloadRollLabelsPdf } from '@/lib/roll-label-pdf'
+import { downloadRollLabelPdf } from '@/lib/roll-label-pdf'
 
 const num = (v: string) => Number(v.replace(',', '.'))
 
@@ -108,15 +108,15 @@ export function EntradaTab() {
         quantidadeNumerica,
       )
       try {
-        downloadRollLabelsPdf(
-          criados.map((rolo) => ({
+        for (const rolo of criados) {
+          downloadRollLabelPdf({
             code: rolo.idCodigo,
             measure: rolo.medidaCategoria,
             weightKg: rolo.pesoLiqKg,
             registeredAt: rolo.dataRegistro,
             expiresAt: rolo.validade,
-          })),
-        )
+          })
+        }
       } catch {
         toast.error('Os rolos foram cadastrados, mas não foi possível gerar o PDF das etiquetas.')
       }

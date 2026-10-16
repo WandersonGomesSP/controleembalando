@@ -1,19 +1,25 @@
 import * as React from 'react'
-import { Plus, Save, ShieldCheck, Trash2, Users } from 'lucide-react'
+import { Plus, RefreshCw, Save, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   createManagedUser,
+  confirmGoogleSheetsPermissions,
   deleteInsumoReference,
   deleteManagedUser,
+  deleteOperationalOperator,
   deleteTubeteReference,
   listDeveloperData,
   saveInsumoReference,
+  saveOperationalOperator,
+  saveProductionCapacity,
   saveTubeteReference,
+  synchronizeGoogleSheetsNow,
   updateManagedUser,
 } from '@/lib/admin.functions'
 import type {
   ReferenciaInsumoRow,
   ReferenciaTubeteRow,
+  CapacidadeProducaoRow,
   RoleUsuario,
   UserRoleRow,
 } from '@/lib/database.types'
@@ -29,13 +35,27 @@ type ManagedUser = {
 }
 
 type DeveloperData = {
+  googleSheetsPermissionsConfirmed: boolean
   users: ManagedUser[]
   tubetes: ReferenciaTubeteRow[]
   insumos: ReferenciaInsumoRow[]
+  operadores: { nome: string }[]
+  capacidades: CapacidadeProducaoRow[]
 }
 
 const AREAS_OPERADOR = ['tubeteira', 'rebobinadeira'] as const
 const TIPOS = ['ROTULO', 'CAPA'] as const
+const MEDIDAS_PRODUCAO = [
+  '12mm',
+  '18mm',
+  '19mm',
+  '25mm',
+  '38mm',
+  '45mm',
+  '48mm',
+  '50mm',
+  '70mm',
+] as const
 const NOMES_AREAS = {
   tubeteira: 'Tubeteira',
   rebobinadeira: 'Rebobinadeira',
@@ -55,6 +75,7 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
   const [data, setData] = React.useState<DeveloperData | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [message, setMessage] = React.useState('')
+  const [syncingSheets, setSyncingSheets] = React.useState(false)
 
   async function reload() {
     setLoading(true)
@@ -197,6 +218,90 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
     }
   }
 
+  async function submitOperator(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = event.currentTarget
+    const values = new FormData(form)
+    try {
+      await saveOperationalOperator({
+        data: { accessToken, nome: String(values.get('operator')).trim() },
+      })
+      form.reset()
+      toast.success('Operador cadastrado.')
+      await reload()
+    } catch {
+      toast.error('Não foi possível cadastrar o operador.')
+    }
+  }
+
+  async function removeOperator(nome: string) {
+    if (!window.confirm(`Remover ${nome} dos operadores disponíveis?`)) return
+    try {
+      await deleteOperationalOperator({ data: { accessToken, nome } })
+      toast.success('Operador removido da lista.')
+      await reload()
+    } catch {
+      toast.error('Não foi possível remover o operador.')
+    }
+  }
+
+  async function submitCapacity(event: React.FormEvent<HTMLFormElement>, medida: string) {
+    event.preventDefault()
+    const medidaValida = MEDIDAS_PRODUCAO.find((opcao) => opcao === medida)
+    if (!medidaValida) {
+      toast.error('A medida selecionada não é válida.')
+      return
+    }
+    const values = new FormData(event.currentTarget)
+    const tubosPorCarrinho = Number(values.get('cart'))
+    const tubosPorContainer = Number(values.get('container'))
+    if (
+      !Number.isInteger(tubosPorCarrinho) ||
+      tubosPorCarrinho < 0 ||
+      !Number.isInteger(tubosPorContainer) ||
+      tubosPorContainer < 0
+    ) {
+      toast.error('As capacidades devem ser números inteiros iguais ou maiores que zero.')
+      return
+    }
+    try {
+      await saveProductionCapacity({
+        data: { accessToken, medida: medidaValida, tubosPorCarrinho, tubosPorContainer },
+      })
+      toast.success(`Capacidades de ${medidaValida} atualizadas.`)
+      await reload()
+    } catch {
+      toast.error('Não foi possível salvar as capacidades desta medida.')
+    }
+  }
+
+  async function synchronizeSheets() {
+    if (syncingSheets) return
+    setSyncingSheets(true)
+    try {
+      const result = await synchronizeGoogleSheetsNow({ data: { accessToken } })
+      toast.success(`Planilha sincronizada: ${result.syncedSheets} guias atualizadas.`)
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível sincronizar a planilha. Confira as permissões e as variáveis do Netlify.',
+      )
+    } finally {
+      setSyncingSheets(false)
+    }
+  }
+
+  async function confirmSheetsAccess() {
+    try {
+      await confirmGoogleSheetsPermissions({ data: { accessToken } })
+      toast.success('Confirmação das permissões salva.')
+      await reload()
+    } catch {
+      toast.error('Não foi possível salvar a confirmação das permissões.')
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
@@ -219,6 +324,43 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
 
       {!loading && data && (
         <>
+          <Panel
+            title="Sincronização com Google Sheets"
+            description="Atualização automática de segunda a sexta-feira às 06h (horário de São Paulo)."
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void synchronizeSheets()}
+                disabled={syncingSheets}
+                className="inline-flex h-10 items-center gap-2 rounded-md bg-foreground px-4 text-sm font-medium text-background disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw className={`size-4 ${syncingSheets ? 'animate-spin' : ''}`} />
+                {syncingSheets ? 'Sincronizando...' : 'Sincronizar Agora'}
+              </button>
+              <p className="text-sm text-muted-foreground">
+                A execução automática fica suspensa até as variáveis de acesso do Google e do
+                Supabase estarem configuradas no Netlify.
+              </p>
+            </div>
+            {!data.googleSheetsPermissionsConfirmed && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-warning/40 bg-warning/10 p-4">
+                <p className="text-sm">
+                  Lembrete: configure a conta de serviço do Google, compartilhe a planilha com ela
+                  como Editora e cadastre as variáveis privadas no Netlify. Este aviso permanece até
+                  você confirmar.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void confirmSheetsAccess()}
+                  className="inline-flex h-9 shrink-0 items-center rounded-md border border-border px-3 text-sm hover:bg-accent"
+                >
+                  Já configurei as permissões
+                </button>
+              </div>
+            )}
+          </Panel>
+
           <DeveloperStockLogs accessToken={accessToken} />
 
           <Panel title="Usuários e permissões" description="Dev controla usuários; Admin acessa áreas operacionais; Operador fica restrito à sua área.">
@@ -305,6 +447,69 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
                             <button type="button" onClick={() => void removeUser(user)} aria-label={`Remover ${user.email}`} className="grid size-9 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><Trash2 className="size-4" /></button>
                           </div>
                         )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+
+          <Panel title="Operadores" description="Os nomes cadastrados aparecem nos seletores de operador. Os lançamentos antigos continuam preservados.">
+            <form onSubmit={submitOperator} className="mb-4 grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_auto]">
+              <Field label="Nome do operador" htmlFor="dev-operator-name">
+                <TextInput id="dev-operator-name" name="operator" maxLength={120} required />
+              </Field>
+              <PrimaryButton type="submit" size="md" className="self-end rounded-md shadow-none">
+                <Plus className="size-4" /> Cadastrar operador
+              </PrimaryButton>
+            </form>
+            <div className="flex flex-wrap gap-2">
+              {data.operadores.map(({ nome }) => (
+                <span key={nome} className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm">
+                  {nome}
+                  <button
+                    type="button"
+                    onClick={() => void removeOperator(nome)}
+                    aria-label={`Remover operador ${nome}`}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </span>
+              ))}
+              {data.operadores.length === 0 && (
+                <p className="text-sm text-muted-foreground">Cadastre os operadores para habilitar os seletores nas telas de produção.</p>
+              )}
+            </div>
+          </Panel>
+
+          <Panel title="Capacidade por carrinho e container" description="Defina quantos tubos cabem em cada carrinho e container por largura. O total produzido será calculado automaticamente.">
+            <div className="scroll-area overflow-x-auto">
+              <table className="w-full min-w-[38rem] text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                    <th className="py-3 pr-3">Medida</th>
+                    <th className="py-3 pr-3">Tubos por carrinho</th>
+                    <th className="py-3 pr-3">Tubos por container</th>
+                    <th className="py-3 text-right">Salvar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.capacidades.map((capacidade) => (
+                    <tr key={capacidade.medida} className="border-b border-border/70 last:border-0">
+                      <td colSpan={4} className="py-2">
+                        <form
+                          onSubmit={(event) => void submitCapacity(event, capacidade.medida)}
+                          className="grid grid-cols-[minmax(6rem,1fr)_minmax(8rem,1fr)_minmax(8rem,1fr)_6rem] items-center gap-2"
+                        >
+                          <span className="font-mono">{capacidade.medida}</span>
+                          <TextInput aria-label={`Tubos por carrinho em ${capacidade.medida}`} name="cart" type="number" min={0} step={1} defaultValue={capacidade.tubos_por_carrinho} className="h-9 font-mono" />
+                          <TextInput aria-label={`Tubos por container em ${capacidade.medida}`} name="container" type="number" min={0} step={1} defaultValue={capacidade.tubos_por_container} className="h-9 font-mono" />
+                          <button type="submit" className="inline-flex h-9 items-center justify-center gap-1 rounded-md bg-foreground px-2 text-xs font-medium text-background">
+                            <Save className="size-3.5" /> Salvar
+                          </button>
+                        </form>
                       </td>
                     </tr>
                   ))}

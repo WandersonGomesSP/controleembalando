@@ -68,22 +68,26 @@ export type ProducaoTubo = {
   perda: number
   container: string
   carrinho: string
+  quantidadeCarrinhos: number
+  quantidadeContainers: number
+  tubosPorCarrinho: number
+  tubosPorContainer: number
+  quantidadeTubos: number
 }
 
-export type CodigoGrupo =
-  | 'codCapa'
-  | 'codRotulo'
-  | 'ramenzoni400'
-  | 'ramenzoni280'
-  | 'codCola'
+export type CodigoGrupo = 'codCapa' | 'codRotulo' | 'codCola'
 
 export const CODIGO_GRUPOS: { key: CodigoGrupo; label: string }[] = [
   { key: 'codCapa', label: 'Cód Capa' },
   { key: 'codRotulo', label: 'Cód Rótulo' },
-  { key: 'ramenzoni400', label: 'Ramenzoni 400' },
-  { key: 'ramenzoni280', label: 'Ramenzoni 280' },
   { key: 'codCola', label: 'Cód Cola' },
 ]
+
+export type CapacidadeProducao = {
+  medida: string
+  tubosPorCarrinho: number
+  tubosPorContainer: number
+}
 
 export const MEDIDAS: { medida: string; minimoKg: number }[] = [
   { medida: '12mm', minimoKg: 400 },
@@ -190,13 +194,16 @@ export const PRODUCAO_INICIAL: ProducaoTubo[] = [
     codigos: {
       codCapa: ['CP-221'],
       codRotulo: ['RT-090'],
-      ramenzoni400: ['R4-17', 'R4-18'],
-      ramenzoni280: ['R2-05'],
       codCola: ['CL-PVA-3'],
     },
     operador: 'Anderson P.',
     perda: 6.5,
     container: 'C-12',
     carrinho: 'K-04',
+    quantidadeCarrinhos: 0,
+    quantidadeContainers: 0,
+    tubosPorCarrinho: 0,
+    tubosPorContainer: 0,
+    quantidadeTubos: 0,
   },
 ]

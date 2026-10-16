@@ -4,6 +4,7 @@ import {
   type LoteTubete,
   type InsumoRolo,
   type CatalogoChave,
+  type CapacidadeProducao,
   type ProducaoTubo,
   type ReferenciaInsumo,
   type ReferenciaTubete,
@@ -21,6 +22,7 @@ import type {
   ResiduoRow,
   RoloRow,
   StockOperationLogRow,
+  CapacidadeProducaoRow,
 } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 
@@ -39,6 +41,8 @@ type Store = {
   referenciasTubetes: ReferenciaTubete[]
   referenciasInsumos: ReferenciaInsumo[]
   catalogos: Record<CatalogoChave, string[]>
+  operadores: string[]
+  capacidadesProducao: CapacidadeProducao[]
   producao: ProducaoTubo[]
   proximoId: number
   carregando: boolean
@@ -48,7 +52,7 @@ type Store = {
   ) => Promise<string[]>
   darBaixa: (id: string, residuoKg: number) => Promise<void>
   ajustarPeso: (id: string, pesoBruto: number, tara: number) => Promise<boolean>
-  adicionarProducao: (p: Omit<ProducaoTubo, 'id'>) => Promise<void>
+  adicionarProducao: (p: Omit<ProducaoTubo, 'id'>) => Promise<ProducaoTubo>
   adicionarTubetes: (l: Omit<LoteTubete, 'id'>) => Promise<void>
   sugerirCodigosInsumo: (
     tipo: TipoInsumo,
@@ -115,7 +119,23 @@ function mapearTubete(row: LoteTubeteRow): LoteTubete {
 }
 
 function mapearProducao(row: ProducaoTuboRow): ProducaoTubo {
-  return { ...row, perda: Number(row.perda) }
+  return {
+    ...row,
+    perda: Number(row.perda),
+    quantidadeCarrinhos: row.quantidade_carrinhos,
+    quantidadeContainers: row.quantidade_containers,
+    tubosPorCarrinho: row.tubos_por_carrinho,
+    tubosPorContainer: row.tubos_por_container,
+    quantidadeTubos: row.quantidade_tubos,
+  }
+}
+
+function mapearCapacidade(row: CapacidadeProducaoRow): CapacidadeProducao {
+  return {
+    medida: row.medida,
+    tubosPorCarrinho: row.tubos_por_carrinho,
+    tubosPorContainer: row.tubos_por_container,
+  }
 }
 
 function mapearInsumoRolo(row: InsumoRoloRow): InsumoRolo {
@@ -180,6 +200,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     tubos: [],
     capas: [],
   })
+  const [operadores, setOperadores] = React.useState<string[]>([])
+  const [capacidadesProducao, setCapacidadesProducao] = React.useState<CapacidadeProducao[]>([])
   const [producao, setProducao] = React.useState<ProducaoTubo[]>([])
   const [proximoId, setProximoId] = React.useState(PRIMEIRO_ID_LIVRE)
   const [carregando, setCarregando] = React.useState(true)
@@ -275,6 +297,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         referenciasTubetesResult,
         referenciasInsumosResult,
         catalogosResult,
+        operadoresResult,
+        capacidadesResult,
         historicoResult,
       ] =
         await Promise.all([
@@ -290,6 +314,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             .order('tipo')
             .order('medida_categoria'),
           supabase.from('catalogos_operacionais').select('*').order('chave'),
+          supabase.from('operadores_operacionais').select('nome').order('nome'),
+          supabase.from('capacidades_producao').select('*').order('medida'),
           supabase
             .from('stock_operation_logs')
             .select('*')
@@ -306,6 +332,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (referenciasTubetesResult.error) throw referenciasTubetesResult.error
       if (referenciasInsumosResult.error) throw referenciasInsumosResult.error
       if (catalogosResult.error) throw catalogosResult.error
+      if (operadoresResult.error) throw operadoresResult.error
+      if (capacidadesResult.error) throw capacidadesResult.error
       if (historicoResult.error) throw historicoResult.error
       if (!ativo) return
 
@@ -324,6 +352,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         (referenciasInsumosResult.data ?? []).map(mapearReferenciaInsumo),
       )
       setCatalogos(mapearCatalogos(catalogosResult.data ?? []))
+      setOperadores((operadoresResult.data ?? []).map((row) => row.nome))
+      setCapacidadesProducao((capacidadesResult.data ?? []).map(mapearCapacidade))
       setProximoId(
         Math.max(
           PRIMEIRO_ID_LIVRE,
@@ -387,6 +417,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       referenciasTubetes,
       referenciasInsumos,
       catalogos,
+      operadores,
+      capacidadesProducao,
       producao,
       proximoId,
       carregando,
@@ -452,7 +484,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const { data, error } = await supabase
           .from('producao_tubos')
           .insert({
-            destino: p.destino,
+            destino: 'Produção',
             data: p.data,
             espessura: p.espessura,
             tubo: p.tubo,
@@ -462,12 +494,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             perda: p.perda,
             container: p.container,
             carrinho: p.carrinho,
+            quantidade_carrinhos: p.quantidadeCarrinhos,
+            quantidade_containers: p.quantidadeContainers,
+            tubos_por_carrinho: p.tubosPorCarrinho,
+            tubos_por_container: p.tubosPorContainer,
+            quantidade_tubos: p.quantidadeTubos,
           })
           .select('*')
           .single()
         if (error) throw error
-        setProducao((lista) => [mapearProducao(data), ...lista])
+        const created = mapearProducao(data)
+        setProducao((lista) => [created, ...lista])
         await atualizarHistoricoEstoque()
+        return created
       },
       adicionarTubetes: async (l) => {
         const { data, error } = await supabase
@@ -587,6 +626,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       referenciasTubetes,
       referenciasInsumos,
       catalogos,
+      operadores,
+      capacidadesProducao,
       producao,
       proximoId,
       carregando,
