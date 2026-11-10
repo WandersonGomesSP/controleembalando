@@ -10,8 +10,8 @@ export type RollLabelData = {
 const PAGE_WIDTH = 612
 const PAGE_HEIGHT = 792
 const MARGIN = 14.17
-const ID_FONT_SIZE = 115
-const FIELD_FONT_SIZE = 27 * 1.6 + 20
+const ID_FONT_SIZE = 105
+const FIELD_FONT_SIZE = 27 * 1.6 + 10
 const MIN_TEXT_WIDTH = (9 * 72) / 2.54
 
 function pdfText(value: string) {
