@@ -50,7 +50,7 @@ type FormularioBobina = {
   codigoEmenda: string
 }
 
-type Secao = 'cadastro' | 'registros' | 'dashboard'
+type Secao = 'cadastro' | 'registros'
 
 const LARGURAS = [
   '980.20',
@@ -229,26 +229,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
     const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av ?? '').localeCompare(String(bv ?? ''), 'pt-BR', { numeric: true })
     return ordenacao.asc ? cmp : -cmp
   })
-  const pesoTotalFiltrado = registrosFiltrados.reduce(
-    (total, registro) => total + Number(registro.peso_liquido || 0),
-    0,
-  )
-  const metragemTotalFiltrada = registrosFiltrados.reduce(
-    (total, registro) => total + Number(registro.metragem || 0),
-    0,
-  )
-  const producaoPorDia = Object.values(
-    registrosFiltrados.reduce<Record<string, { data: string; quantidade: number }>>(
-      (grupos, registro) => {
-        const chave = registro.data
-        grupos[chave] ??= { data: chave, quantidade: 0 }
-        grupos[chave].quantidade += 1
-        return grupos
-      },
-      {},
-    ),
-  ).sort((a, b) => a.data.localeCompare(b.data)).slice(-7)
-  const maxProducaoDia = Math.max(1, ...producaoPorDia.map((item) => item.quantidade))
+
 
   async function consultarRegistros() {
     const todos: CobrideiraBobinaRow[] = []
@@ -433,7 +414,6 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
             </button>
           </div>
           <nav aria-label="Menus da Cobrideira" className="flex flex-wrap gap-2 pb-3">
-            <button type="button" aria-current={secao === 'dashboard' ? 'page' : undefined} onClick={() => setSecao('dashboard')} className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'dashboard' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}>Painel BI</button>
             <button
               type="button"
               aria-current={secao === 'cadastro' ? 'page' : undefined}
@@ -457,30 +437,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       </header>
 
       <main className="mx-auto grid max-w-[90rem] gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        {secao === 'dashboard' ? (
-          <section className="grid gap-5">
-            <div><h2 className="text-2xl font-bold">Produção da Cobrideira</h2><p className="text-sm text-muted-foreground">Indicadores consolidados de todos os registros carregados.</p></div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                ['Filme consumido', formatarPeso(registrosFiltrados.reduce((s,r)=>s+Number(r.peso_bruto||0),0))+' kg'],
-                ['Cola consumida', formatarPeso(registrosFiltrados.reduce((s,r)=>s+Number(r.kg_cola||0),0))+' kg'],
-                ['% Vap/Cola', (()=>{const peso=registrosFiltrados.reduce((s,r)=>s+Number(r.peso_liquido||0),0);const cola=registrosFiltrados.reduce((s,r)=>s+Number(r.kg_cola||0),0);return peso?formatarPeso(cola/peso*100)+'%':'0,00%'})()],
-                ['Pigmento total', formatarPeso(registrosFiltrados.reduce((s,r)=>s+Number(r.pigmento_kg||0),0))+' kg'],
-                ['Bobinas', registrosFiltrados.length.toLocaleString('pt-BR')],
-                ['Comprimento total', metragemTotalFiltrada.toLocaleString('pt-BR')+' m'],
-                ['Área total', formatarPeso(registrosFiltrados.reduce((s,r)=>s+Number(r.largura||0)*Number(r.metragem||0)/1000,0))+' m²'],
-                ['Peso produzido', formatarPeso(pesoTotalFiltrado)+' kg'],
-              ].map(([label,value])=><div key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 text-2xl font-bold text-slate-900">{value}</p></div>)}
-            </div>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Panel title="Peso por largura"><div className="space-y-3">{Object.entries(registrosFiltrados.reduce<Record<string,number>>((a,r)=>{const k=String(r.largura);a[k]=(a[k]||0)+Number(r.peso_liquido||0);return a},{})).sort((a,b)=>Number(a[0])-Number(b[0])).map(([k,v])=><div key={k}><div className="mb-1 flex justify-between text-sm"><span>{k} mm</span><b>{formatarPeso(v)} kg</b></div><div className="h-3 rounded bg-slate-100"><div className="h-3 rounded bg-blue-700" style={{width:(v/Math.max(1,...Object.values(registrosFiltrados.reduce<Record<string,number>>((a,r)=>{const k=String(r.largura);a[k]=(a[k]||0)+Number(r.peso_liquido||0);return a},{})))*100)+'%'}} /></div></div>)}</div></Panel>
-              <Panel title="Pigmento por cor"><div className="space-y-3">{Object.entries(registrosFiltrados.reduce<Record<string,number>>((a,r)=>{const k=r.cor_mistura||r.cor_fundo||'Não informado';a[k]=(a[k]||0)+Number(r.pigmento_kg||0);return a},{})).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([k,v])=><div key={k} className="flex justify-between border-b border-slate-100 pb-2 text-sm"><span>{k}</span><b>{formatarPeso(v)} kg</b></div>)}</div></Panel>
-              <Panel title="Bobinas por turno"><div className="grid grid-cols-2 gap-3">{['1º TURNO','2º TURNO'].map(t=><div key={t} className="rounded-lg bg-slate-50 p-4"><p className="text-sm text-slate-500">{t}</p><p className="text-2xl font-bold">{registrosFiltrados.filter(r=>r.turno===t).length.toLocaleString('pt-BR')}</p></div>)}</div></Panel>
-              <Panel title="Produção por tipo de linha"><div className="space-y-2">{LINHAS.map(l=><div key={l} className="flex justify-between rounded-lg bg-slate-50 p-3 text-sm"><span>{l}</span><b>{registrosFiltrados.filter(r=>r.linha===l).length.toLocaleString('pt-BR')}</b></div>)}</div></Panel>
-            </div>
-            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Micragem e horas de parada não existem como campos na tabela atual; esses gráficos só poderão ser preenchidos depois de incluir esses dados no banco. Os indicadores acima não inventam esses valores.</p>
-          </section>
-        ) : secao === 'cadastro' ? (
+        {secao === 'cadastro' ? (tro' ? (
           <>
             <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm leading-6 text-muted-foreground">
               Cadastro salvo no schema isolado{' '}
