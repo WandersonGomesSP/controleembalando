@@ -197,6 +197,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
   const [linhaFiltro, setLinhaFiltro] = React.useState('')
   const [carregando, setCarregando] = React.useState(true)
   const [salvando, setSalvando] = React.useState(false)
+  const [editandoNumero, setEditandoNumero] = React.useState<string | null>(null)
   const [erroConsulta, setErroConsulta] = React.useState('')
   const [ordenacao, setOrdenacao] = React.useState<{ campo: keyof CobrideiraBobinaRow; asc: boolean }>({ campo: 'data', asc: false })
   const [modoVisualizacao, setModoVisualizacao] = React.useState<'lista' | 'cards'>('lista')
@@ -304,6 +305,45 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
     setForm((atual) => ({ ...atual, [campo]: valor }))
   }
 
+  function iniciarEdicao(registro: CobrideiraBobinaRow) {
+    setForm({
+      numeroBobina: registro.numero_bobina,
+      codBob: registro.cod_bob ?? '',
+      data: registro.data,
+      aba: registro.aba ?? '',
+      material: registro.material ?? '',
+      largura: String(registro.largura ?? ''),
+      pesoBruto: String(registro.peso_bruto ?? ''),
+      pesoFinal: String(registro.peso_final ?? ''),
+      pesoCilindro: String(registro.peso_cilindro ?? ''),
+      metragem: String(registro.metragem ?? ''),
+      perda: String(registro.perda_kg ?? ''),
+      fornecedorFilme: registro.fornecedor_filme ?? '',
+      vareta: String(registro.vareta_g ?? ''),
+      kgCola: String(registro.kg_cola ?? ''),
+      loteCola: registro.lote_cola ?? '',
+      codigoInterno: registro.codigo_interno ?? '',
+      fornecedorCola: registro.fornecedor_cola ?? '',
+      turno: registro.turno ?? '',
+      linha: registro.linha ?? '',
+      corFundo: registro.cor_fundo ?? '',
+      pigmento: String(registro.pigmento_kg ?? ''),
+      corMistura: registro.cor_mistura ?? '',
+      pigmentoMistura: registro.pigmento_mistura ?? '',
+      cliente: registro.cliente ?? '',
+      corImpressao: registro.cor_impressao ?? '',
+      emenda: registro.emenda ? 'SIM' : 'NÃO',
+      codigoEmenda: registro.codigo_emenda ?? '',
+    })
+    setEditandoNumero(registro.numero_bobina)
+    setSecao('cadastro')
+  }
+
+  function cancelarEdicao() {
+    setEditandoNumero(null)
+    setForm(formularioInicial())
+  }
+
   async function salvar(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const bruto = numero(form.pesoBruto)
@@ -379,17 +419,35 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
         emenda: form.emenda === 'SIM',
         codigo_emenda: form.codigoEmenda.trim(),
       }
-      const { data, error } = await supabase
-        .schema('cobrideira')
-        .from('bobinas')
-        .insert(insercao)
-        .select('*')
-        .single()
-      if (error) throw error
-      setRegistros((atuais) => [data, ...atuais])
+      const resultado = editandoNumero
+        ? await supabase
+            .schema('cobrideira')
+            .from('bobinas')
+            .update(insercao)
+            .eq('numero_bobina', editandoNumero)
+            .select('*')
+            .single()
+        : await supabase
+            .schema('cobrideira')
+            .from('bobinas')
+            .insert(insercao)
+            .select('*')
+            .single()
+      if (resultado.error) throw resultado.error
+      if (editandoNumero) {
+        setRegistros((atuais) =>
+          atuais.map((registro) =>
+            registro.numero_bobina === editandoNumero ? resultado.data : registro,
+          ),
+        )
+        toast.success('Dados da bobina atualizados.')
+      } else {
+        setRegistros((atuais) => [resultado.data, ...atuais])
+        toast.success('Bobina cadastrada na Cobrideira.')
+      }
+      setEditandoNumero(null)
       setForm(formularioInicial())
       setSecao('registros')
-      toast.success('Bobina cadastrada na Cobrideira.')
     } catch (error: unknown) {
       toast.error('Não foi possível cadastrar a bobina.', {
         description: erroMensagem(error),
@@ -457,7 +515,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
               <span className="font-mono text-foreground">cobrideira</span>.
             </div>
             <Panel
-              title="Cadastro de produção · nova bobina"
+              title={editandoNumero ? `Editar bobina · ${editandoNumero}` : 'Cadastro de produção · nova bobina'}
               description="Preencha os dados da bobina. O peso líquido é calculado pelo peso final menos o peso do cilindro."
             >
               <form onSubmit={salvar} className="grid gap-6">
@@ -471,6 +529,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                       }
                       required
                       maxLength={80}
+                      readOnly={Boolean(editandoNumero)}
                     />
                   </Field>
                   <Field label="Cód. bobina (externo)" htmlFor="cb-codigo">
@@ -779,14 +838,24 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                   </div>
                 </Panel>
 
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                  {editandoNumero && (
+                    <button
+                      type="button"
+                      onClick={cancelarEdicao}
+                      disabled={salvando}
+                      className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
+                    >
+                      Cancelar edição
+                    </button>
+                  )}
                   <PrimaryButton
                     type="submit"
                     disabled={salvando}
                     className="sm:w-auto"
                   >
                     <Save className="size-4" />
-                    {salvando ? 'Salvando...' : 'Salvar registro'}
+                    {salvando ? 'Salvando...' : editandoNumero ? 'Salvar alterações' : 'Salvar registro'}
                   </PrimaryButton>
                 </div>
               </form>
@@ -935,6 +1004,9 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                                     <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                                       {detalhes.map(([rotulo, valor]) => <div key={rotulo} className="min-w-0"><dt className="text-xs text-muted-foreground">{rotulo}</dt><dd className="break-words text-sm font-medium">{valor || '—'}</dd></div>)}
                                     </dl>
+                                    <div className="mt-4 flex justify-end">
+                                      <button type="button" onClick={() => iniciarEdicao(registro)} className="rounded-full bg-[#e3262e] px-4 py-2 text-sm font-bold text-black hover:bg-[#ff3b42]">Editar dados</button>
+                                    </div>
                                   </td>
                                 </tr>
                               )}
@@ -985,7 +1057,14 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                             <div><p className="text-xs text-gray-500">Fornecedor</p><p className="font-semibold">{registro.fornecedor_filme}</p></div>
                             <div><p className="text-xs text-gray-500">Situação</p><p className="font-semibold">Cadastrada</p></div>
                           </div>
-                          {expandido && <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">{detalhes.map(([rotulo, valor]) => <div key={rotulo} className="min-w-0"><dt className="text-xs text-gray-500">{rotulo}</dt><dd className="break-words text-sm font-medium">{valor || '—'}</dd></div>)}</dl>}
+                          {expandido && (
+                            <>
+                              <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">{detalhes.map(([rotulo, valor]) => <div key={rotulo} className="min-w-0"><dt className="text-xs text-gray-500">{rotulo}</dt><dd className="break-words text-sm font-medium">{valor || '—'}</dd></div>)}</dl>
+                              <div className="mt-4 flex justify-end">
+                                <button type="button" onClick={() => iniciarEdicao(registro)} className="rounded-full bg-[#e3262e] px-4 py-2 text-sm font-bold text-black hover:bg-[#ff3b42]">Editar dados</button>
+                              </div>
+                            </>
+                          )}
                         </article>
                       )
                     })}
