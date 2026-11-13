@@ -111,11 +111,12 @@ code {
   body {
     @apply bg-background text-foreground;
     background-color: #f3f4f6;
-    background-image: none;
+    background-image: url('/embalando-watermark.svg');
     background-repeat: no-repeat;
-    background-position: center 54%;
-    background-size: min(54vw, 480px) auto;
+    background-position: center center;
+    background-size: cover;
     background-attachment: fixed;
+    min-height: 100vh;
   }
   /* Superfícies sólidas: sem transparência ou desfoque nos painéis. */
   header.sticky { background: #ffffff !important; color: #172033 !important; backdrop-filter: none !important; }
