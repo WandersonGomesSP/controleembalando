@@ -408,8 +408,12 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
   }
   const refreshedMetadata = missingSheets.length ? await getMetadata() : metadata
   const bobinaSyncLog: { numeroBobina: string; guia: string; linha: number; status: 'inserida' | 'já existia' }[] = []
+  const newlyCreatedTitles = new Set(missingSheets.map((request) =>
+    (request as { addSheet: { properties: { title: string } } }).addSheet.properties.title
+  ))
   const bobinaTemplate = refreshedMetadata.sheets.find((entry) =>
-    /^[A-Za-zÀ-ÿ]{3}\/\d{2}$/.test(entry.properties.title)
+    /^[A-Za-zÀ-ÿ]{3}\/\d{2}$/.test(entry.properties.title) &&
+    !newlyCreatedTitles.has(entry.properties.title)
   )
 
   for (const sheet of sheets) {
