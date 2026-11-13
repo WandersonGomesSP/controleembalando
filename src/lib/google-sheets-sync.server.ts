@@ -365,11 +365,16 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string) {
   const client = createClient<Database>(config.supabaseUrl, config.serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
-  const [token, sheets] = await Promise.all([
+  const [token, allSheets] = await Promise.all([
     googleAccessToken(config.serviceAccountEmail, config.privateKey),
     loadSheetData(client, dataInicio, dataFim),
   ])
-  if (dataInicio && dataFim && !sheets.some((sheet) => sheet.rows[0]?.[0] === 'Número da bobina')) {
+  // A sincronização manual com intervalo de datas altera somente as guias de bobinas.
+  // A rotina automática sem intervalo continua atualizando as demais guias normalmente.
+  const sheets = dataInicio && dataFim
+    ? allSheets.filter((sheet) => sheet.rows[0]?.[0] === 'Número da bobina')
+    : allSheets
+  if (dataInicio && dataFim && !sheets.length) {
     throw new Error(`Não há bobinas cadastradas entre ${dataInicio} e ${dataFim}. Nenhuma guia foi atualizada.`)
   }
   const spreadsheetUrl = `${GOOGLE_SHEETS_API}/${encodeURIComponent(config.spreadsheetId)}`
