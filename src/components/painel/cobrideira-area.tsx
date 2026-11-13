@@ -488,7 +488,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
         aba: form.aba.trim(),
         material: form.material.trim(),
         largura: Math.trunc(Number(form.largura)),
-        micragem: Number(form.largura.split('.').at(-1)),
+        micragem: Number(form.largura.split('.')[1]),
         peso_bruto: bruto,
         peso_final: final,
         peso_cilindro: cilindro,
