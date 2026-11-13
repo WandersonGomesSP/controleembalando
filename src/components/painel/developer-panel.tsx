@@ -43,7 +43,7 @@ type DeveloperData = {
   capacidades: CapacidadeProducaoRow[]
 }
 
-const AREAS_OPERADOR = ['tubeteira', 'rebobinadeira'] as const
+const AREAS_OPERADOR = ['tubeteira', 'rebobinadeira', 'cobrideira'] as const
 const TIPOS = ['ROTULO', 'CAPA'] as const
 const MEDIDAS_PRODUCAO = [
   '12mm',
@@ -59,6 +59,7 @@ const MEDIDAS_PRODUCAO = [
 const NOMES_AREAS = {
   tubeteira: 'Tubeteira',
   rebobinadeira: 'Rebobinadeira',
+  cobrideira: 'Cobrideira',
   estufa: 'Estufa',
 } as const
 

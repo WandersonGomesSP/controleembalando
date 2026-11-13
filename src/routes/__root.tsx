@@ -6,9 +6,8 @@ import { NotFoundPage } from '@/components/error-pages'
 
 import '../styles.css'
 
-const siteName = 'Controle Tubeteira'
-const siteDescription =
-  'Controle de produção e estoque da Tubeteira'
+const siteName = 'Controle Embalando'
+const siteDescription = 'Controle de produção e estoque por setor'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -63,7 +62,7 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className="dark">
+    <html lang="pt-BR">
       <head>
         <HeadContent />
       </head>

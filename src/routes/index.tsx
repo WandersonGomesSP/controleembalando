@@ -18,11 +18,18 @@ import {
 import { ProducaoTubosTab } from '@/components/painel/producao-tubos-tab'
 import { EntradaTubeteTab } from '@/components/painel/entrada-tubete-tab'
 import { AccessGate } from '@/components/painel/access-gate'
+import { CobrideiraArea } from '@/components/painel/cobrideira-area'
 
 export const Route = createFileRoute('/')({
   component: () => (
     <AccessGate>
-      {(onChangeArea) => <Painel onChangeArea={onChangeArea} />}
+      {(onChangeArea, area) =>
+        area === 'cobrideira' ? (
+          <CobrideiraArea onChangeArea={onChangeArea} />
+        ) : (
+          <Painel onChangeArea={onChangeArea} />
+        )
+      }
     </AccessGate>
   ),
 })
@@ -33,7 +40,12 @@ const ABAS: {
   icon?: LucideIcon
   Component: () => React.ReactNode
 }[] = [
-  { id: 'resumo', label: 'Resumo', icon: LayoutDashboard, Component: ResumoTab },
+  {
+    id: 'resumo',
+    label: 'Resumo',
+    icon: LayoutDashboard,
+    Component: ResumoTab,
+  },
   { id: 'entrada', label: '+ Entrada', Component: EntradaTab },
   { id: 'saida', label: '- Saída', Component: SaidaTab },
   { id: 'ajuste', label: 'Ajuste Peso', icon: Scale, Component: AjustePesoTab },
@@ -67,10 +79,10 @@ function Painel({ onChangeArea }: { onChangeArea: () => void }) {
                 </span>
                 <div>
                   <h1 className="text-lg leading-tight font-semibold tracking-tight">
-                    Controle Tubeteira
+                    Controle Embalando
                   </h1>
                   <p className="text-xs text-muted-foreground">
-                    Controle de produção e estoque
+                    Tubeteira · Produção e estoque
                   </p>
                 </div>
               </div>

@@ -1,9 +1,4 @@
-import type {
-  CapacidadeProducao,
-  CodigoGrupo,
-  CatalogoChave,
-  TipoInsumo,
-} from '@/lib/fixtures'
+import type { CodigoGrupo, CatalogoChave, TipoInsumo } from '@/lib/fixtures'
 
 type Table<Row, Insert = Partial<Row>> = {
   Row: Row
@@ -100,13 +95,55 @@ export type StockOperationLogRow = {
 }
 
 export type RoleUsuario = 'ADMIN' | 'OPERATOR'
+export type AreaOperacional = 'tubeteira' | 'rebobinadeira' | 'cobrideira'
 
 export type UserRoleRow = {
   user_id: string
   role: RoleUsuario
-  area: 'tubeteira' | 'rebobinadeira' | null
+  area: AreaOperacional | null
   created_at: string
 }
+
+export type CobrideiraBobinaRow = {
+  id: string
+  idp: string
+  cod_bob: string
+  outra_bob: boolean
+  dar_baixa_bobina: boolean
+  data: string
+  aba: string
+  material: string
+  largura: number
+  peso_bruto: number
+  peso_final: number
+  peso_cilindro: number
+  peso_liquido: number
+  metragem: number
+  perda_kg: number
+  fornecedor_filme: string
+  vareta_g: number
+  kg_cola: number
+  lote_cola: string
+  codigo_interno: string
+  fornecedor_cola: string
+  turno: string
+  linha: string
+  cor_fundo: string
+  pigmento_kg: number
+  cor_mistura: string
+  pigmento_mistura: string
+  cliente: string
+  cor_impressao: string
+  emenda: boolean
+  codigo_emenda: string
+  created_by: string
+  created_at: string
+}
+
+export type CobrideiraBobinaInsert = Omit<
+  CobrideiraBobinaRow,
+  'id' | 'peso_liquido' | 'created_by' | 'created_at'
+>
 
 export type DeveloperAccountRow = {
   email: string
@@ -255,6 +292,15 @@ export type Database = {
         Returns: ProducaoTuboRow[]
       }
     }
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
+  }
+  cobrideira: {
+    Tables: {
+      bobinas: Table<CobrideiraBobinaRow, CobrideiraBobinaInsert>
+    }
+    Views: Record<string, never>
+    Functions: Record<string, never>
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }

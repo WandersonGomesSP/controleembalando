@@ -5,7 +5,7 @@ import type { Database, RoleUsuario } from '@/lib/database.types'
 import { syncGoogleSheets } from '@/lib/google-sheets-sync.server'
 
 const tokenInput = z.object({ accessToken: z.string().min(20) })
-const areaSchema = z.enum(['tubeteira', 'rebobinadeira'])
+const areaSchema = z.enum(['tubeteira', 'rebobinadeira', 'cobrideira'])
 const roleSchema = z.enum(['ADMIN', 'OPERATOR'])
 const isoDate = z.iso.date()
 

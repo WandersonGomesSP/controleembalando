@@ -7,13 +7,24 @@ import {
   Factory,
   LockKeyhole,
   LogOut,
+  Package,
+  Scissors,
+  Layers,
   Wrench,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { DeveloperPanel } from '@/components/painel/developer-panel'
 
-type AreaId = 'tubeteira' | 'rebobinadeira' | 'estufa'
+type AreaId =
+  | 'tubeteira'
+  | 'cobrideira'
+  | 'rebobinadeira'
+  | 'estufa'
+  | 'cartonagem'
+  | 'flexografia'
+  | 'fracionadeira'
+  | 'cortadeira-papel'
 type Screen = 'login' | 'areas' | 'development'
 type UserAccess = { role: 'DEVELOPER' | 'ADMIN' | 'OPERATOR'; area: AreaId | null }
 
@@ -32,6 +43,13 @@ const AREAS: {
     available: true,
   },
   {
+    id: 'cobrideira',
+    name: 'Cobrideira',
+    description: 'Cadastro e acompanhamento de bobinas',
+    icon: Package,
+    available: true,
+  },
+  {
     id: 'rebobinadeira',
     name: 'Rebobinadeira',
     description: 'Controle da operação de rebobinamento',
@@ -43,6 +61,34 @@ const AREAS: {
     name: 'Estufa',
     description: 'Acompanhamento dos ciclos de secagem',
     icon: Factory,
+    available: false,
+  },
+  {
+    id: 'cartonagem',
+    name: 'Cartonagem',
+    description: 'Área em preparação',
+    icon: Boxes,
+    available: false,
+  },
+  {
+    id: 'flexografia',
+    name: 'Flexografia',
+    description: 'Área em preparação',
+    icon: Layers,
+    available: false,
+  },
+  {
+    id: 'fracionadeira',
+    name: 'Fracionadeira',
+    description: 'Área em preparação',
+    icon: Scissors,
+    available: false,
+  },
+  {
+    id: 'cortadeira-papel',
+    name: 'Cortadeira de Papel',
+    description: 'Área em preparação',
+    icon: Scissors,
     available: false,
   },
 ]
@@ -98,7 +144,10 @@ function AccessField({
 export function AccessGate({
   children,
 }: {
-  children: (onChangeArea: () => void) => React.ReactNode
+  children: (
+    onChangeArea: () => void,
+    area: 'tubeteira' | 'cobrideira',
+  ) => React.ReactNode
 }) {
   const [screen, setScreen] = React.useState<Screen>('login')
   const [developmentReturn, setDevelopmentReturn] = React.useState<Screen>('login')
@@ -203,6 +252,11 @@ export function AccessGate({
       access?.role === 'ADMIN' ||
       (access?.role === 'OPERATOR' && access.area === entry.id),
   )
+  const areasExibidas = AREAS.filter(
+    (entry) =>
+      !entry.available ||
+      areasPermitidas.some((permitida) => permitida.id === entry.id),
+  )
 
   function handleUserLabelClick() {
     if (!isDeveloper) return
@@ -291,7 +345,11 @@ export function AccessGate({
   }
 
   if (activeUser && access && area === 'tubeteira' && areasPermitidas.some((entry) => entry.id === area)) {
-    return <>{children(() => setArea(null))}</>
+    return <>{children(() => setArea(null), area)}</>
+  }
+
+  if (activeUser && access && area === 'cobrideira' && areasPermitidas.some((entry) => entry.id === area)) {
+    return <>{children(() => setArea(null), area)}</>
   }
 
   if (activeUser && access && area && areasPermitidas.some((entry) => entry.id === area)) {
@@ -332,7 +390,7 @@ export function AccessGate({
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl items-center px-5 py-10 sm:px-8">
       <div className="grid w-full overflow-hidden rounded-lg border border-border bg-card lg:grid-cols-[minmax(18rem,0.85fr)_minmax(26rem,1.15fr)]">
-        <aside className="flex min-h-64 flex-col justify-between border-b border-border bg-[oklch(0.19_0_0)] p-7 sm:p-9 lg:min-h-[36rem] lg:border-r lg:border-b-0">
+        <aside className="flex min-h-64 flex-col justify-between border-b border-border bg-primary/10 p-7 sm:p-9 lg:min-h-[36rem] lg:border-r lg:border-b-0">
           <div>
             <span className="grid size-10 place-items-center rounded-md border border-border text-muted-foreground">
               <Cylinder className="size-6" />
@@ -411,14 +469,15 @@ export function AccessGate({
               </div>
 
               <div className="mt-8 grid gap-3">
-                {areasPermitidas.map((entry) => {
+                {areasExibidas.map((entry) => {
                   const Icon = entry.icon
                   return (
                     <button
                       key={entry.id}
                       type="button"
-                      onClick={() => chooseArea(entry.id)}
-                      className="group grid grid-cols-[2.5rem_1fr_auto] items-center gap-4 border-b border-border/80 px-3 py-4 text-left transition-colors first:border-t hover:bg-foreground/[0.035]"
+                      onClick={() => entry.available && chooseArea(entry.id)}
+                      disabled={!entry.available}
+                      className="group grid grid-cols-[2.5rem_1fr_auto] items-center gap-4 border-b border-border/80 px-3 py-4 text-left transition-colors first:border-t enabled:hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <span className="font-mono text-xs text-muted-foreground">
                         0{AREAS.indexOf(entry) + 1}
