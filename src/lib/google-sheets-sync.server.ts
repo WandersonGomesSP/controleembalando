@@ -176,7 +176,7 @@ function codigos(value: unknown) {
     .join(', ')
 }
 
-async function loadSheetData(client: ReturnType<typeof createClient<Database>>): Promise<SheetData[]> {
+async function loadSheetData(client: ReturnType<typeof createClient<Database>>, periodoBobinas?: string): Promise<SheetData[]> {
   const [insumos, producoes, tubetes, logs, bobinas] = await Promise.all([
     allRows('insumos_rolos', (start, end) =>
       client.from('insumos_rolos').select('*').order('data_registro').order('id_codigo').range(start, end),
@@ -190,9 +190,11 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>):
     allRows('stock_operation_logs', (start, end) =>
       client.from('stock_operation_logs').select('*').order('id', { ascending: false }).range(start, end),
     ),
-    allRows('cobrideira.bobinas', (start, end) =>
-      client.schema('cobrideira').from('bobinas').select('*').order('data').order('numero_bobina').range(start, end),
-    ),
+    allRows('cobrideira.bobinas', (start, end) => {
+      const query = client.schema('cobrideira').from('bobinas').select('*')
+      return (periodoBobinas ? query.eq('aba', periodoBobinas) : query)
+        .order('data').order('numero_bobina').range(start, end)
+    }),
   ])
 
   const rollRows: (string | number)[][] = [[
@@ -351,15 +353,18 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>):
   ]
 }
 
-export async function syncGoogleSheets() {
+export async function syncGoogleSheets(periodoBobinas?: string) {
   const config = readConfig()
   const client = createClient<Database>(config.supabaseUrl, config.serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
   const [token, sheets] = await Promise.all([
     googleAccessToken(config.serviceAccountEmail, config.privateKey),
-    loadSheetData(client),
+    loadSheetData(client, periodoBobinas),
   ])
+  if (periodoBobinas && sheets.every((sheet) => !sheet.rows[0]?.[0] || sheet.rows[0]?.[0] !== 'Número da bobina')) {
+    throw new Error(`Não há bobinas cadastradas para o período ${periodoBobinas}.`)
+  }
   const spreadsheetUrl = `${GOOGLE_SHEETS_API}/${encodeURIComponent(config.spreadsheetId)}`
   const getMetadata = () => googleRequest<{
     sheets: {
