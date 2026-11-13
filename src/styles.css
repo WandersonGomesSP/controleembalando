@@ -180,3 +180,10 @@ code {
   [class*="bg-primary/"], [class*="bg-background/"] { background-color: #ffffff !important; }
   [class*="text-muted-foreground"], [class*="text-foreground/"] { color: #111111 !important; }
 }
+
+@layer base {
+  button:not([disabled]) { border-radius: 9999px; background-color: #e3262e; color: #000000; border-color: #e3262e; }
+  button:not([disabled]):hover { background-color: #f0444b; color: #000000; }
+  button:disabled { color: #111111 !important; opacity: 1 !important; }
+  [role="tab"], [role="menuitem"], [role="option"] { color: #000000 !important; }
+}
