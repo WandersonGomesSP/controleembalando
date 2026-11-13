@@ -286,7 +286,7 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
       toast.error(
         error instanceof Error
           ? error.message
-          : 'Não foi possível sincronizar a planilha. Confira as permissões e as variáveis do Netlify.',
+          : 'Não foi possível sincronizar a planilha. Confira as permissões e as variáveis da Vercel.',
       )
     } finally {
       setSyncingSheets(false)
@@ -348,7 +348,7 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-warning/40 bg-warning/10 p-4">
                 <p className="text-sm">
                   Lembrete: configure a conta de serviço do Google, compartilhe a planilha com ela
-                  como Editora e cadastre as variáveis privadas no Netlify. Este aviso permanece até
+                  como Editora e cadastre as variáveis privadas na Vercel. Este aviso permanece até
                   você confirmar.
                 </p>
                 <button
