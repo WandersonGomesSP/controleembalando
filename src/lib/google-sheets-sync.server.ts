@@ -262,7 +262,6 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
   }
 
   // Layout da planilha correta de bobinas. A coluna G é intencionalmente vazia.
-  // Micragem não existe no cadastro atual do Supabase, então permanece em branco.
   const bobinaHeaders = [
     'DATA', 'N° BOB.', 'MATERIAL', 'LARGURA (MM)', 'MICRAGEM',
     'PESO BRUTO BOB.', '', 'PERDA (KG)', 'FORNEC. FILME', 'COD. BOBINA',
@@ -289,8 +288,9 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
   const bobinaSheets = new Map<string, (string | number)[][]>()
   for (let index = 0; index < bobinas.length; index += 1) {
     const periodo = String(bobinas[index].aba ?? '').trim() || 'Sem período'
-    // O Google Sheets não permite "/" no nome da guia; NOV/2026 vira NOV-2026.
-    const title = periodo.replace(/[\\/:?*\[\]]/g, '-').slice(0, 100) || 'Sem período'
+    // Preserva a barra no nome da guia (ex.: Nov/26). O Google Sheets permite "/".
+    // Normaliza somente caracteres que não são aceitos em títulos de guias.
+    const title = periodo.replace(/[:?*\[\]\\]/g, '-').slice(0, 100) || 'Sem período'
     if (!bobinaSheets.has(title)) bobinaSheets.set(title, [bobinaHeaders])
     bobinaSheets.get(title)!.push(bobinaRows[index + 1])
   }
@@ -396,7 +396,7 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
     .filter((sheet) => sheet.rows[0]?.[1] === 'N° BOB.')
     .map((sheet) => sheet.title))
   // Cria automaticamente qualquer guia ausente, inclusive as guias de bobinas
-  // definidas pelo período no cadastro (ex.: Nov-26).
+  // definidas pelo período no cadastro (ex.: Nov/26).
   const missingSheets = sheets
     .filter((sheet) => !existingTitles.has(sheet.title))
     .map((sheet) => ({ addSheet: { properties: { title: sheet.title } } }))
