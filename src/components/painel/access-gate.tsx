@@ -466,18 +466,18 @@ export function AccessGate({
                       type="button"
                       onClick={() => entry.available && chooseArea(entry.id)}
                       disabled={!entry.available}
-                      className="group grid min-h-36 grid-cols-[2rem_1fr] items-start gap-3 rounded-xl border-2 border-[#e3262e] bg-white px-5 py-5 text-left text-black shadow-md transition-colors enabled:hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-100"
+                      className="group grid min-h-36 grid-cols-[2rem_1fr] items-start gap-3 rounded-xl border-2 border-[#e3262e] bg-[#666666] px-5 py-5 text-left text-white shadow-md transition-colors enabled:hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-100"
                     >
                       <span className="grid size-8 place-items-center rounded-full bg-[#e3262e] font-mono text-xs font-bold text-black">
                         0{AREAS.indexOf(entry) + 1}
                       </span>
                       <span className="min-w-0">
-                        <span className="block font-semibold text-black">{entry.name}</span>
-                        <span className="mt-1 block text-sm leading-5 text-gray-900">
+                        <span className="block font-semibold text-white">{entry.name}</span>
+                        <span className="mt-1 block text-sm leading-5 text-white">
                           {entry.description}
                         </span>
                       </span>
-                      <span className="col-span-2 flex items-center justify-between border-t border-gray-200 pt-3 text-xs font-semibold text-black">
+                      <span className="col-span-2 flex items-center justify-between border-t border-gray-300 pt-3 text-xs font-semibold text-white">
                         <span>{!entry.available ? 'Em breve' : 'Disponível'}</span>
                         <Icon className="size-5 text-[#e3262e]" />
                       </span>
