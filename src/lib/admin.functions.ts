@@ -473,6 +473,65 @@ export const synchronizeCobrideiraBobina = createServerFn({ method: 'POST' })
     }
   })
 
+export const moveCobrideiraBobinaToTrash = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ numeroBobina: z.string().trim().min(1).max(80) }))
+  .handler(async ({ data }) => {
+    const { client, user } = await requireDeveloper(data.accessToken)
+    const { data: bobina, error: readError } = await client
+      .schema('cobrideira').from('bobinas').select('*')
+      .eq('numero_bobina', data.numeroBobina).maybeSingle()
+    if (readError || !bobina) throw new Error('Bobina não encontrada no cadastro ativo.')
+    const { error: archiveError } = await client.schema('cobrideira')
+      .from('bobinas_lixeira')
+      .insert({ numero_bobina: data.numeroBobina, dados: bobina, excluida_por: user.id })
+    if (archiveError) throw new Error(`Não foi possível mover a bobina para a lixeira: ${archiveError.message}`)
+    const { error: deleteError } = await client.schema('cobrideira').from('bobinas')
+      .delete().eq('numero_bobina', data.numeroBobina)
+    if (deleteError) {
+      await client.schema('cobrideira').from('bobinas_lixeira').delete().eq('numero_bobina', data.numeroBobina)
+      throw new Error(`A bobina foi arquivada, mas não saiu do cadastro ativo: ${deleteError.message}`)
+    }
+    return { success: true }
+  })
+
+export const listCobrideiraBobinasTrash = createServerFn({ method: 'POST' })
+  .validator(tokenInput)
+  .handler(async ({ data }) => {
+    const { client } = await requireDeveloper(data.accessToken)
+    const { data: rows, error } = await client.schema('cobrideira')
+      .from('bobinas_lixeira').select('*').order('excluida_em', { ascending: false })
+    if (error) throw new Error(`Não foi possível carregar a lixeira: ${error.message}`)
+    return rows ?? []
+  })
+
+export const restoreCobrideiraBobinaFromTrash = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ numeroBobina: z.string().trim().min(1).max(80) }))
+  .handler(async ({ data }) => {
+    const { client } = await requireDeveloper(data.accessToken)
+    const { data: archived, error: readError } = await client.schema('cobrideira')
+      .from('bobinas_lixeira').select('*')
+      .eq('numero_bobina', data.numeroBobina).single()
+    if (readError || !archived) throw new Error('Bobina não encontrada na lixeira.')
+    const { error: restoreError } = await client.schema('cobrideira')
+      .from('bobinas').insert(archived.dados as never)
+    if (restoreError) throw new Error(`Não foi possível restaurar a bobina: ${restoreError.message}`)
+    const { error: removeError } = await client.schema('cobrideira')
+      .from('bobinas_lixeira').delete().eq('numero_bobina', data.numeroBobina)
+    if (removeError) throw new Error(`Bobina restaurada, mas não foi possível removê-la da lixeira: ${removeError.message}`)
+    return { success: true }
+  })
+
+export const permanentlyDeleteCobrideiraBobina = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ numeroBobina: z.string().trim().min(1).max(80) }))
+  .handler(async ({ data }) => {
+    const { client } = await requireDeveloper(data.accessToken)
+    const { error } = await client.schema('cobrideira').from('bobinas_lixeira')
+      .delete().eq('numero_bobina', data.numeroBobina)
+    if (error) throw new Error(`Não foi possível excluir definitivamente a bobina: ${error.message}`)
+    return { success: true }
+  })
+
+
 export const confirmGoogleSheetsPermissions = createServerFn({ method: 'POST' })
   .validator(tokenInput)
   .handler(async ({ data }) => {
