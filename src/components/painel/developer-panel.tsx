@@ -77,7 +77,8 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
   const [loading, setLoading] = React.useState(true)
   const [message, setMessage] = React.useState('')
   const [syncingSheets, setSyncingSheets] = React.useState(false)
-  const [periodoBobinas, setPeriodoBobinas] = React.useState('')
+  const [dataInicioBobinas, setDataInicioBobinas] = React.useState('')
+  const [dataFimBobinas, setDataFimBobinas] = React.useState('')
 
   async function reload() {
     setLoading(true)
@@ -281,13 +282,18 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
     if (syncingSheets) return
     setSyncingSheets(true)
     try {
-      const periodo = periodoBobinas.trim()
-      if (!periodo) {
-        toast.error('Informe o período das bobinas, por exemplo Nov/26.')
+      if (!dataInicioBobinas || !dataFimBobinas) {
+        toast.error('Informe a data inicial e a data final do filtro.')
         return
       }
-      const result = await synchronizeGoogleSheetsNow({ data: { accessToken, periodoBobinas: periodo } })
-      toast.success(`Período ${periodo} sincronizado: ${result.syncedSheets} guias atualizadas.`)
+      if (dataFimBobinas < dataInicioBobinas) {
+        toast.error('A data final não pode ser anterior à data inicial.')
+        return
+      }
+      const result = await synchronizeGoogleSheetsNow({
+        data: { accessToken, dataInicio: dataInicioBobinas, dataFim: dataFimBobinas },
+      })
+      toast.success(`Bobinas cadastradas de ${dataInicioBobinas} a ${dataFimBobinas} sincronizadas: ${result.syncedSheets} guias atualizadas.`)
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -337,29 +343,38 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
           >
             <div className="flex flex-wrap items-end gap-3">
               <label className="grid gap-1 text-sm">
-                <span className="text-muted-foreground">Período das bobinas</span>
+                <span className="text-muted-foreground">Cadastradas a partir de</span>
                 <input
-                  type="text"
-                  value={periodoBobinas}
-                  onChange={(event) => setPeriodoBobinas(event.target.value)}
-                  placeholder="Ex.: Nov/26"
-                  aria-label="Período das bobinas para sincronizar"
-                  className="h-10 w-36 rounded-md border border-border bg-background px-3 text-sm"
+                  type="date"
+                  value={dataInicioBobinas}
+                  onChange={(event) => setDataInicioBobinas(event.target.value)}
+                  aria-label="Data inicial de cadastro das bobinas"
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  required
                 />
-                <span className="text-xs text-muted-foreground">Digite como no cadastro: Nov/26. Na planilha, a guia será Nov-26.</span>
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="text-muted-foreground">Até</span>
+                <input
+                  type="date"
+                  value={dataFimBobinas}
+                  onChange={(event) => setDataFimBobinas(event.target.value)}
+                  aria-label="Data final de cadastro das bobinas"
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  required
+                />
               </label>
               <button
                 type="button"
                 onClick={() => void synchronizeSheets()}
-                disabled={syncingSheets || !periodoBobinas.trim()}
+                disabled={syncingSheets || !dataInicioBobinas || !dataFimBobinas}
                 className="inline-flex h-10 items-center gap-2 rounded-md bg-foreground px-4 text-sm font-medium text-background disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <RefreshCw className={`size-4 ${syncingSheets ? 'animate-spin' : ''}`} />
                 {syncingSheets ? 'Sincronizando...' : 'Sincronizar Agora'}
               </button>
-              <p className="text-sm text-muted-foreground">
-                A execução automática fica suspensa até as variáveis de acesso do Google e do
-                Supabase estarem configuradas na Vercel.
+              <p className="max-w-xl text-sm text-muted-foreground">
+                Serão consideradas as bobinas cadastradas nesse intervalo. O sistema acrescenta somente as que ainda não existem na planilha e respeita a aba de destino informada em cada cadastro.
               </p>
             </div>
             {!data.googleSheetsPermissionsConfirmed && (
