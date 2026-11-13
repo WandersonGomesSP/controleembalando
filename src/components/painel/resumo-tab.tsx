@@ -122,7 +122,7 @@ export function ResumoTab() {
                           Mínimo não configurado
                         </span>
                       ) : item.abaixo ? (
-                        <span className="inline-flex rounded-md bg-red-950/50 px-2 py-1 text-xs text-red-400">
+                        <span className="inline-flex items-center rounded-full border-2 border-red-700 bg-[#ff2525] px-3 py-1.5 text-xs font-extrabold tracking-wide text-black shadow-[0_0_0_2px_rgba(255,37,37,0.22),0_0_12px_rgba(255,37,37,0.65)]">
                           PRODUZIR - abaixo do mínimo
                         </span>
                       ) : (
