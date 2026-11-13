@@ -23,7 +23,7 @@ code {
   --font-heading: var(--font-body);
   --content-width: 72rem;
   --reading-width: 42rem;
-  --background: oklch(0.96 0.025 245);
+  --background: oklch(0.9 0.055 245);
   --foreground: oklch(0.2 0.035 255);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.2 0.035 255);
@@ -115,6 +115,11 @@ code {
   body {
     @apply bg-background text-foreground;
     background-color: var(--background);
+    background-image: url('/embalando-watermark.svg');
+    background-repeat: no-repeat;
+    background-position: center 58%;
+    background-size: min(78vw, 760px) auto;
+    background-attachment: fixed;
   }
   input[type='date']::-webkit-calendar-picker-indicator {
     filter: invert(0.35);
