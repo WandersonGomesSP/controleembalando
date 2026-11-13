@@ -176,7 +176,7 @@ function codigos(value: unknown) {
     .join(', ')
 }
 
-async function loadSheetData(client: ReturnType<typeof createClient<Database>>, periodoBobinas?: string): Promise<SheetData[]> {
+async function loadSheetData(client: ReturnType<typeof createClient<Database>>, dataInicio?: string, dataFim?: string): Promise<SheetData[]> {
   const [insumos, producoes, tubetes, logs, bobinas] = await Promise.all([
     allRows('insumos_rolos', (start, end) =>
       client.from('insumos_rolos').select('*').order('data_registro').order('id_codigo').range(start, end),
@@ -191,9 +191,16 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
       client.from('stock_operation_logs').select('*').order('id', { ascending: false }).range(start, end),
     ),
     allRows('cobrideira.bobinas', (start, end) => {
-      const query = client.schema('cobrideira').from('bobinas').select('*')
-      return (periodoBobinas ? query.eq('aba', periodoBobinas) : query)
-        .order('data').order('numero_bobina').range(start, end)
+      let query = client.schema('cobrideira').from('bobinas').select('*')
+      if (dataInicio) {
+        query = query.gte('created_at', new Date(`${dataInicio}T00:00:00-03:00`).toISOString())
+      }
+      if (dataFim) {
+        const exclusiveEnd = new Date(`${dataFim}T00:00:00-03:00`)
+        exclusiveEnd.setUTCDate(exclusiveEnd.getUTCDate() + 1)
+        query = query.lt('created_at', exclusiveEnd.toISOString())
+      }
+      return query.order('created_at').order('numero_bobina').range(start, end)
     }),
   ])
 
@@ -353,17 +360,17 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
   ]
 }
 
-export async function syncGoogleSheets(periodoBobinas?: string) {
+export async function syncGoogleSheets(dataInicio?: string, dataFim?: string) {
   const config = readConfig()
   const client = createClient<Database>(config.supabaseUrl, config.serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
   const [token, sheets] = await Promise.all([
     googleAccessToken(config.serviceAccountEmail, config.privateKey),
-    loadSheetData(client, periodoBobinas),
+    loadSheetData(client, dataInicio, dataFim),
   ])
-  if (periodoBobinas && sheets.every((sheet) => !sheet.rows[0]?.[0] || sheet.rows[0]?.[0] !== 'Número da bobina')) {
-    throw new Error(`Não há bobinas cadastradas para o período ${periodoBobinas}.`)
+  if (dataInicio && dataFim && !sheets.some((sheet) => sheet.rows[0]?.[0] === 'Número da bobina')) {
+    throw new Error(`Não há bobinas cadastradas entre ${dataInicio} e ${dataFim}. Nenhuma guia foi atualizada.`)
   }
   const spreadsheetUrl = `${GOOGLE_SHEETS_API}/${encodeURIComponent(config.spreadsheetId)}`
   const getMetadata = () => googleRequest<{
