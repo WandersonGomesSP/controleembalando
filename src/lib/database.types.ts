@@ -111,6 +111,7 @@ export type CobrideiraBobinaRow = {
   aba: string
   material: string
   largura: number
+  micragem: number
   peso_bruto: number
   peso_final: number
   peso_cilindro: number
