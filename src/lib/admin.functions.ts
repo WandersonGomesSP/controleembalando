@@ -441,8 +441,17 @@ export const updateCobrideiraBobina = createServerFn({ method: 'POST' })
       .select('*')
       .single()
     if (error) {
-      console.error('Falha ao editar bobina da Cobrideira:', error)
-      throw new Error(`Não foi possível atualizar a bobina no banco: ${error.message}`)
+      console.error('[COBRIDEIRA][UPDATE] Erro Supabase completo:', {
+        message: error.message, code: error.code, details: error.details, hint: error.hint,
+        numeroOriginal: data.numeroOriginal,
+      })
+      throw new Error([
+        'SUPABASE_UPDATE_ERROR',
+        `code=${error.code ?? 'sem código'}`,
+        `message=${error.message}`,
+        `details=${error.details ?? 'sem detalhes'}`,
+        `hint=${error.hint ?? 'sem orientação'}`,
+      ].join(' | '))
     }
     return updated
   })
@@ -451,7 +460,17 @@ export const synchronizeCobrideiraBobina = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({ numeroBobina: z.string().trim().min(1).max(80) }))
   .handler(async ({ data }) => {
     await requireDeveloper(data.accessToken)
-    return syncGoogleSheets(undefined, undefined, data.numeroBobina)
+    try {
+      return await syncGoogleSheets(undefined, undefined, data.numeroBobina)
+    } catch (error) {
+      console.error('[COBRIDEIRA][SYNC] Erro completo ao sincronizar bobina:', {
+        numeroBobina: data.numeroBobina,
+        error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      })
+      throw new Error(`SYNC_BOBINA_${data.numeroBobina}: ${error instanceof Error ? error.message : String(error)}`)
+    }
   })
 
 export const confirmGoogleSheetsPermissions = createServerFn({ method: 'POST' })
