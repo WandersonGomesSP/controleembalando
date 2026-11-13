@@ -21,10 +21,8 @@ import type {
 } from '@/lib/database.types'
 
 type FormularioBobina = {
-  idp: string
+  numeroBobina: string
   codBob: string
-  outraBob: boolean
-  darBaixaBobina: boolean
   data: string
   aba: string
   material: string
@@ -76,10 +74,8 @@ function dataLocalHoje() {
 
 function formularioInicial(): FormularioBobina {
   return {
-    idp: '',
+    numeroBobina: '',
     codBob: '',
-    outraBob: false,
-    darBaixaBobina: false,
     data: dataLocalHoje(),
     aba: '',
     material: 'BOPP',
@@ -214,7 +210,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
     const termo = busca.trim().toLocaleLowerCase('pt-BR')
     const correspondeBusca =
       !termo ||
-      registro.idp.toLocaleLowerCase('pt-BR').includes(termo) ||
+      registro.numero_bobina.toLocaleLowerCase('pt-BR').includes(termo) ||
       registro.cod_bob.toLocaleLowerCase('pt-BR').includes(termo) ||
       registro.cliente.toLocaleLowerCase('pt-BR').includes(termo)
     return (
@@ -347,10 +343,8 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
     setSalvando(true)
     try {
       const insercao: CobrideiraBobinaInsert = {
-        idp: form.idp.trim(),
+        numero_bobina: form.numeroBobina.trim(),
         cod_bob: form.codBob.trim(),
-        outra_bob: form.outraBob,
-        dar_baixa_bobina: form.darBaixaBobina,
         data: form.data,
         aba: form.aba.trim(),
         material: form.material.trim(),
@@ -452,10 +446,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
           <>
             <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm leading-6 text-muted-foreground">
               Cadastro salvo no schema isolado{' '}
-              <span className="font-mono text-foreground">cobrideira</span>. A
-              sincronização com planilhas, etiquetas e movimentações de
-              cola/pigmento ainda não está ativa; a opção de baixa será
-              registrada como solicitação e não movimenta estoque.
+              <span className="font-mono text-foreground">cobrideira</span>.
             </div>
             <Panel
               title="Cadastro de produção · nova bobina"
@@ -463,12 +454,12 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
             >
               <form onSubmit={salvar} className="grid gap-6">
                 <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <Field label="Nº produção (IDP)" htmlFor="cb-idp">
+                  <Field label="Número da bobina" htmlFor="cb-numero-bobina">
                     <TextInput
-                      id="cb-idp"
-                      value={form.idp}
+                      id="cb-numero-bobina"
+                      value={form.numeroBobina}
                       onChange={(e) =>
-                        atualizar('idp', e.target.value.toUpperCase())
+                        atualizar('numeroBobina', e.target.value.trim())
                       }
                       required
                       maxLength={80}
@@ -780,28 +771,6 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                   </div>
                 </Panel>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="flex min-h-12 items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 text-sm font-medium text-foreground">
-                    <input
-                      type="checkbox"
-                      checked={form.outraBob}
-                      onChange={(e) => atualizar('outraBob', e.target.checked)}
-                      className="size-4 accent-primary"
-                    />
-                    Outra bobina? (marcação azul)
-                  </label>
-                  <label className="flex min-h-12 items-center gap-3 rounded-lg border border-warning/30 bg-warning/10 px-4 text-sm font-medium text-foreground">
-                    <input
-                      type="checkbox"
-                      checked={form.darBaixaBobina}
-                      onChange={(e) =>
-                        atualizar('darBaixaBobina', e.target.checked)
-                      }
-                      className="size-4 accent-primary"
-                    />
-                    Solicitar baixa da bobina anterior
-                  </label>
-                </div>
                 <div className="flex justify-end">
                   <PrimaryButton
                     type="submit"
@@ -938,7 +907,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                   <thead className="sticky top-0 bg-muted text-xs text-muted-foreground">
                     <tr>
                       <th className="px-3 py-3">Data</th>
-                      <th className="px-3 py-3">IDP</th>
+                      <th className="px-3 py-3">Número da bobina</th>
                       <th className="px-3 py-3">Cód. bobina</th>
                       <th className="px-3 py-3">Fornecedor</th>
                       <th className="px-3 py-3">Largura</th>
@@ -950,13 +919,13 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                   <tbody>
                     {registrosFiltrados.map((registro) => (
                       <tr
-                        key={registro.id}
+                        key={registro.numero_bobina}
                         className="border-b border-border/70 last:border-0"
                       >
                         <td className="px-3 py-3">
                           {formatarData(registro.data)}
                         </td>
-                        <td className="px-3 py-3 font-mono">{registro.idp}</td>
+                        <td className="px-3 py-3 font-mono">{registro.numero_bobina}</td>
                         <td className="px-3 py-3 font-mono">
                           {registro.cod_bob}
                         </td>
@@ -971,10 +940,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                           {registro.metragem.toLocaleString('pt-BR')} m
                         </td>
                         <td className="px-3 py-3 text-xs text-muted-foreground">
-                          {registro.dar_baixa_bobina
-                            ? 'Baixa solicitada'
-                            : 'Cadastrada'}
-                          {registro.outra_bob ? ' · Outra bobina' : ''}
+                          Cadastrada
                         </td>
                       </tr>
                     ))}
