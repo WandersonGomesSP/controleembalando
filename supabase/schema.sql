@@ -192,8 +192,8 @@ create table if not exists cobrideira.bobinas (
 
 create index if not exists cobrideira_bobinas_created_at_idx
   on cobrideira.bobinas (created_at desc);
-create index if not exists cobrideira_bobinas_idp_idx
-  on cobrideira.bobinas (idp);
+create index if not exists cobrideira_bobinas_numero_bobina_idx
+  on cobrideira.bobinas (numero_bobina);
 create index if not exists cobrideira_bobinas_cod_bob_idx
   on cobrideira.bobinas (cod_bob);
 
