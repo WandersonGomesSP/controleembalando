@@ -213,6 +213,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
   const [carregando, setCarregando] = React.useState(true)
   const [salvando, setSalvando] = React.useState(false)
   const [sincronizandoBobina, setSincronizandoBobina] = React.useState<string | null>(null)
+  const [logSincronizacao, setLogSincronizacao] = React.useState<string[]>([])
   const [editandoNumero, setEditandoNumero] = React.useState<string | null>(null)
   const [erroConsulta, setErroConsulta] = React.useState('')
   const [ordenacao, setOrdenacao] = React.useState<{ campo: keyof CobrideiraBobinaRow; asc: boolean }>({ campo: 'data', asc: false })
@@ -319,8 +320,9 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
       if (sessionError || !sessionData.session?.access_token) throw new Error('Sua sessão expirou. Entre novamente para sincronizar.')
       const resultado = await synchronizeCobrideiraBobina({ data: { accessToken: sessionData.session.access_token, numeroBobina: registro.numero_bobina } })
-      const linhas = resultado.logBobinas?.map((item) => `${item.guia} · linha ${item.linha} (${item.status})`) ?? []
-      const guiasCriadas = resultado.guiasCriadas?.length ? `Guias criadas: ${resultado.guiasCriadas.join(', ')}. ` : ''
+      const linhas = resultado.logBobinas?.map((item) => `Bobina ${item.numeroBobina}: guia ${item.guia}, linha ${item.linha} (${item.status})`) ?? []
+      const guiasCriadas = resultado.guiasCriadas?.length ? `Guias criadas: ${resultado.guiasCriadas.join(', ')}.` : ''
+      setLogSincronizacao([guiasCriadas, ...linhas].filter(Boolean))
       toast.success('Bobina ' + registro.numero_bobina + ' sincronizada.', {
         description: guiasCriadas + (linhas.length ? `Destino: ${linhas.join('; ')}.` : 'Nenhuma linha de bobina foi adicionada.'),
         duration: 15000,
@@ -976,6 +978,14 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
               </button>
             }
           >
+            {logSincronizacao.length > 0 && (
+              <div className="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-950">
+                <p className="mb-2 font-bold">Log da última sincronização</p>
+                <ul className="list-inside list-disc space-y-1">
+                  {logSincronizacao.map((linha, index) => <li key={index}>{linha}</li>)}
+                </ul>
+              </div>
+            )}
             <section className="mb-5 grid gap-3 rounded-xl border border-border bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
               <label className="grid gap-1 text-xs font-semibold text-black">
                 Data inicial
