@@ -406,6 +406,7 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
     })
   }
   const refreshedMetadata = missingSheets.length ? await getMetadata() : metadata
+  const bobinaSyncLog: { numeroBobina: string; guia: string; linha: number; status: 'inserida' | 'já existia' }[] = []
 
   for (const sheet of sheets) {
     const escapedTitle = sheet.title.replace(/'/g, "''")
@@ -445,14 +446,21 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
       }
       const sourceHeaders = sheet.rows[0].map((value) => String(value).trim().toLocaleLowerCase('pt-BR'))
       const sourceNumberIndex = sourceHeaders.indexOf('número da bobina')
-      const knownNumbers = new Set(existingRows.slice(1)
-        .map((row) => String(row[numberColumn] ?? '').trim())
-        .filter(Boolean))
+      const knownNumbers = new Map<string, number>()
+      existingRows.slice(1).forEach((row, index) => {
+        const number = String(row[numberColumn] ?? '').trim()
+        if (number) knownNumbers.set(number, index + 2)
+      })
       let lastUsedRow = existingRows.reduce((last, row, index) =>
         row.some((value) => String(value ?? '').trim() !== '') ? index + 1 : last, 1)
       for (const sourceRow of sheet.rows.slice(1)) {
         const number = String(sourceRow[sourceNumberIndex] ?? '').trim()
-        if (!number || knownNumbers.has(number)) continue
+        if (!number) continue
+        const existingLine = knownNumbers.get(number)
+        if (existingLine) {
+          bobinaSyncLog.push({ numeroBobina: number, guia: sheet.title, linha: existingLine, status: 'já existia' })
+          continue
+        }
         const alignedRow = headers.map((header) => {
           const sourceIndex = sourceHeaders.indexOf(header)
           return sourceIndex < 0 ? '' : sourceRow[sourceIndex] ?? ''
@@ -466,7 +474,8 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
         )
         // A sincronização individual altera somente os valores da nova linha.
         // Não tenta copiar formatação, o que pode ser bloqueado em guias protegidas.
-        knownNumbers.add(number)
+        knownNumbers.set(number, lastUsedRow)
+        bobinaSyncLog.push({ numeroBobina: number, guia: sheet.title, linha: lastUsedRow, status: 'inserida' })
       }
       continue
     }
@@ -548,5 +557,11 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
   const bobinaRows = allSheets
     .filter((sheet) => sheet.rows[0]?.[0] === 'Número da bobina')
     .reduce((total, sheet) => total + Math.max(0, sheet.rows.length - 1), 0)
-  return { syncedSheets: sheets.length, historyRows, bobinaRows }
+  return {
+    syncedSheets: sheets.length,
+    historyRows,
+    bobinaRows,
+    guiasCriadas: missingSheets.map((request) => (request as { addSheet: { properties: { title: string } } }).addSheet.properties.title),
+    logBobinas: bobinaSyncLog,
+  }
 }
