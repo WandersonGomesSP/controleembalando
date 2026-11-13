@@ -381,6 +381,7 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
   }
   const spreadsheetUrl = `${GOOGLE_SHEETS_API}/${encodeURIComponent(config.spreadsheetId)}`
   const getMetadata = () => googleRequest<{
+    properties?: { title?: string }
     sheets: {
       properties: {
         sheetId: number
@@ -388,7 +389,7 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
         gridProperties: { rowCount: number; columnCount: number }
       }
     }[]
-  }>(`${spreadsheetUrl}?fields=sheets.properties(sheetId,title,gridProperties(rowCount,columnCount))`, token)
+  }>(`${spreadsheetUrl}?fields=properties(title),sheets.properties(sheetId,title,gridProperties(rowCount,columnCount))`, token)
   const metadata = await getMetadata()
   const existingTitles = new Set(metadata.sheets.map((sheet) => sheet.properties.title))
   const bobinaSheetTitles = new Set(sheets
@@ -559,6 +560,8 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
     .reduce((total, sheet) => total + Math.max(0, sheet.rows.length - 1), 0)
   return {
     syncedSheets: sheets.length,
+    spreadsheetName: refreshedMetadata.properties?.title ?? metadata.properties?.title ?? 'Planilha Google Sheets',
+    spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${config.spreadsheetId}/edit`,
     historyRows,
     bobinaRows,
     guiasCriadas: missingSheets.map((request) => (request as { addSheet: { properties: { title: string } } }).addSheet.properties.title),
