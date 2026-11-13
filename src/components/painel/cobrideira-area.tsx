@@ -192,6 +192,11 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
   const [form, setForm] = React.useState(formularioInicial)
   const [registros, setRegistros] = React.useState<CobrideiraBobinaRow[]>([])
   const [busca, setBusca] = React.useState('')
+  const [dataInicial, setDataInicial] = React.useState('')
+  const [dataFinal, setDataFinal] = React.useState('')
+  const [turnoFiltro, setTurnoFiltro] = React.useState('')
+  const [fornecedorFiltro, setFornecedorFiltro] = React.useState('')
+  const [linhaFiltro, setLinhaFiltro] = React.useState('')
   const [carregando, setCarregando] = React.useState(true)
   const [salvando, setSalvando] = React.useState(false)
   const [erroConsulta, setErroConsulta] = React.useState('')
@@ -207,12 +212,40 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
     form.linha === 'Personalizada' || form.linha === 'Impressa Linha'
   const registrosFiltrados = registros.filter((registro) => {
     const termo = busca.trim().toLocaleLowerCase('pt-BR')
-    return (
+    const correspondeBusca =
       !termo ||
       registro.idp.toLocaleLowerCase('pt-BR').includes(termo) ||
-      registro.cod_bob.toLocaleLowerCase('pt-BR').includes(termo)
+      registro.cod_bob.toLocaleLowerCase('pt-BR').includes(termo) ||
+      registro.cliente.toLocaleLowerCase('pt-BR').includes(termo)
+    return (
+      correspondeBusca &&
+      (!dataInicial || registro.data >= dataInicial) &&
+      (!dataFinal || registro.data <= dataFinal) &&
+      (!turnoFiltro || registro.turno === turnoFiltro) &&
+      (!fornecedorFiltro || registro.fornecedor_filme === fornecedorFiltro) &&
+      (!linhaFiltro || registro.linha === linhaFiltro)
     )
   })
+  const pesoTotalFiltrado = registrosFiltrados.reduce(
+    (total, registro) => total + Number(registro.peso_liquido || 0),
+    0,
+  )
+  const metragemTotalFiltrada = registrosFiltrados.reduce(
+    (total, registro) => total + Number(registro.metragem || 0),
+    0,
+  )
+  const producaoPorDia = Object.values(
+    registrosFiltrados.reduce<Record<string, { data: string; quantidade: number }>>(
+      (grupos, registro) => {
+        const chave = registro.data
+        grupos[chave] ??= { data: chave, quantidade: 0 }
+        grupos[chave].quantidade += 1
+        return grupos
+      },
+      {},
+    ),
+  ).sort((a, b) => a.data.localeCompare(b.data)).slice(-7)
+  const maxProducaoDia = Math.max(1, ...producaoPorDia.map((item) => item.quantidade))
 
   async function consultarRegistros() {
     const { data, error } = await supabase
@@ -796,6 +829,82 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
               </button>
             }
           >
+            <div className="mb-6 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-border bg-white p-4">
+                <p className="text-xs font-semibold uppercase text-black">Bobinas filtradas</p>
+                <p className="mt-2 text-2xl font-bold text-black">{registrosFiltrados.length}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-white p-4">
+                <p className="text-xs font-semibold uppercase text-black">Peso líquido total</p>
+                <p className="mt-2 text-2xl font-bold text-black">{formatarPeso(pesoTotalFiltrado)} kg</p>
+              </div>
+              <div className="rounded-xl border border-border bg-white p-4">
+                <p className="text-xs font-semibold uppercase text-black">Metragem total</p>
+                <p className="mt-2 text-2xl font-bold text-black">{metragemTotalFiltrada.toLocaleString('pt-BR')} m</p>
+              </div>
+            </div>
+
+            <section className="mb-6 rounded-xl border border-border bg-white p-4">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold text-black">Produção por dia</h3>
+                <span className="text-xs text-black">Até 7 dias com registros</span>
+              </div>
+              {producaoPorDia.length === 0 ? (
+                <p className="py-8 text-center text-sm text-black">Sem dados para exibir no gráfico.</p>
+              ) : (
+                <div className="flex h-40 items-end gap-3 border-b border-border px-2">
+                  {producaoPorDia.map((item) => (
+                    <div key={item.data} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
+                      <span className="text-xs font-bold text-black">{item.quantidade}</span>
+                      <div className="flex w-full flex-1 items-end">
+                        <div
+                          className="w-full rounded-t-md bg-[#e3262e]"
+                          style={{ height: `${Math.max(8, (item.quantidade / maxProducaoDia) * 100)}%` }}
+                          title={`${item.quantidade} bobina(s)`}
+                        />
+                      </div>
+                      <span className="pb-2 text-[10px] text-black">{formatarData(item.data).slice(0, 5)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="mb-5 grid gap-3 rounded-xl border border-border bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
+              <label className="grid gap-1 text-xs font-semibold text-black">
+                Data inicial
+                <input type="date" value={dataInicial} onChange={(e) => setDataInicial(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm text-black" />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold text-black">
+                Data final
+                <input type="date" value={dataFinal} onChange={(e) => setDataFinal(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm text-black" />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold text-black">
+                Turno
+                <select value={turnoFiltro} onChange={(e) => setTurnoFiltro(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm text-black">
+                  <option value="">Todos</option>
+                  {Array.from(new Set(registros.map((r) => r.turno))).map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold text-black">
+                Fornecedor
+                <select value={fornecedorFiltro} onChange={(e) => setFornecedorFiltro(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm text-black">
+                  <option value="">Todos</option>
+                  {Array.from(new Set(registros.map((r) => r.fornecedor_filme))).map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold text-black">
+                Linha
+                <select value={linhaFiltro} onChange={(e) => setLinhaFiltro(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm text-black">
+                  <option value="">Todas</option>
+                  {Array.from(new Set(registros.map((r) => r.linha))).map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+              <button type="button" onClick={() => { setBusca(''); setDataInicial(''); setDataFinal(''); setTurnoFiltro(''); setFornecedorFiltro(''); setLinhaFiltro('') }} className="h-10 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42] sm:col-span-2 lg:col-span-5">
+                Limpar filtros
+              </button>
+            </section>
+
             <div className="relative mb-4 max-w-md">
               <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <TextInput
