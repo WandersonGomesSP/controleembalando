@@ -254,6 +254,15 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>):
     ].map((value) => value === null || value === undefined ? '' : value))
   }
 
+  const bobinaSheets = new Map<string, (string | number)[][]>()
+  for (let index = 0; index < bobinas.length; index += 1) {
+    const periodo = String(bobinas[index].aba ?? '').trim() || 'Sem período'
+    // O Google Sheets não permite "/" no nome da guia; NOV/2026 vira NOV-2026.
+    const title = periodo.replace(/[\\/:?*\[\]]/g, '-').slice(0, 100) || 'Sem período'
+    if (!bobinaSheets.has(title)) bobinaSheets.set(title, [bobinaHeaders])
+    bobinaSheets.get(title)!.push(bobinaRows[index + 1])
+  }
+
   const historyRows: (string | number)[][] = [[
     'Data e hora (São Paulo)', 'Ação', 'Entidade', 'ID do registro',
     'Quantidade', 'Códigos', 'Operador', 'Responsável', 'Detalhes',
@@ -316,7 +325,7 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>):
     { title: 'Tubos', rows: tubeRows },
     { title: 'Tubetes', rows: tubeteRows },
     { title: 'Histórico', rows: historyRows },
-    { title: 'Bobinas Cobrideira', rows: bobinaRows },
+    ...Array.from(bobinaSheets, ([title, rows]) => ({ title, rows })),
   ]
 }
 
@@ -354,7 +363,17 @@ export async function syncGoogleSheets() {
 
   for (const sheet of sheets) {
     const escapedTitle = sheet.title.replace(/'/g, "''")
-    const clearRange = `'${escapedTitle}'!A:Z`
+    const columnLetter = (column: number) => {
+      let result = ''
+      while (column > 0) {
+        const remainder = (column - 1) % 26
+        result = String.fromCharCode(65 + remainder) + result
+        column = Math.floor((column - 1) / 26)
+      }
+      return result
+    }
+    const lastColumn = columnLetter(Math.max(1, ...sheet.rows.map((row) => row.length)))
+    const clearRange = `'${escapedTitle}'!A:${lastColumn}`
     await googleRequest(
       `${spreadsheetUrl}/values/${encodeURIComponent(clearRange)}:clear`,
       token,
@@ -362,7 +381,17 @@ export async function syncGoogleSheets() {
     )
     for (let offset = 0; offset < sheet.rows.length; offset += 500) {
       const values = sheet.rows.slice(offset, offset + 500)
-      const range = `'${escapedTitle}'!A${offset + 1}:Z${offset + values.length}`
+      const lastColumn = Math.max(1, ...values.map((row) => row.length))
+      const columnLetter = (column: number) => {
+        let result = ''
+        while (column > 0) {
+          const remainder = (column - 1) % 26
+          result = String.fromCharCode(65 + remainder) + result
+          column = Math.floor((column - 1) / 26)
+        }
+        return result
+      }
+      const range = `'${escapedTitle}'!A${offset + 1}:${columnLetter(lastColumn)}${offset + values.length}`
       await googleRequest(
         `${spreadsheetUrl}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
         token,
