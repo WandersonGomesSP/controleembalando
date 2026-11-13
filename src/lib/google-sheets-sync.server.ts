@@ -459,22 +459,8 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
           token,
           { method: 'PUT', body: JSON.stringify({ majorDimension: 'ROWS', values: [alignedRow] }) },
         )
-        const sheetId = refreshedMetadata.sheets.find(
-          (entry) => entry.properties.title === sheet.title,
-        )?.properties.sheetId
-        if (sheetId !== undefined && lastUsedRow > 2) {
-          await googleRequest(`${spreadsheetUrl}:batchUpdate`, token, {
-            method: 'POST',
-            body: JSON.stringify({ requests: [{
-              copyPaste: {
-                source: { sheetId, startRowIndex: lastUsedRow - 2, endRowIndex: lastUsedRow - 1, startColumnIndex: 0, endColumnIndex: headers.length },
-                destination: { sheetId, startRowIndex: lastUsedRow - 1, endRowIndex: lastUsedRow, startColumnIndex: 0, endColumnIndex: headers.length },
-                pasteType: 'PASTE_FORMAT',
-                pasteOrientation: 'NORMAL',
-              },
-            }] }),
-          })
-        }
+        // A sincronização individual altera somente os valores da nova linha.
+        // Não tenta copiar formatação, o que pode ser bloqueado em guias protegidas.
         knownNumbers.add(number)
       }
       continue
