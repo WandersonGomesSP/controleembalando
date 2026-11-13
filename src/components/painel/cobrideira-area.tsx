@@ -857,17 +857,39 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
               </p>
             ) : (
               <div className="scroll-area overflow-x-auto">
-                <table className="w-full min-w-[58rem] text-left text-sm">
+                <table className="w-full min-w-[110rem] text-left text-sm">
                   <thead className="sticky top-0 bg-muted text-xs text-muted-foreground">
                     <tr>
-                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'numero_bobina',asc:o.campo==='numero_bobina'?!o.asc:true}))}>Nº Bobina ↕</button></th>
-                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'data',asc:o.campo==='data'?!o.asc:true}))}>Data ↕</button></th>
-                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'cod_bob',asc:o.campo==='cod_bob'?!o.asc:true}))}>Cód. bobina ↕</button></th>
-                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'fornecedor_filme',asc:o.campo==='fornecedor_filme'?!o.asc:true}))}>Fornecedor ↕</button></th>
-                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'largura',asc:o.campo==='largura'?!o.asc:true}))}>Largura ↕</button></th>
-                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'peso_liquido',asc:o.campo==='peso_liquido'?!o.asc:true}))}>Peso líquido ↕</button></th>
-                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'metragem',asc:o.campo==='metragem'?!o.asc:true}))}>Metragem ↕</button></th>
-                      <th className="px-3 py-3">Situação</th>
+                      <th className="whitespace-nowrap px-3 py-3">Nº Bobina</th>
+                      <th className="whitespace-nowrap px-3 py-3">Cód. bobina</th>
+                      <th className="whitespace-nowrap px-3 py-3">Data</th>
+                      <th className="whitespace-nowrap px-3 py-3">Aba / período</th>
+                      <th className="whitespace-nowrap px-3 py-3">Material</th>
+                      <th className="whitespace-nowrap px-3 py-3">Largura</th>
+                      <th className="whitespace-nowrap px-3 py-3">Peso bruto</th>
+                      <th className="whitespace-nowrap px-3 py-3">Peso final</th>
+                      <th className="whitespace-nowrap px-3 py-3">Peso cilindro</th>
+                      <th className="whitespace-nowrap px-3 py-3">Peso líquido</th>
+                      <th className="whitespace-nowrap px-3 py-3">Metragem</th>
+                      <th className="whitespace-nowrap px-3 py-3">Perda</th>
+                      <th className="whitespace-nowrap px-3 py-3">Fornecedor filme</th>
+                      <th className="whitespace-nowrap px-3 py-3">Vareta (g)</th>
+                      <th className="whitespace-nowrap px-3 py-3">Cola (kg)</th>
+                      <th className="whitespace-nowrap px-3 py-3">Lote cola</th>
+                      <th className="whitespace-nowrap px-3 py-3">Código interno</th>
+                      <th className="whitespace-nowrap px-3 py-3">Fornecedor cola</th>
+                      <th className="whitespace-nowrap px-3 py-3">Turno</th>
+                      <th className="whitespace-nowrap px-3 py-3">Linha</th>
+                      <th className="whitespace-nowrap px-3 py-3">Cor fundo</th>
+                      <th className="whitespace-nowrap px-3 py-3">Pigmento (kg)</th>
+                      <th className="whitespace-nowrap px-3 py-3">Cor mistura</th>
+                      <th className="whitespace-nowrap px-3 py-3">Pigmento mistura</th>
+                      <th className="whitespace-nowrap px-3 py-3">Cliente</th>
+                      <th className="whitespace-nowrap px-3 py-3">Cor impressão</th>
+                      <th className="whitespace-nowrap px-3 py-3">Emenda</th>
+                      <th className="whitespace-nowrap px-3 py-3">Código emenda</th>
+                      <th className="whitespace-nowrap px-3 py-3">Criado por</th>
+                      <th className="whitespace-nowrap px-3 py-3">Criado em</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -876,26 +898,36 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                         key={registro.numero_bobina}
                         className="border-b border-border/70 last:border-0"
                       >
-                        <td className="px-3 py-3 font-mono">{registro.numero_bobina}</td>
-                        <td className="px-3 py-3">
-                          {formatarData(registro.data)}
-                        </td>
-                        <td className="px-3 py-3 font-mono">
-                          {registro.cod_bob}
-                        </td>
-                        <td className="px-3 py-3">
-                          {registro.fornecedor_filme}
-                        </td>
-                        <td className="px-3 py-3">{registro.largura}</td>
-                        <td className="px-3 py-3">
-                          {formatarPeso(Number(registro.peso_liquido))} kg
-                        </td>
-                        <td className="px-3 py-3">
-                          {registro.metragem.toLocaleString('pt-BR')} m
-                        </td>
-                        <td className="px-3 py-3 text-xs text-muted-foreground">
-                          Cadastrada
-                        </td>
+                        <td className="whitespace-nowrap px-3 py-3 font-mono">{registro.numero_bobina}</td>
+                        <td className="whitespace-nowrap px-3 py-3 font-mono">{registro.cod_bob}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatarData(registro.data)}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.aba}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.material}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.largura}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.peso_bruto))} kg</td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.peso_final))} kg</td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.peso_cilindro))} kg</td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.peso_liquido))} kg</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.metragem.toLocaleString('pt-BR')} m</td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.perda_kg))} kg</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.fornecedor_filme}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.vareta_g}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.kg_cola))} kg</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.lote_cola}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.codigo_interno}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.fornecedor_cola}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.turno}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.linha}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.cor_fundo}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.pigmento_kg))} kg</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.cor_mistura}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.pigmento_mistura}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.cliente}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.cor_impressao}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.emenda ? 'Sim' : 'Não'}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{registro.codigo_emenda}</td>
+                        <td className="whitespace-nowrap px-3 py-3 font-mono text-xs">{registro.created_by}</td>
+                        <td className="whitespace-nowrap px-3 py-3">{new Date(registro.created_at).toLocaleString('pt-BR')}</td>
                       </tr>
                     ))}
                   </tbody>
