@@ -12,53 +12,51 @@ body {
 }
 
 code {
-  font-family:
-    source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
 :root {
-  --font-body:
-    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono-ui: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
   --font-heading: var(--font-body);
-  --content-width: 72rem;
+  --content-width: 82rem;
   --reading-width: 42rem;
-  --background: oklch(0.9 0.055 245);
-  --foreground: oklch(0.2 0.035 255);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.035 255);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.035 255);
-  --primary: oklch(0.5 0.18 252);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.92 0.035 245);
-  --secondary-foreground: oklch(0.3 0.08 255);
-  --muted: oklch(0.94 0.02 245);
-  --muted-foreground: oklch(0.48 0.035 255);
-  --accent: oklch(0.91 0.045 245);
-  --accent-foreground: oklch(0.27 0.08 255);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.87 0.025 245);
-  --input: oklch(0.87 0.025 245);
-  --ring: oklch(0.65 0.12 252);
-  --field: oklch(0.975 0.012 245);
-  --success: oklch(0.55 0.13 155);
-  --warning: oklch(0.62 0.14 75);
-  --chart-1: oklch(0.55 0.18 252);
-  --chart-2: oklch(0.62 0.14 155);
-  --chart-3: oklch(0.7 0.14 75);
-  --chart-4: oklch(0.62 0.16 330);
-  --chart-5: oklch(0.62 0.18 25);
+  --background: #00008B;
+  --foreground: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #172033;
+  --popover: #ffffff;
+  --popover-foreground: #172033;
+  --primary: #df292b;
+  --primary-foreground: #ffffff;
+  --secondary: #e9edff;
+  --secondary-foreground: #172f78;
+  --muted: #eef1fb;
+  --muted-foreground: #667085;
+  --accent: #e8edff;
+  --accent-foreground: #172f78;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --border: #dce2ef;
+  --input: #d4dbea;
+  --ring: #7c9cff;
+  --field: #f7f8fc;
+  --success: #16834a;
+  --warning: #a15c07;
+  --chart-1: #2448a5;
+  --chart-2: #16834a;
+  --chart-3: #a15c07;
+  --chart-4: #a23b82;
+  --chart-5: #c2410c;
   --radius: 0.5rem;
-  --sidebar: oklch(0.98 0.015 245);
-  --sidebar-foreground: oklch(0.2 0.035 255);
-  --sidebar-primary: oklch(0.5 0.18 252);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.92 0.035 245);
-  --sidebar-accent-foreground: oklch(0.27 0.08 255);
-  --sidebar-border: oklch(0.87 0.025 245);
-  --sidebar-ring: oklch(0.65 0.12 252);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #172033;
+  --sidebar-primary: #df292b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8edff;
+  --sidebar-accent-foreground: #172f78;
+  --sidebar-border: #dce2ef;
+  --sidebar-ring: #7c9cff;
 }
 
 @theme inline {
@@ -109,26 +107,21 @@ code {
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
+  * { @apply border-border outline-ring/50; }
   body {
     @apply bg-background text-foreground;
-    background-color: var(--background);
+    background-color: #00008B;
     background-image: url('/embalando-watermark.svg');
     background-repeat: no-repeat;
-    background-position: center 58%;
-    background-size: min(78vw, 760px) auto;
+    background-position: center 54%;
+    background-size: min(72vw, 680px) auto;
     background-attachment: fixed;
   }
   input[type='date']::-webkit-calendar-picker-indicator {
     filter: invert(0.35);
     cursor: pointer;
   }
-  input[type='number'] {
-    appearance: textfield;
-    -moz-appearance: textfield;
-  }
+  input[type='number'] { appearance: textfield; -moz-appearance: textfield; }
   input[type='number']::-webkit-inner-spin-button,
   input[type='number']::-webkit-outer-spin-button {
     margin: 0;
@@ -136,25 +129,13 @@ code {
   }
 }
 
-.scroll-area {
-  scrollbar-width: thin;
-  scrollbar-color: oklch(0.72 0.04 245) transparent;
-}
-.scroll-area::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.scroll-area::-webkit-scrollbar-thumb {
-  background: oklch(0.72 0.04 245);
-  border-radius: 999px;
-}
+.scroll-area { scrollbar-width: thin; scrollbar-color: #9aa8c5 transparent; }
+.scroll-area::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-area::-webkit-scrollbar-thumb { background: #9aa8c5; border-radius: 999px; }
 
 .toaster [data-sonner-toast][data-type='error'] {
-  color: oklch(0.25 0.08 25);
-  background: oklch(0.94 0.06 25);
-  border-color: oklch(0.82 0.1 25);
+  color: #7f1d1d;
+  background: #fef2f2;
+  border-color: #fecaca;
 }
-
-.toaster [data-sonner-toast][data-type='error'] [data-icon] {
-  color: oklch(0.48 0.16 27);
-}
+.toaster [data-sonner-toast][data-type='error'] [data-icon] { color: #b91c1c; }
