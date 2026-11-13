@@ -336,7 +336,7 @@ export function AccessGate({
           </AccessButton>
           <p className="mb-5 border-b border-border pb-5 text-sm leading-6 text-muted-foreground">
             <LockKeyhole className="mr-2 inline size-4 text-warning" />
-            As alterações administrativas são validadas no servidor. Configure SUPABASE_SERVICE_ROLE_KEY somente nas variáveis privadas do Netlify.
+            As alterações administrativas são validadas no servidor. Configure SUPABASE_SERVICE_ROLE_KEY somente nas variáveis privadas da Vercel.
           </p>
           <DeveloperPanel accessToken={accessToken} />
         </div>
