@@ -510,7 +510,7 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
       )
     }
   }
-  const layoutRequests = sheets.flatMap((sheet) => {
+  const layoutRequests = numeroBobina ? [] : sheets.flatMap((sheet) => {
     const sheetMetadata = refreshedMetadata.sheets.find(
       (entry) => entry.properties.title === sheet.title,
     )?.properties
@@ -547,9 +547,11 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
     }
     return requests
   })
-  await googleRequest(`${spreadsheetUrl}:batchUpdate`, token, {
-    method: 'POST',
-    body: JSON.stringify({ requests: layoutRequests }),
-  })
+  if (layoutRequests.length) {
+    await googleRequest(`${spreadsheetUrl}:batchUpdate`, token, {
+      method: 'POST',
+      body: JSON.stringify({ requests: layoutRequests }),
+    })
+  }
   return { syncedSheets: sheets.length, historyRows: historyRows.length - 1, bobinaRows: bobinas.length }
 }
