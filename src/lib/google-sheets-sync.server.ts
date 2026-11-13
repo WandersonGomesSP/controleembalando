@@ -350,8 +350,15 @@ export async function syncGoogleSheets() {
   }>(`${spreadsheetUrl}?fields=sheets.properties(sheetId,title,gridProperties(rowCount,columnCount))`, token)
   const metadata = await getMetadata()
   const existingTitles = new Set(metadata.sheets.map((sheet) => sheet.properties.title))
+  const bobinaSheetTitles = new Set(sheets
+    .filter((sheet) => sheet.rows[0]?.[0] === 'Número da bobina')
+    .map((sheet) => sheet.title))
+  const missingBobinaSheets = [...bobinaSheetTitles].filter((title) => !existingTitles.has(title))
+  if (missingBobinaSheets.length) {
+    throw new Error(`A aba de destino ${missingBobinaSheets.join(', ')} não existe na planilha. Crie a aba com esse nome antes de sincronizar.`)
+  }
   const missingSheets = sheets
-    .filter((sheet) => !existingTitles.has(sheet.title))
+    .filter((sheet) => !existingTitles.has(sheet.title) && !bobinaSheetTitles.has(sheet.title))
     .map((sheet) => ({ addSheet: { properties: { title: sheet.title } } }))
   if (missingSheets.length) {
     await googleRequest(`${spreadsheetUrl}:batchUpdate`, token, {
@@ -372,6 +379,66 @@ export async function syncGoogleSheets() {
       }
       return result
     }
+
+    // Bobinas: nunca limpar/regravar a guia. Acrescentar apenas números ainda ausentes,
+    // respeitando a ordem real dos cabeçalhos já existentes.
+    if (bobinaSheetTitles.has(sheet.title)) {
+      const readRange = `'${escapedTitle}'!A:AZ`
+      const existing = await googleRequest<{ values?: (string | number)[][] }>(
+        `${spreadsheetUrl}/values/${encodeURIComponent(readRange)}`,
+        token,
+      )
+      const existingRows = existing.values ?? []
+      if (!existingRows.length) {
+        throw new Error(`A aba ${sheet.title} está vazia e não possui cabeçalho. Insira os cabeçalhos antes de sincronizar.`)
+      }
+      const headers = existingRows[0].map((value) => String(value ?? '').trim().toLocaleLowerCase('pt-BR'))
+      const numberColumn = headers.indexOf('número da bobina')
+      if (numberColumn < 0) {
+        throw new Error(`Não encontrei a coluna "Número da bobina" na aba ${sheet.title}.`)
+      }
+      const sourceHeaders = sheet.rows[0].map((value) => String(value).trim().toLocaleLowerCase('pt-BR'))
+      const sourceNumberIndex = sourceHeaders.indexOf('número da bobina')
+      const knownNumbers = new Set(existingRows.slice(1)
+        .map((row) => String(row[numberColumn] ?? '').trim())
+        .filter(Boolean))
+      let lastUsedRow = existingRows.reduce((last, row, index) =>
+        row.some((value) => String(value ?? '').trim() !== '') ? index + 1 : last, 1)
+      for (const sourceRow of sheet.rows.slice(1)) {
+        const number = String(sourceRow[sourceNumberIndex] ?? '').trim()
+        if (!number || knownNumbers.has(number)) continue
+        const alignedRow = headers.map((header) => {
+          const sourceIndex = sourceHeaders.indexOf(header)
+          return sourceIndex < 0 ? '' : sourceRow[sourceIndex] ?? ''
+        })
+        lastUsedRow += 1
+        const targetRange = `'${escapedTitle}'!A${lastUsedRow}:${columnLetter(Math.max(1, headers.length))}${lastUsedRow}`
+        await googleRequest(
+          `${spreadsheetUrl}/values/${encodeURIComponent(targetRange)}?valueInputOption=RAW`,
+          token,
+          { method: 'PUT', body: JSON.stringify({ majorDimension: 'ROWS', values: [alignedRow] }) },
+        )
+        const sheetId = refreshedMetadata.sheets.find(
+          (entry) => entry.properties.title === sheet.title,
+        )?.properties.sheetId
+        if (sheetId !== undefined && lastUsedRow > 2) {
+          await googleRequest(`${spreadsheetUrl}:batchUpdate`, token, {
+            method: 'POST',
+            body: JSON.stringify({ requests: [{
+              copyPaste: {
+                source: { sheetId, startRowIndex: lastUsedRow - 2, endRowIndex: lastUsedRow - 1, startColumnIndex: 0, endColumnIndex: headers.length },
+                destination: { sheetId, startRowIndex: lastUsedRow - 1, endRowIndex: lastUsedRow, startColumnIndex: 0, endColumnIndex: headers.length },
+                pasteType: 'PASTE_FORMAT',
+                pasteOrientation: 'NORMAL',
+              },
+            }] }),
+          })
+        }
+        knownNumbers.add(number)
+      }
+      continue
+    }
+
     const lastColumn = columnLetter(Math.max(1, ...sheet.rows.map((row) => row.length)))
     const clearRange = `'${escapedTitle}'!A:${lastColumn}`
     await googleRequest(
