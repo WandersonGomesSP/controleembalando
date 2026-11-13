@@ -426,6 +426,13 @@ export const synchronizeGoogleSheetsNow = createServerFn({ method: 'POST' })
     return syncGoogleSheets(data.dataInicio, data.dataFim)
   })
 
+export const synchronizeCobrideiraBobina = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ numeroBobina: z.string().trim().min(1).max(80) }))
+  .handler(async ({ data }) => {
+    await requireDeveloper(data.accessToken)
+    return syncGoogleSheets(undefined, undefined, data.numeroBobina)
+  })
+
 export const confirmGoogleSheetsPermissions = createServerFn({ method: 'POST' })
   .validator(tokenInput)
   .handler(async ({ data }) => {
