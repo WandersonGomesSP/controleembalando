@@ -25,7 +25,7 @@ function readConfig(): {
 } {
   const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const spreadsheetId = process.env.GOOGLE_SHEETS_ID
+  const spreadsheetId = '16PAFRIpkoPP5sU-lCOPLIOjzuK7JrHbHuU1CRIhTsig'
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
   const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n')
   if (!supabaseUrl || !serviceRoleKey || !spreadsheetId || !serviceAccountEmail || !privateKey) {
@@ -38,7 +38,6 @@ export function isGoogleSheetsSyncConfigured() {
   return Boolean(
     (process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL) &&
     process.env.SUPABASE_SERVICE_ROLE_KEY &&
-    process.env.GOOGLE_SHEETS_ID &&
     process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL &&
     process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
   )
@@ -262,27 +261,28 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
     ])
   }
 
+  // Layout da planilha correta de bobinas. A coluna G é intencionalmente vazia.
+  // Micragem não existe no cadastro atual do Supabase, então permanece em branco.
   const bobinaHeaders = [
-    'Número da bobina', 'Código da bobina', 'Data', 'Aba / período', 'Material',
-    'Largura', 'Peso bruto (kg)', 'Peso final (kg)', 'Peso cilindro (kg)',
-    'Peso líquido (kg)', 'Metragem', 'Perda (kg)', 'Fornecedor do filme',
-    'Vareta (g)', 'Cola (kg)', 'Lote da cola', 'Código interno',
-    'Fornecedor da cola', 'Turno', 'Linha', 'Cor de fundo', 'Pigmento (kg)',
-    'Cor da mistura', 'Pigmento da mistura', 'Cliente', 'Cor de impressão',
-    'Emenda', 'Código da emenda', 'Criado por', 'Criado em',
+    'DATA', 'N° BOB.', 'MATERIAL', 'LARGURA (MM)', 'MICRAGEM',
+    'PESO BRUTO BOB.', '', 'PERDA (KG)', 'FORNEC. FILME', 'COD. BOBINA',
+    'GRAM. VARETA (G)', '(KG) COLA TOT. UTILZ.', 'LOTE COLA', 'FORNEC. COLA',
+    'CÓD. INTERNO COLA', 'LINHA BOB.', 'COR PRINCIPAL', 'PIGMENTO PRINCIPAL (KG)',
+    'COR SECUND. (MISTURA)', 'PIGMENTO MISTURA (KG)', 'CLIENTE / MODELO',
+    'TURNO', 'COMP. ADESIVADO (M)', 'EMENDA', 'COD. BOB. EMENDA',
+    'PESO DO CILINDRO (KG)', 'PESO FINAL BOB. (KG)', 'PESO LÍQ. (KG)',
   ]
   const bobinaRows: (string | number)[][] = [bobinaHeaders]
   for (const row of bobinas) {
     bobinaRows.push([
-      row.numero_bobina, row.cod_bob, dataBR(row.data), row.aba, row.material,
-      Number(row.largura), Number(row.peso_bruto), Number(row.peso_final),
-      Number(row.peso_cilindro), Number(row.peso_liquido), Number(row.metragem),
-      Number(row.perda_kg), row.fornecedor_filme, Number(row.vareta_g),
-      Number(row.kg_cola), row.lote_cola, row.codigo_interno, row.fornecedor_cola,
-      row.turno, row.linha, row.cor_fundo, Number(row.pigmento_kg),
-      row.cor_mistura, row.pigmento_mistura, row.cliente, row.cor_impressao,
-      row.emenda ? 'Sim' : 'Não', row.codigo_emenda, row.created_by,
-      dataHoraBR(row.created_at),
+      row.data, row.numero_bobina, row.material, Number(row.largura), '',
+      Number(row.peso_bruto), '', Number(row.perda_kg), row.fornecedor_filme,
+      row.cod_bob, Number(row.vareta_g), Number(row.kg_cola), row.lote_cola,
+      row.fornecedor_cola, row.codigo_interno, row.linha, row.cor_fundo,
+      Number(row.pigmento_kg), row.cor_mistura, row.pigmento_mistura,
+      row.cliente, row.turno, Number(row.metragem), row.emenda ? 'Sim' : 'Não',
+      row.codigo_emenda, Number(row.peso_cilindro), Number(row.peso_final),
+      Number(row.peso_liquido),
     ].map((value) => value === null || value === undefined ? '' : value))
   }
 
@@ -440,13 +440,16 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
         )
         existingRows = [sheet.rows[0]]
       }
-      const headers = existingRows[0].map((value) => String(value ?? '').trim().toLocaleLowerCase('pt-BR'))
-      const numberColumn = headers.indexOf('número da bobina')
+      const normalizeHeader = (value: unknown) => String(value ?? '')
+        .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+        .toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, '').trim()
+      const headers = existingRows[0].map(normalizeHeader)
+      const numberColumn = headers.indexOf(normalizeHeader('N° BOB.'))
       if (numberColumn < 0) {
         throw new Error(`Não encontrei a coluna "Número da bobina" na aba ${sheet.title}.`)
       }
-      const sourceHeaders = sheet.rows[0].map((value) => String(value).trim().toLocaleLowerCase('pt-BR'))
-      const sourceNumberIndex = sourceHeaders.indexOf('número da bobina')
+      const sourceHeaders = sheet.rows[0].map(normalizeHeader)
+      const sourceNumberIndex = sourceHeaders.indexOf(normalizeHeader('N° BOB.'))
       const knownNumbers = new Map<string, number>()
       existingRows.slice(1).forEach((row, index) => {
         const number = String(row[numberColumn] ?? '').trim()
