@@ -366,7 +366,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-0 bg-transparent shadow-none">
         <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-4 pt-4 sm:px-6">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -385,7 +385,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
             <button
               type="button"
               onClick={onChangeArea}
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex min-h-10 items-center gap-2 rounded-full border-0 bg-[#e3262e] px-4 text-xs font-bold text-black shadow-sm transition-colors hover:bg-[#ff3b42] hover:text-black"
             >
               <ArrowLeft className="size-4" />
               Trocar setor
@@ -396,7 +396,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
               type="button"
               aria-current={secao === 'cadastro' ? 'page' : undefined}
               onClick={() => setSecao('cadastro')}
-              className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'cadastro' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
+              className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'cadastro' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}
             >
               <PackagePlus className="size-4" />
               Cadastrar bobina
