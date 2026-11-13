@@ -137,6 +137,14 @@ export type CobrideiraBobinaRow = {
   created_at: string
 }
 
+
+export type CobrideiraBobinaLixeiraRow = {
+  numero_bobina: string
+  dados: CobrideiraBobinaRow
+  excluida_em: string
+  excluida_por: string | null
+}
+
 export type CobrideiraBobinaInsert = Omit<
   CobrideiraBobinaRow,
   'peso_liquido' | 'created_by' | 'created_at'
