@@ -118,7 +118,7 @@ code {
     background-attachment: fixed;
   }
   /* Camadas flutuantes sempre opacas e com contraste alto. */
-  [data-slot='dialog-content'], [data-slot='sheet-content], [data-slot='popover-content'], [data-slot='dropdown-menu-content'], [data-slot='dropdown-menu-sub-content'], [data-slot='select-content'], [data-slot='tooltip-content'] {
+  [data-slot='dialog-content'], [data-slot='sheet-content'], [data-slot='popover-content'], [data-slot='dropdown-menu-content'], [data-slot='dropdown-menu-sub-content'], [data-slot='select-content'], [data-slot='tooltip-content'] {
     background-color: #ffffff !important;
     color: #172033 !important;
     opacity: 1 !important;
