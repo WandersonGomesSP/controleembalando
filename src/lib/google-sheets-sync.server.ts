@@ -441,7 +441,7 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
         existingRows = [sheet.rows[0]]
       }
       const normalizeHeader = (value: unknown) => String(value ?? '')
-        .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, '').trim()
       const headers = existingRows[0].map(normalizeHeader)
       const numberColumn = headers.indexOf(normalizeHeader('N° BOB.'))
