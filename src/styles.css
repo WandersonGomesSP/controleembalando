@@ -23,10 +23,10 @@ code {
   --reading-width: 42rem;
   --background: #f3f4f6;
   --foreground: #000000;
-  --card: #666666;
-  --card-foreground: #ffffff;
-  --popover: #666666;
-  --popover-foreground: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --popover: #ffffff;
+  --popover-foreground: #111827;
   --primary: #e3262e;
   --primary-foreground: #000000;
   --secondary: #e9edff;
@@ -40,7 +40,7 @@ code {
   --border: #dce2ef;
   --input: #d4dbea;
   --ring: #7c9cff;
-  --field: #666666;
+  --field: #ffffff;
   --success: #16834a;
   --warning: #a15c07;
   --chart-1: #2448a5;
@@ -49,8 +49,8 @@ code {
   --chart-4: #a23b82;
   --chart-5: #c2410c;
   --radius: 0.5rem;
-  --sidebar: #666666;
-  --sidebar-foreground: #ffffff;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #111827;
   --sidebar-primary: #df292b;
   --sidebar-primary-foreground: #000000;
   --sidebar-accent: #e8edff;
@@ -187,4 +187,27 @@ code {
   button:not([disabled]):hover { background-color: #f0444b; color: #000000; }
   button:disabled { color: #111111 !important; opacity: 1 !important; }
   [role="tab"], [role="menuitem"], [role="option"] { color: #000000 !important; }
+}
+
+
+/* Reversão das superfícies cinzas: cartões, formulários e menus brancos. */
+@layer base {
+  header.sticky { background: #ffffff !important; color: #111827 !important; }
+  [class*="bg-background/"], [class*="bg-primary/5"] { background-color: #ffffff !important; color: #111827 !important; }
+  [data-slot='dialog-content'], [data-slot='sheet-content'], [data-slot='popover-content'], [data-slot='dropdown-menu-content'], [data-slot='dropdown-menu-sub-content'], [data-slot='select-content'], [data-slot='tooltip-content'] {
+    background-color: #ffffff !important; color: #111827 !important; border-color: #d1d5db !important;
+  }
+  [data-sonner-toast] { background: #ffffff !important; color: #111827 !important; }
+  body:has(input[name='email']) main > div,
+  body:has(input[name='email']) main > div aside,
+  body:has(input[name='email']) main > div section,
+  body:has(button[aria-label='Sair da conta']) main > div {
+    background: #ffffff !important; color: #111827 !important; border-color: #d1d5db !important;
+  }
+  body:has(input[name='email']) main > div :is(h1,h2,h3,p,label,span),
+  body:has(button[aria-label='Sair da conta']) main > div :is(h1,h2,h3,p,span) { color: #111827 !important; }
+  body:has(input[name='email']) main > div input,
+  input, textarea, select { background-color: #ffffff !important; color: #111827 !important; border-color: #cbd5e1 !important; }
+  input::placeholder, textarea::placeholder { color: #64748b !important; }
+  [class*="bg-primary/"], [class*="bg-background/"] { background-color: #ffffff !important; color: #111827 !important; }
 }
