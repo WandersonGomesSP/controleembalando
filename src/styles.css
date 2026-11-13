@@ -21,20 +21,20 @@ code {
   --font-heading: var(--font-body);
   --content-width: 82rem;
   --reading-width: 42rem;
-  --background: #00008B;
-  --foreground: #172033;
+  --background: #f3f4f6;
+  --foreground: #000000;
   --card: #ffffff;
-  --card-foreground: #172033;
+  --card-foreground: #000000;
   --popover: #ffffff;
-  --popover-foreground: #172033;
-  --primary: #df292b;
-  --primary-foreground: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #e3262e;
+  --primary-foreground: #000000;
   --secondary: #e9edff;
-  --secondary-foreground: #172f78;
+  --secondary-foreground: #000000;
   --muted: #eef1fb;
-  --muted-foreground: #344054;
+  --muted-foreground: #111111;
   --accent: #e8edff;
-  --accent-foreground: #172f78;
+  --accent-foreground: #000000;
   --destructive: #b42318;
   --destructive-foreground: #ffffff;
   --border: #dce2ef;
@@ -50,9 +50,9 @@ code {
   --chart-5: #c2410c;
   --radius: 0.5rem;
   --sidebar: #ffffff;
-  --sidebar-foreground: #172033;
+  --sidebar-foreground: #000000;
   --sidebar-primary: #df292b;
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary-foreground: #000000;
   --sidebar-accent: #e8edff;
   --sidebar-accent-foreground: #172f78;
   --sidebar-border: #dce2ef;
@@ -110,7 +110,7 @@ code {
   * { @apply border-border outline-ring/50; }
   body {
     @apply bg-background text-foreground;
-    background-color: #00008B;
+    background-color: #f3f4f6;
     background-image: none;
     background-repeat: no-repeat;
     background-position: center 54%;
@@ -133,18 +133,18 @@ code {
   [data-sonner-toast] { background: #ffffff !important; color: #172033 !important; border: 1px solid #cbd5e1 !important; opacity: 1 !important; box-shadow: 0 12px 32px rgba(0,0,0,.22) !important; }
   [data-slot='dialog-content'] *, [data-slot='sheet-content'] *, [data-slot='popover-content'] *, [data-slot='dropdown-menu-content'] *, [data-slot='select-content'] * { color: inherit; }
 
-  /* Login e seleção de áreas: cartões escuros sobre o fundo azul. */
-  body:has(input[name='email']) main > div { background: #111827 !important; border-color: #334155 !important; color: #f8fafc !important; }
-  body:has(input[name='email']) main > div aside { background: #0b1220 !important; border-color: #334155 !important; }
-  body:has(input[name='email']) main > div section { background: #111827 !important; color: #f8fafc !important; }
-  body:has(input[name='email']) main > div :is(h1,h2,h3,p,label,span) { color: #f1f5f9; }
-  body:has(input[name='email']) main > div input { background: #ffffff !important; color: #111827 !important; border-color: #64748b !important; }
-  body:has(input[name='email']) main > div input::placeholder { color: #64748b !important; }
-  body:has(input[name='email']) main > div button { color: #ffffff; }
-  body:has(button[aria-label='Sair da conta']) main { color: #f8fafc; }
-  body:has(button[aria-label='Sair da conta']) main > div { background: #111827; color: #f8fafc; border-color: #334155; }
-  body:has(button[aria-label='Sair da conta']) main > div :is(h1,h2,h3,p,span) { color: #f1f5f9; }
-  body:has(button[aria-label='Sair da conta']) main > div button { color: #f8fafc; }
+  /* Login e seleção de áreas: superfícies claras, texto preto e controles vermelhos. */
+  body:has(input[name='email']) main > div { background: #ffffff !important; border-color: #d1d5db !important; color: #000000 !important; }
+  body:has(input[name='email']) main > div aside { background: #ffffff !important; border-color: #d1d5db !important; color: #000000 !important; }
+  body:has(input[name='email']) main > div section { background: #ffffff !important; color: #000000 !important; }
+  body:has(input[name='email']) main > div :is(h1,h2,h3,p,label,span) { color: #000000 !important; opacity: 1 !important; }
+  body:has(input[name='email']) main > div input { background: #ffffff !important; color: #000000 !important; border-color: #9ca3af !important; }
+  body:has(input[name='email']) main > div input::placeholder { color: #333333 !important; opacity: 1 !important; }
+  body:has(input[name='email']) main > div button { background: #e3262e !important; color: #000000 !important; border-color: #e3262e !important; opacity: 1 !important; }
+  body:has(button[aria-label='Sair da conta']) main { color: #000000 !important; }
+  body:has(button[aria-label='Sair da conta']) main > div { background: #ffffff !important; color: #000000 !important; border-color: #d1d5db !important; }
+  body:has(button[aria-label='Sair da conta']) main > div :is(h1,h2,h3,p,span) { color: #000000 !important; opacity: 1 !important; }
+  body:has(button[aria-label='Sair da conta']) main > div button { background: #e3262e !important; color: #000000 !important; }
 
   input[type='date']::-webkit-calendar-picker-indicator {
     filter: invert(0.35);
@@ -168,3 +168,15 @@ code {
   border-color: #fecaca;
 }
 .toaster [data-sonner-toast][data-type='error'] [data-icon] { color: #b91c1c; }
+
+
+/* Contraste global: texto preto e fundos sólidos em campos e superfícies. */
+@layer base {
+  body, body * { opacity: 1; }
+  p, label, small, span, th, td, h1, h2, h3, h4 { color: #000000; }
+  input, textarea, select { background-color: #ffffff !important; color: #000000 !important; }
+  button:not([disabled]) { color: #000000; }
+  button[class*="bg-primary"], button[class*="bg-[#e3262e"]], [role="tab"][data-state="active"] { background-color: #e3262e !important; color: #000000 !important; }
+  [class*="bg-primary/"], [class*="bg-background/"] { background-color: #ffffff !important; }
+  [class*="text-muted-foreground"], [class*="text-foreground/"] { color: #111111 !important; }
+}
