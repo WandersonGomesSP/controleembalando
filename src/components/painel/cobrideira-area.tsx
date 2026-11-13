@@ -18,7 +18,7 @@ import {
   TextInput,
 } from '@/components/painel/fields'
 import { supabase } from '@/lib/supabase'
-import { synchronizeCobrideiraBobina } from '@/lib/admin.functions'
+import { synchronizeCobrideiraBobina, updateCobrideiraBobina } from '@/lib/admin.functions'
 import type {
   CobrideiraBobinaInsert,
   CobrideiraBobinaRow,
@@ -436,13 +436,13 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
         codigo_emenda: form.codigoEmenda.trim(),
       }
       const resultado = editandoNumero
-        ? await supabase
-            .schema('cobrideira')
-            .from('bobinas')
-            .update(insercao)
-            .eq('numero_bobina', editandoNumero)
-            .select('*')
-            .single()
+        ? { data: await updateCobrideiraBobina({
+            data: {
+              accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? '',
+              numeroOriginal: editandoNumero,
+              bobina: insercao,
+            },
+          }), error: null }
         : await supabase
             .schema('cobrideira')
             .from('bobinas')
@@ -465,7 +465,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       setForm(formularioInicial())
       setSecao('registros')
     } catch (error: unknown) {
-      toast.error('Não foi possível cadastrar a bobina.', {
+      toast.error(editandoNumero ? 'Não foi possível atualizar a bobina.' : 'Não foi possível cadastrar a bobina.', {
         description: erroMensagem(error),
       })
     } finally {
