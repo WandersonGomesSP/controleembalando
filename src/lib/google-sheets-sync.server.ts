@@ -373,7 +373,7 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
   // A sincronização manual com intervalo de datas altera somente as guias de bobinas.
   // A rotina automática sem intervalo continua atualizando as demais guias normalmente.
   const sheets = numeroBobina || (dataInicio && dataFim)
-    ? allSheets.filter((sheet) => sheet.rows[0]?.[0] === 'Número da bobina')
+    ? allSheets.filter((sheet) => sheet.rows[0]?.[1] === 'N° BOB.')
     : allSheets
   if ((numeroBobina || (dataInicio && dataFim)) && !sheets.length) {
     const criterio = numeroBobina ? `para o número ${numeroBobina}` : `entre ${dataInicio} e ${dataFim}`
@@ -393,7 +393,7 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
   const metadata = await getMetadata()
   const existingTitles = new Set(metadata.sheets.map((sheet) => sheet.properties.title))
   const bobinaSheetTitles = new Set(sheets
-    .filter((sheet) => sheet.rows[0]?.[0] === 'Número da bobina')
+    .filter((sheet) => sheet.rows[0]?.[1] === 'N° BOB.')
     .map((sheet) => sheet.title))
   // Cria automaticamente qualquer guia ausente, inclusive as guias de bobinas
   // definidas pelo período no cadastro (ex.: Nov-26).
@@ -559,7 +559,7 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
   }
   const historyRows = Math.max(0, (allSheets.find((sheet) => sheet.title === 'Histórico')?.rows.length ?? 1) - 1)
   const bobinaRows = allSheets
-    .filter((sheet) => sheet.rows[0]?.[0] === 'Número da bobina')
+    .filter((sheet) => sheet.rows[0]?.[1] === 'N° BOB.')
     .reduce((total, sheet) => total + Math.max(0, sheet.rows.length - 1), 0)
   return {
     syncedSheets: sheets.length,
