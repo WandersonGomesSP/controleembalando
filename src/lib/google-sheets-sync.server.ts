@@ -376,7 +376,8 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
     ? allSheets.filter((sheet) => sheet.rows[0]?.[0] === 'Número da bobina')
     : allSheets
   if ((numeroBobina || (dataInicio && dataFim)) && !sheets.length) {
-    throw new Error(`Não há bobinas cadastradas entre ${dataInicio} e ${dataFim}. Nenhuma guia foi atualizada.`)
+    const criterio = numeroBobina ? `para o número ${numeroBobina}` : `entre ${dataInicio} e ${dataFim}`
+    throw new Error(`Não há bobinas cadastradas ${criterio}. Nenhuma guia foi atualizada.`)
   }
   const spreadsheetUrl = `${GOOGLE_SHEETS_API}/${encodeURIComponent(config.spreadsheetId)}`
   const getMetadata = () => googleRequest<{
