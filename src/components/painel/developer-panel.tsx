@@ -77,6 +77,7 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
   const [loading, setLoading] = React.useState(true)
   const [message, setMessage] = React.useState('')
   const [syncingSheets, setSyncingSheets] = React.useState(false)
+  const [periodoBobinas, setPeriodoBobinas] = React.useState('')
 
   async function reload() {
     setLoading(true)
@@ -280,8 +281,13 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
     if (syncingSheets) return
     setSyncingSheets(true)
     try {
-      const result = await synchronizeGoogleSheetsNow({ data: { accessToken } })
-      toast.success(`Planilha sincronizada: ${result.syncedSheets} guias atualizadas.`)
+      const periodo = periodoBobinas.trim()
+      if (!periodo) {
+        toast.error('Informe o período das bobinas, por exemplo Nov/26.')
+        return
+      }
+      const result = await synchronizeGoogleSheetsNow({ data: { accessToken, periodoBobinas: periodo } })
+      toast.success(`Período ${periodo} sincronizado: ${result.syncedSheets} guias atualizadas.`)
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -329,11 +335,22 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
             title="Sincronização com Google Sheets"
             description="Atualização automática de segunda a sexta-feira às 06h (horário de São Paulo)."
           >
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="grid gap-1 text-sm">
+                <span className="text-muted-foreground">Período das bobinas</span>
+                <input
+                  type="text"
+                  value={periodoBobinas}
+                  onChange={(event) => setPeriodoBobinas(event.target.value)}
+                  placeholder="Ex.: Nov/26"
+                  aria-label="Período das bobinas para sincronizar"
+                  className="h-10 w-36 rounded-md border border-border bg-background px-3 text-sm"
+                />
+              </label>
               <button
                 type="button"
                 onClick={() => void synchronizeSheets()}
-                disabled={syncingSheets}
+                disabled={syncingSheets || !periodoBobinas.trim()}
                 className="inline-flex h-10 items-center gap-2 rounded-md bg-foreground px-4 text-sm font-medium text-background disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <RefreshCw className={`size-4 ${syncingSheets ? 'animate-spin' : ''}`} />
