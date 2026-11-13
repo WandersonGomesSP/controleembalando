@@ -390,15 +390,15 @@ export function AccessGate({
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl items-center px-5 py-10 sm:px-8">
       <div className="grid w-full overflow-hidden rounded-lg border border-border bg-card lg:grid-cols-[minmax(18rem,0.85fr)_minmax(26rem,1.15fr)]">
-        <aside className="flex min-h-64 flex-col justify-between border-b border-border bg-primary/10 p-7 sm:p-9 lg:min-h-[36rem] lg:border-r lg:border-b-0">
+        <aside className="flex min-h-64 flex-col justify-between border-b border-border bg-white p-7 sm:p-9 lg:min-h-[36rem] lg:border-r lg:border-b-0">
           <div>
             <span className="grid size-10 place-items-center rounded-md border border-border text-muted-foreground">
               <Cylinder className="size-6" />
             </span>
-            <p className="mt-8 text-xs tracking-wide text-muted-foreground uppercase">
+            <p className="mt-8 text-xs tracking-wide text-black uppercase">
               Controle de fábrica
             </p>
-            <p className="mt-3 max-w-sm text-sm leading-6 text-foreground/75">
+            <p className="mt-3 max-w-sm text-sm leading-6 text-black">
               Produção e estoque organizados para cada etapa da operação.
             </p>
           </div>
@@ -440,7 +440,7 @@ export function AccessGate({
                 )}
                 <AccessButton
                   type="submit"
-                  className="w-full bg-foreground text-background hover:bg-foreground/90"
+                  className="w-full rounded-full bg-[#e3262e] text-black hover:bg-[#f0444b]"
                 >
                   Entrar <ArrowRight className="size-4" />
                 </AccessButton>
@@ -462,7 +462,7 @@ export function AccessGate({
                   type="button"
                   aria-label="Sair da conta"
                   onClick={signOut}
-                  className="size-9 shrink-0 bg-secondary px-0 text-secondary-foreground hover:bg-accent"
+                  className="size-9 shrink-0 rounded-full bg-[#e3262e] px-0 text-black hover:bg-[#f0444b]"
                 >
                   <LogOut className="size-4" />
                 </AccessButton>
@@ -477,7 +477,7 @@ export function AccessGate({
                       type="button"
                       onClick={() => entry.available && chooseArea(entry.id)}
                       disabled={!entry.available}
-                      className="group grid grid-cols-[2.5rem_1fr_auto] items-center gap-4 border-b border-border/80 px-3 py-4 text-left transition-colors first:border-t enabled:hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="group grid grid-cols-[2.5rem_1fr_auto] items-center gap-4 rounded-xl border border-border bg-white px-4 py-4 text-left text-black shadow-sm transition-colors enabled:hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-100"
                     >
                       <span className="font-mono text-xs text-muted-foreground">
                         0{AREAS.indexOf(entry) + 1}
@@ -501,7 +501,7 @@ export function AccessGate({
                 <AccessButton
                   type="button"
                   onClick={() => setScreen('development')}
-                  className="mt-6 bg-secondary text-secondary-foreground hover:bg-accent"
+                  className="mt-6 rounded-full bg-[#e3262e] text-black hover:bg-[#f0444b]"
                 >
                   <Wrench className="size-4" /> Modo desenvolvedor
                 </AccessButton>
