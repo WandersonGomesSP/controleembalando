@@ -303,6 +303,7 @@ export type Database = {
   cobrideira: {
     Tables: {
       bobinas: Table<CobrideiraBobinaRow, CobrideiraBobinaInsert>
+      bobinas_lixeira: Table<CobrideiraBobinaLixeiraRow, Omit<CobrideiraBobinaLixeiraRow, 'excluida_em'>>
     }
     Views: Record<string, never>
     Functions: Record<string, never>
