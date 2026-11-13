@@ -341,7 +341,7 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
               </button>
               <p className="text-sm text-muted-foreground">
                 A execução automática fica suspensa até as variáveis de acesso do Google e do
-                Supabase estarem configuradas no Netlify.
+                Supabase estarem configuradas na Vercel.
               </p>
             </div>
             {!data.googleSheetsPermissionsConfirmed && (
