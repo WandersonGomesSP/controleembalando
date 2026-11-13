@@ -457,7 +457,7 @@ export function AccessGate({
                 </AccessButton>
               </div>
 
-              <div className="mt-8 grid gap-3">
+              <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {areasExibidas.map((entry) => {
                   const Icon = entry.icon
                   return (
@@ -466,20 +466,20 @@ export function AccessGate({
                       type="button"
                       onClick={() => entry.available && chooseArea(entry.id)}
                       disabled={!entry.available}
-                      className="group grid grid-cols-[2.5rem_1fr_auto] items-center gap-4 rounded-xl border border-border bg-white px-4 py-4 text-left text-black shadow-sm transition-colors enabled:hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-100"
+                      className="group grid min-h-36 grid-cols-[2rem_1fr] items-start gap-3 rounded-xl border-2 border-[#e3262e] bg-white px-5 py-5 text-left text-black shadow-md transition-colors enabled:hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-100"
                     >
-                      <span className="font-mono text-xs text-muted-foreground">
+                      <span className="grid size-8 place-items-center rounded-full bg-[#e3262e] font-mono text-xs font-bold text-black">
                         0{AREAS.indexOf(entry) + 1}
                       </span>
                       <span className="min-w-0">
-                        <span className="block font-semibold">{entry.name}</span>
-                        <span className="mt-1 block text-sm text-muted-foreground">
+                        <span className="block font-semibold text-black">{entry.name}</span>
+                        <span className="mt-1 block text-sm leading-5 text-gray-900">
                           {entry.description}
                         </span>
                       </span>
-                      <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                        {!entry.available ? 'Em breve' : 'Disponível'}
-                        <Icon className="size-4" />
+                      <span className="col-span-2 flex items-center justify-between border-t border-gray-200 pt-3 text-xs font-semibold text-black">
+                        <span>{!entry.available ? 'Em breve' : 'Disponível'}</span>
+                        <Icon className="size-5 text-[#e3262e]" />
                       </span>
                     </button>
                   )
