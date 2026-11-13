@@ -394,12 +394,10 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
   const bobinaSheetTitles = new Set(sheets
     .filter((sheet) => sheet.rows[0]?.[0] === 'Número da bobina')
     .map((sheet) => sheet.title))
-  const missingBobinaSheets = [...bobinaSheetTitles].filter((title) => !existingTitles.has(title))
-  if (missingBobinaSheets.length) {
-    throw new Error(`A aba de destino ${missingBobinaSheets.join(', ')} não existe na planilha. Crie a aba com esse nome antes de sincronizar.`)
-  }
+  // Cria automaticamente qualquer guia ausente, inclusive as guias de bobinas
+  // definidas pelo período no cadastro (ex.: Nov-26).
   const missingSheets = sheets
-    .filter((sheet) => !existingTitles.has(sheet.title) && !bobinaSheetTitles.has(sheet.title))
+    .filter((sheet) => !existingTitles.has(sheet.title))
     .map((sheet) => ({ addSheet: { properties: { title: sheet.title } } }))
   if (missingSheets.length) {
     await googleRequest(`${spreadsheetUrl}:batchUpdate`, token, {
@@ -429,9 +427,16 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
         `${spreadsheetUrl}/values/${encodeURIComponent(readRange)}`,
         token,
       )
-      const existingRows = existing.values ?? []
+      let existingRows = existing.values ?? []
       if (!existingRows.length) {
-        throw new Error(`A aba ${sheet.title} está vazia e não possui cabeçalho. Insira os cabeçalhos antes de sincronizar.`)
+        // Guia recém-criada: inicializa somente o cabeçalho antes de acrescentar os registros.
+        const headerRange = `'${escapedTitle}'!A1:${columnLetter(sheet.rows[0].length)}1`
+        await googleRequest(
+          `${spreadsheetUrl}/values/${encodeURIComponent(headerRange)}?valueInputOption=RAW`,
+          token,
+          { method: 'PUT', body: JSON.stringify({ majorDimension: 'ROWS', values: [sheet.rows[0]] }) },
+        )
+        existingRows = [sheet.rows[0]]
       }
       const headers = existingRows[0].map((value) => String(value ?? '').trim().toLocaleLowerCase('pt-BR'))
       const numberColumn = headers.indexOf('número da bobina')
