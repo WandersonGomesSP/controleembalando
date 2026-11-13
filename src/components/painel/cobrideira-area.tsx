@@ -860,8 +860,8 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                 <table className="w-full min-w-[58rem] text-left text-sm">
                   <thead className="sticky top-0 bg-muted text-xs text-muted-foreground">
                     <tr>
-                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'data',asc:o.campo==='data'?!o.asc:true}))}>Data ↕</button></th>
                       <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'numero_bobina',asc:o.campo==='numero_bobina'?!o.asc:true}))}>Nº Bobina ↕</button></th>
+                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'data',asc:o.campo==='data'?!o.asc:true}))}>Data ↕</button></th>
                       <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'cod_bob',asc:o.campo==='cod_bob'?!o.asc:true}))}>Cód. bobina ↕</button></th>
                       <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'fornecedor_filme',asc:o.campo==='fornecedor_filme'?!o.asc:true}))}>Fornecedor ↕</button></th>
                       <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'largura',asc:o.campo==='largura'?!o.asc:true}))}>Largura ↕</button></th>
@@ -876,10 +876,10 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                         key={registro.numero_bobina}
                         className="border-b border-border/70 last:border-0"
                       >
+                        <td className="px-3 py-3 font-mono">{registro.numero_bobina}</td>
                         <td className="px-3 py-3">
                           {formatarData(registro.data)}
                         </td>
-                        <td className="px-3 py-3 font-mono">{registro.numero_bobina}</td>
                         <td className="px-3 py-3 font-mono">
                           {registro.cod_bob}
                         </td>
