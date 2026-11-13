@@ -6,8 +6,8 @@ import { NotFoundPage } from '@/components/error-pages'
 
 import '../styles.css'
 
-const siteName = 'Controle Embalando'
-const siteDescription = 'Controle de produção e estoque por setor'
+const siteName = 'Embalando | Fitas Adesivas'
+const siteDescription = 'Controle de produção e estoque da Embalando Fitas Adesivas'
 
 export const Route = createRootRoute({
   head: () => ({
