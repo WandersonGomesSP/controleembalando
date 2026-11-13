@@ -12,4 +12,5 @@ create index if not exists cobrideira_bobinas_lixeira_excluida_em_idx
 
 alter table cobrideira.bobinas_lixeira enable row level security;
 grant usage on schema cobrideira to service_role;
-grant select, insert, delete on table cobrideira.bobinas_lixeira to service_role;
+grant select, insert, update, delete on table cobrideira.bobinas to service_role;
+grant select, insert, update, delete on table cobrideira.bobinas_lixeira to service_role;
