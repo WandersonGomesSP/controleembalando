@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420">
+  <g opacity=".16">
+    <path d="M90 205 265 35 520 205 265 375Z" fill="#172f78" stroke="#df292b" stroke-width="12"/>
+    <path d="M210 112h86c62 0 112 42 112 94 0 28-16 54-42 71l-43-72c12-9 18-20 18-32 0-20-20-36-45-36h-86v-25Z" fill="#df292b"/>
+    <path d="M210 112v54h-42v-54zM210 166h-42v55h42z" fill="#df292b"/>
+    <path d="M296 112c57 0 104 42 104 94 0 29-16 55-42 72l-65-111c13-8 20-19 20-31 0-20-20-36-45-36z" fill="#df292b"/>
+    <text x="320" y="320" text-anchor="middle" fill="#172f78" font-family="Arial,sans-serif" font-size="60" font-weight="600">Embalando</text>
+    <text x="320" y="372" text-anchor="middle" fill="#df292b" font-family="Arial,sans-serif" font-size="34" font-weight="700" letter-spacing="2">FITAS ADESIVAS</text>
+  </g>
+</svg>
