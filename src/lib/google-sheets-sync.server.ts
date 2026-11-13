@@ -111,16 +111,25 @@ async function googleRequest<T>(
   return (await response.json()) as T
 }
 
-async function allRows<T>(query: (start: number, end: number) => PromiseLike<{
+async function allRows<T>(label: string, query: (start: number, end: number) => PromiseLike<{
   data: T[] | null
-  error: { message: string } | null
+  error: { message: string; code?: string; details?: string; hint?: string } | null
 }>) {
   const records: T[] = []
   for (let start = 0; ; start += PAGE_SIZE) {
     const { data, error } = await query(start, start + PAGE_SIZE - 1)
     if (error) {
-      console.error('Supabase query failed while syncing Google Sheets:', error.message)
-      throw new Error('Não foi possível carregar os registros para sincronizar a planilha.')
+      console.error('Supabase query failed while syncing Google Sheets:', {
+        table: label,
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      })
+      const diagnostic = [error.code, error.message, error.details, error.hint]
+        .filter(Boolean)
+        .join(' — ')
+      throw new Error(`Falha ao consultar "${label}" no Supabase: ${diagnostic}`)
     }
     records.push(...(data ?? []))
     if (!data || data.length < PAGE_SIZE) return records
@@ -156,19 +165,19 @@ function codigos(value: unknown) {
 
 async function loadSheetData(client: ReturnType<typeof createClient<Database>>): Promise<SheetData[]> {
   const [insumos, producoes, tubetes, logs, bobinas] = await Promise.all([
-    allRows((start, end) =>
+    allRows('insumos_rolos', (start, end) =>
       client.from('insumos_rolos').select('*').order('data_registro').order('id_codigo').range(start, end),
     ),
-    allRows((start, end) =>
+    allRows('producao_tubos', (start, end) =>
       client.from('producao_tubos').select('*').order('data').order('id').range(start, end),
     ),
-    allRows((start, end) =>
+    allRows('lotes_tubete', (start, end) =>
       client.from('lotes_tubete').select('*').order('data_producao').order('id').range(start, end),
     ),
-    allRows((start, end) =>
+    allRows('stock_operation_logs', (start, end) =>
       client.from('stock_operation_logs').select('*').order('id', { ascending: false }).range(start, end),
     ),
-    allRows((start, end) =>
+    allRows('cobrideira.bobinas', (start, end) =>
       client.schema('cobrideira').from('bobinas').select('*').order('data').order('numero_bobina').range(start, end),
     ),
   ])
