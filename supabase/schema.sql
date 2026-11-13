@@ -163,6 +163,7 @@ create table if not exists cobrideira.bobinas (
   aba text not null,
   material text not null,
   largura numeric(8, 2) not null check (largura > 0),
+  micragem integer not null default 20,
   peso_bruto numeric(12, 3) not null check (peso_bruto > 0),
   peso_final numeric(12, 3) not null check (peso_final > 0),
   peso_cilindro numeric(12, 3) not null check (peso_cilindro >= 0),
@@ -189,6 +190,15 @@ create table if not exists cobrideira.bobinas (
   created_at timestamptz not null default now(),
   check (peso_final > peso_cilindro)
 );
+
+-- Migra a micragem que antes estava embutida na parte decimal da largura (ex.: 980.20).
+alter table cobrideira.bobinas add column if not exists micragem integer;
+update cobrideira.bobinas
+set micragem = round((largura - trunc(largura)) * 100)::integer,
+    largura = trunc(largura)
+where micragem is null;
+alter table cobrideira.bobinas alter column micragem set default 20;
+alter table cobrideira.bobinas alter column micragem set not null;
 
 create index if not exists cobrideira_bobinas_created_at_idx
   on cobrideira.bobinas (created_at desc);
