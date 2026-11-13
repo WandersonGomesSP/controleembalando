@@ -437,7 +437,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       </header>
 
       <main className="mx-auto grid max-w-[90rem] gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        {secao === 'cadastro' ? (tro' ? (
+        {secao === 'cadastro' ? (
           <>
             <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm leading-6 text-muted-foreground">
               Cadastro salvo no schema isolado{' '}
@@ -782,7 +782,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
         ) : (
           <Panel
             title="Bobinas registradas"
-            description="Últimos 100 registros da Cobrideira."
+            description="Todos os registros da Cobrideira."
             action={
               <button
                 type="button"
@@ -793,47 +793,6 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
               </button>
             }
           >
-            <div className="mb-6 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-border bg-white p-4">
-                <p className="text-xs font-semibold uppercase text-black">Bobinas filtradas</p>
-                <p className="mt-2 text-2xl font-bold text-black">{registrosFiltrados.length}</p>
-              </div>
-              <div className="rounded-xl border border-border bg-white p-4">
-                <p className="text-xs font-semibold uppercase text-black">Peso líquido total</p>
-                <p className="mt-2 text-2xl font-bold text-black">{formatarPeso(pesoTotalFiltrado)} kg</p>
-              </div>
-              <div className="rounded-xl border border-border bg-white p-4">
-                <p className="text-xs font-semibold uppercase text-black">Metragem total</p>
-                <p className="mt-2 text-2xl font-bold text-black">{metragemTotalFiltrada.toLocaleString('pt-BR')} m</p>
-              </div>
-            </div>
-
-            <section className="mb-6 rounded-xl border border-border bg-white p-4">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-semibold text-black">Produção por dia</h3>
-                <span className="text-xs text-black">Até 7 dias com registros</span>
-              </div>
-              {producaoPorDia.length === 0 ? (
-                <p className="py-8 text-center text-sm text-black">Sem dados para exibir no gráfico.</p>
-              ) : (
-                <div className="flex h-40 items-end gap-3 border-b border-border px-2">
-                  {producaoPorDia.map((item) => (
-                    <div key={item.data} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
-                      <span className="text-xs font-bold text-black">{item.quantidade}</span>
-                      <div className="flex w-full flex-1 items-end">
-                        <div
-                          className="w-full rounded-t-md bg-[#e3262e]"
-                          style={{ height: `${Math.max(8, (item.quantidade / maxProducaoDia) * 100)}%` }}
-                          title={`${item.quantidade} bobina(s)`}
-                        />
-                      </div>
-                      <span className="pb-2 text-[10px] text-black">{formatarData(item.data).slice(0, 5)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
             <section className="mb-5 grid gap-3 rounded-xl border border-border bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
               <label className="grid gap-1 text-xs font-semibold text-black">
                 Data inicial
