@@ -426,6 +426,27 @@ export const synchronizeGoogleSheetsNow = createServerFn({ method: 'POST' })
     return syncGoogleSheets(data.dataInicio, data.dataFim)
   })
 
+export const updateCobrideiraBobina = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({
+    numeroOriginal: z.string().trim().min(1).max(80),
+    bobina: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
+  }))
+  .handler(async ({ data }) => {
+    const { client } = await requireDeveloper(data.accessToken)
+    const { data: updated, error } = await client
+      .schema('cobrideira')
+      .from('bobinas')
+      .update(data.bobina as never)
+      .eq('numero_bobina', data.numeroOriginal)
+      .select('*')
+      .single()
+    if (error) {
+      console.error('Falha ao editar bobina da Cobrideira:', error)
+      throw new Error(`Não foi possível atualizar a bobina no banco: ${error.message}`)
+    }
+    return updated
+  })
+
 export const synchronizeCobrideiraBobina = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({ numeroBobina: z.string().trim().min(1).max(80) }))
   .handler(async ({ data }) => {
