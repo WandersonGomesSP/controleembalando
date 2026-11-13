@@ -67,7 +67,17 @@ async function googleAccessToken(email: string, privateKey: string) {
     }),
     signal: AbortSignal.timeout(20_000),
   })
-  if (!response.ok) throw new Error('O Google não autorizou o acesso à planilha.')
+  if (!response.ok) {
+    const responseBody = await response.text()
+    let reason = responseBody
+    try {
+      const parsed = JSON.parse(responseBody) as { error?: string; error_description?: string }
+      reason = [parsed.error, parsed.error_description].filter(Boolean).join(': ') || responseBody
+    } catch {
+      // Mantém a resposta original quando o Google não retornar JSON.
+    }
+    throw new Error(`O Google recusou a autorização (HTTP ${response.status}): ${reason.slice(0, 500)}`)
+  }
   const tokenResponse: unknown = await response.json()
   if (
     !tokenResponse ||
@@ -145,7 +155,7 @@ function codigos(value: unknown) {
 }
 
 async function loadSheetData(client: ReturnType<typeof createClient<Database>>): Promise<SheetData[]> {
-  const [insumos, producoes, tubetes, logs] = await Promise.all([
+  const [insumos, producoes, tubetes, logs, bobinas] = await Promise.all([
     allRows((start, end) =>
       client.from('insumos_rolos').select('*').order('data_registro').order('id_codigo').range(start, end),
     ),
@@ -157,6 +167,9 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>):
     ),
     allRows((start, end) =>
       client.from('stock_operation_logs').select('*').order('id', { ascending: false }).range(start, end),
+    ),
+    allRows((start, end) =>
+      client.schema('cobrideira').from('bobinas').select('*').order('data').order('numero_bobina').range(start, end),
     ),
   ])
 
@@ -215,6 +228,30 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>):
       Number(row.perda_kg),
       row.operador,
     ])
+  }
+
+  const bobinaHeaders = [
+    'Número da bobina', 'Código da bobina', 'Data', 'Aba / período', 'Material',
+    'Largura', 'Peso bruto (kg)', 'Peso final (kg)', 'Peso cilindro (kg)',
+    'Peso líquido (kg)', 'Metragem', 'Perda (kg)', 'Fornecedor do filme',
+    'Vareta (g)', 'Cola (kg)', 'Lote da cola', 'Código interno',
+    'Fornecedor da cola', 'Turno', 'Linha', 'Cor de fundo', 'Pigmento (kg)',
+    'Cor da mistura', 'Pigmento da mistura', 'Cliente', 'Cor de impressão',
+    'Emenda', 'Código da emenda', 'Criado por', 'Criado em',
+  ]
+  const bobinaRows: (string | number)[][] = [bobinaHeaders]
+  for (const row of bobinas) {
+    bobinaRows.push([
+      row.numero_bobina, row.cod_bob, dataBR(row.data), row.aba, row.material,
+      Number(row.largura), Number(row.peso_bruto), Number(row.peso_final),
+      Number(row.peso_cilindro), Number(row.peso_liquido), Number(row.metragem),
+      Number(row.perda_kg), row.fornecedor_filme, Number(row.vareta_g),
+      Number(row.kg_cola), row.lote_cola, row.codigo_interno, row.fornecedor_cola,
+      row.turno, row.linha, row.cor_fundo, Number(row.pigmento_kg),
+      row.cor_mistura, row.pigmento_mistura, row.cliente, row.cor_impressao,
+      row.emenda ? 'Sim' : 'Não', row.codigo_emenda, row.created_by,
+      dataHoraBR(row.created_at),
+    ].map((value) => value === null || value === undefined ? '' : value))
   }
 
   const historyRows: (string | number)[][] = [[
@@ -279,6 +316,7 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>):
     { title: 'Tubos', rows: tubeRows },
     { title: 'Tubetes', rows: tubeteRows },
     { title: 'Histórico', rows: historyRows },
+    { title: 'Bobinas Cobrideira', rows: bobinaRows },
   ]
 }
 
@@ -376,5 +414,5 @@ export async function syncGoogleSheets() {
     method: 'POST',
     body: JSON.stringify({ requests: layoutRequests }),
   })
-  return { syncedSheets: sheets.length, historyRows: sheets[4]?.rows.length ?? 1 }
+  return { syncedSheets: sheets.length, historyRows: historyRows.length - 1, bobinaRows: bobinas.length }
 }
