@@ -148,10 +148,18 @@ function formatarData(valor: string) {
 }
 
 function erroMensagem(error: unknown) {
-  if (error && typeof error === 'object' && 'message' in error) {
-    return String(error.message)
+  if (error instanceof Error) {
+    const detalhes = [error.name, error.message, error.stack].filter(Boolean).join('\n')
+    return detalhes || String(error)
   }
-  return 'Verifique sua conexão e tente novamente.'
+  if (error && typeof error === 'object') {
+    try {
+      return JSON.stringify(error, Object.getOwnPropertyNames(error), 2)
+    } catch {
+      return String(error)
+    }
+  }
+  return String(error ?? 'Erro desconhecido (sem detalhes retornados).')
 }
 
 function CampoDecimal({
@@ -308,7 +316,8 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       const resultado = await synchronizeCobrideiraBobina({ data: { accessToken: sessionData.session.access_token, numeroBobina: registro.numero_bobina } })
       toast.success('Bobina ' + registro.numero_bobina + ' sincronizada.', { description: resultado.bobinaRows + ' registro(s) enviado(s) para a aba ' + registro.aba + '.' })
     } catch (error: unknown) {
-      toast.error('Não foi possível sincronizar a bobina ' + registro.numero_bobina + '.', { description: erroMensagem(error) })
+      console.error('[COBRIDEIRA] Erro real ao sincronizar bobina ' + registro.numero_bobina, error)
+      toast.error('ERRO AO SINCRONIZAR BOBINA ' + registro.numero_bobina, { description: erroMensagem(error), duration: 15000 })
     } finally {
       setSincronizandoBobina(null)
     }
@@ -436,13 +445,18 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
         codigo_emenda: form.codigoEmenda.trim(),
       }
       const resultado = editandoNumero
-        ? { data: await updateCobrideiraBobina({
-            data: {
-              accessToken: (await supabase.auth.getSession()).data.session?.access_token ?? '',
-              numeroOriginal: editandoNumero,
-              bobina: insercao,
-            },
-          }), error: null }
+        ? { data: await (async () => {
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+            if (sessionError) throw sessionError
+            if (!sessionData.session?.access_token) throw new Error('AUTH_SESSION_MISSING: sessão não encontrada; entre novamente no sistema.')
+            return updateCobrideiraBobina({
+              data: {
+                accessToken: sessionData.session.access_token,
+                numeroOriginal: editandoNumero,
+                bobina: insercao,
+              },
+            })
+          })(), error: null }
         : await supabase
             .schema('cobrideira')
             .from('bobinas')
@@ -465,8 +479,14 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       setForm(formularioInicial())
       setSecao('registros')
     } catch (error: unknown) {
-      toast.error(editandoNumero ? 'Não foi possível atualizar a bobina.' : 'Não foi possível cadastrar a bobina.', {
+      console.error('[COBRIDEIRA] Erro real ao ' + (editandoNumero ? 'editar' : 'cadastrar') + ' bobina', {
+        numeroOriginal: editandoNumero,
+        numeroInformado: form.numeroBobina,
+        error,
+      })
+      toast.error('ERRO AO ' + (editandoNumero ? 'EDITAR' : 'CADASTRAR') + ' BOBINA', {
         description: erroMensagem(error),
+        duration: 20000,
       })
     } finally {
       setSalvando(false)
