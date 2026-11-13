@@ -405,7 +405,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
               type="button"
               aria-current={secao === 'registros' ? 'page' : undefined}
               onClick={() => setSecao('registros')}
-              className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'registros' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
+              className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'registros' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}
             >
               <ClipboardList className="size-4" />
               Bobinas registradas
@@ -790,7 +790,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
               <button
                 type="button"
                 onClick={() => void carregarRegistros()}
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm hover:bg-accent"
+                className="inline-flex h-10 items-center gap-2 rounded-full border-0 bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42]"
               >
                 Atualizar
               </button>
