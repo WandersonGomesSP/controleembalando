@@ -157,11 +157,8 @@ create table if not exists public.user_roles (
 create schema if not exists cobrideira;
 
 create table if not exists cobrideira.bobinas (
-  id uuid primary key default gen_random_uuid(),
-  idp text not null,
+  numero_bobina text primary key,
   cod_bob text not null,
-  outra_bob boolean not null default false,
-  dar_baixa_bobina boolean not null default false,
   data date not null,
   aba text not null,
   material text not null,
