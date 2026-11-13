@@ -7,6 +7,7 @@ import {
   PackagePlus,
   Search,
   Save,
+  RefreshCw,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -17,6 +18,7 @@ import {
   TextInput,
 } from '@/components/painel/fields'
 import { supabase } from '@/lib/supabase'
+import { synchronizeCobrideiraBobina } from '@/lib/admin.functions'
 import type {
   CobrideiraBobinaInsert,
   CobrideiraBobinaRow,
@@ -197,6 +199,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
   const [linhaFiltro, setLinhaFiltro] = React.useState('')
   const [carregando, setCarregando] = React.useState(true)
   const [salvando, setSalvando] = React.useState(false)
+  const [sincronizandoBobina, setSincronizandoBobina] = React.useState<string | null>(null)
   const [editandoNumero, setEditandoNumero] = React.useState<string | null>(null)
   const [erroConsulta, setErroConsulta] = React.useState('')
   const [ordenacao, setOrdenacao] = React.useState<{ campo: keyof CobrideiraBobinaRow; asc: boolean }>({ campo: 'data', asc: false })
@@ -295,6 +298,19 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       )
     } finally {
       setCarregando(false)
+    }
+  }
+  async function sincronizarBobina(registro: CobrideiraBobinaRow) {
+    setSincronizandoBobina(registro.numero_bobina)
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !sessionData.session?.access_token) throw new Error('Sua sessão expirou. Entre novamente para sincronizar.')
+      const resultado = await synchronizeCobrideiraBobina({ data: { accessToken: sessionData.session.access_token, numeroBobina: registro.numero_bobina } })
+      toast.success('Bobina ' + registro.numero_bobina + ' sincronizada.', { description: resultado.bobinaRows + ' registro(s) enviado(s) para a aba ' + registro.aba + '.' })
+    } catch (error: unknown) {
+      toast.error('Não foi possível sincronizar a bobina ' + registro.numero_bobina + '.', { description: erroMensagem(error) })
+    } finally {
+      setSincronizandoBobina(null)
     }
   }
 
@@ -1004,7 +1020,11 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                                     <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                                       {detalhes.map(([rotulo, valor]) => <div key={rotulo} className="min-w-0"><dt className="text-xs text-muted-foreground">{rotulo}</dt><dd className="break-words text-sm font-medium">{valor || '—'}</dd></div>)}
                                     </dl>
-                                    <div className="mt-4 flex justify-end">
+                                    <div className="mt-4 flex flex-wrap justify-end gap-2">
+                                      <button type="button" onClick={() => void sincronizarBobina(registro)} disabled={sincronizandoBobina !== null} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-bold hover:bg-muted disabled:opacity-50">
+                                        <RefreshCw className={`size-4 ${sincronizandoBobina === registro.numero_bobina ? 'animate-spin' : ''}`} />
+                                        {sincronizandoBobina === registro.numero_bobina ? 'Sincronizando...' : 'Sincronizar'}
+                                      </button>
                                       <button type="button" onClick={() => iniciarEdicao(registro)} className="rounded-full bg-[#e3262e] px-4 py-2 text-sm font-bold text-black hover:bg-[#ff3b42]">Editar dados</button>
                                     </div>
                                   </td>
@@ -1060,7 +1080,11 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                           {expandido && (
                             <>
                               <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">{detalhes.map(([rotulo, valor]) => <div key={rotulo} className="min-w-0"><dt className="text-xs text-gray-500">{rotulo}</dt><dd className="break-words text-sm font-medium">{valor || '—'}</dd></div>)}</dl>
-                              <div className="mt-4 flex justify-end">
+                              <div className="mt-4 flex flex-wrap justify-end gap-2">
+                                <button type="button" onClick={() => void sincronizarBobina(registro)} disabled={sincronizandoBobina !== null} className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-4 py-2 text-sm font-bold hover:bg-gray-50 disabled:opacity-50">
+                                  <RefreshCw className={`size-4 ${sincronizandoBobina === registro.numero_bobina ? 'animate-spin' : ''}`} />
+                                  {sincronizandoBobina === registro.numero_bobina ? 'Sincronizando...' : 'Sincronizar'}
+                                </button>
                                 <button type="button" onClick={() => iniciarEdicao(registro)} className="rounded-full bg-[#e3262e] px-4 py-2 text-sm font-bold text-black hover:bg-[#ff3b42]">Editar dados</button>
                               </div>
                             </>
