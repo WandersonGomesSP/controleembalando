@@ -408,6 +408,14 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
   }
   const refreshedMetadata = missingSheets.length ? await getMetadata() : metadata
   const bobinaSyncLog: { numeroBobina: string; guia: string; linha: number; status: 'inserida' | 'já existia' }[] = []
+  const bobinaTemplate = refreshedMetadata.sheets.find((entry) =>
+    !bobinaSheetTitles.has(entry.properties.title) &&
+    entry.properties.title !== 'Dashboard' &&
+    entry.properties.title !== 'Rótulos e Capas' &&
+    entry.properties.title !== 'Tubos' &&
+    entry.properties.title !== 'Tubetes' &&
+    entry.properties.title !== 'Histórico'
+  )
 
   for (const sheet of sheets) {
     const escapedTitle = sheet.title.replace(/'/g, "''")
@@ -439,6 +447,22 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
           { method: 'PUT', body: JSON.stringify({ majorDimension: 'ROWS', values: [sheet.rows[0]] }) },
         )
         existingRows = [sheet.rows[0]]
+        // Guia nova: replica o formato do cabeçalho e da primeira linha de dados
+        // de uma guia de bobinas existente, sem copiar nenhum valor.
+        const destination = refreshedMetadata.sheets.find((entry) => entry.properties.title === sheet.title)
+        if (destination && bobinaTemplate) {
+          await googleRequest(`${spreadsheetUrl}:batchUpdate`, token, {
+            method: 'POST',
+            body: JSON.stringify({ requests: [0, 1].map((rowIndex) => ({
+              copyPaste: {
+                source: { sheetId: bobinaTemplate.properties.sheetId, startRowIndex: rowIndex, endRowIndex: rowIndex + 1, startColumnIndex: 0, endColumnIndex: sheet.rows[0].length },
+                destination: { sheetId: destination.properties.sheetId, startRowIndex: rowIndex, endRowIndex: rowIndex + 1, startColumnIndex: 0, endColumnIndex: sheet.rows[0].length },
+                pasteType: 'PASTE_FORMAT',
+                pasteOrientation: 'NORMAL',
+              },
+            })) }),
+          })
+        }
       }
       const normalizeHeader = (value: unknown) => String(value ?? '')
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -471,6 +495,33 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
         })
         lastUsedRow += 1
         const targetRange = `'${escapedTitle}'!A${lastUsedRow}:${columnLetter(Math.max(1, headers.length))}${lastUsedRow}`
+        // Antes de escrever, copia somente a formatação da linha imediatamente anterior.
+        const targetSheet = refreshedMetadata.sheets.find((entry) => entry.properties.title === sheet.title)
+        if (targetSheet && lastUsedRow > 2) {
+          await googleRequest(`${spreadsheetUrl}:batchUpdate`, token, {
+            method: 'POST',
+            body: JSON.stringify({ requests: [{
+              copyPaste: {
+                source: { sheetId: targetSheet.properties.sheetId, startRowIndex: lastUsedRow - 2, endRowIndex: lastUsedRow - 1, startColumnIndex: 0, endColumnIndex: headers.length },
+                destination: { sheetId: targetSheet.properties.sheetId, startRowIndex: lastUsedRow - 1, endRowIndex: lastUsedRow, startColumnIndex: 0, endColumnIndex: headers.length },
+                pasteType: 'PASTE_FORMAT',
+                pasteOrientation: 'NORMAL',
+              },
+            }] }),
+          })
+        } else if (targetSheet && lastUsedRow === 2 && bobinaTemplate) {
+          await googleRequest(`${spreadsheetUrl}:batchUpdate`, token, {
+            method: 'POST',
+            body: JSON.stringify({ requests: [{
+              copyPaste: {
+                source: { sheetId: bobinaTemplate.properties.sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: headers.length },
+                destination: { sheetId: targetSheet.properties.sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: headers.length },
+                pasteType: 'PASTE_FORMAT',
+                pasteOrientation: 'NORMAL',
+              },
+            }] }),
+          })
+        }
         await googleRequest(
           `${spreadsheetUrl}/values/${encodeURIComponent(targetRange)}?valueInputOption=RAW`,
           token,
