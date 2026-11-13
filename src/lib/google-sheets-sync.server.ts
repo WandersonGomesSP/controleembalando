@@ -275,7 +275,7 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
   const bobinaRows: (string | number)[][] = [bobinaHeaders]
   for (const row of bobinas) {
     bobinaRows.push([
-      row.data, row.numero_bobina, row.material, Number(row.largura), '',
+      dataBR(row.data), row.numero_bobina, row.material, Number(row.largura), '',
       Number(row.peso_bruto), '', Number(row.perda_kg), row.fornecedor_filme,
       row.cod_bob, Number(row.vareta_g), Number(row.kg_cola), row.lote_cola,
       row.fornecedor_cola, row.codigo_interno, row.linha, row.cor_fundo,
