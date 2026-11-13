@@ -419,10 +419,11 @@ export const saveProductionCapacity = createServerFn({ method: 'POST' })
   })
 
 export const synchronizeGoogleSheetsNow = createServerFn({ method: 'POST' })
-  .validator(tokenInput.extend({ periodoBobinas: z.string().trim().min(1).max(30) }))
+  .validator(tokenInput.extend({ dataInicio: z.iso.date(), dataFim: z.iso.date() }))
   .handler(async ({ data }) => {
     await requireDeveloper(data.accessToken)
-    return syncGoogleSheets(data.periodoBobinas)
+    if (data.dataFim < data.dataInicio) throw new Error('A data final não pode ser anterior à data inicial.')
+    return syncGoogleSheets(data.dataInicio, data.dataFim)
   })
 
 export const confirmGoogleSheetsPermissions = createServerFn({ method: 'POST' })
