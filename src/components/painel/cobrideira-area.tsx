@@ -403,7 +403,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       data: registro.data,
       aba: registro.aba ?? '',
       material: registro.material ?? '',
-      largura: String(registro.largura ?? ''),
+      largura: `${Math.trunc(Number(registro.largura ?? 0))}.${String(registro.micragem ?? 20).padStart(2, '0')}`,
       pesoBruto: String(registro.peso_bruto ?? ''),
       pesoFinal: String(registro.peso_final ?? ''),
       pesoCilindro: String(registro.peso_cilindro ?? ''),
@@ -487,7 +487,8 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
         data: form.data,
         aba: form.aba.trim(),
         material: form.material.trim(),
-        largura: Number(form.largura),
+        largura: Math.trunc(Number(form.largura)),
+        micragem: Number(form.largura.split('.').at(-1)),
         peso_bruto: bruto,
         peso_final: final,
         peso_cilindro: cilindro,
@@ -1106,7 +1107,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                                 <td className="px-3 py-3">{formatarData(registro.data)}</td>
                                 <td className="px-3 py-3 font-mono">{registro.cod_bob}</td>
                                 <td className="px-3 py-3">{registro.fornecedor_filme}</td>
-                                <td className="px-3 py-3">{registro.largura}</td>
+                                <td className="px-3 py-3">{registro.largura}.{String(registro.micragem).padStart(2, '0')}</td>
                                 <td className="px-3 py-3">{formatarPeso(Number(registro.peso_liquido))} kg</td>
                                 <td className="px-3 py-3">{registro.metragem.toLocaleString('pt-BR')} m</td>
                                 <td className="px-3 py-3 text-xs text-muted-foreground">Cadastrada</td>
@@ -1142,7 +1143,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                       const detalhes: [string, string | number][] = [
                         ['Cód. bobina', registro.cod_bob], ['Data', formatarData(registro.data)],
                         ['Aba / período', registro.aba], ['Material', registro.material],
-                        ['Largura', registro.largura], ['Peso bruto', `${formatarPeso(Number(registro.peso_bruto))} kg`],
+                        ['Largura', `${registro.largura}.${String(registro.micragem).padStart(2, '0')}`], ['Peso bruto', `${formatarPeso(Number(registro.peso_bruto))} kg`],
                         ['Peso final', `${formatarPeso(Number(registro.peso_final))} kg`],
                         ['Peso cilindro', `${formatarPeso(Number(registro.peso_cilindro))} kg`],
                         ['Peso líquido', `${formatarPeso(Number(registro.peso_liquido))} kg`],
