@@ -23,10 +23,10 @@ code {
   --reading-width: 42rem;
   --background: #f3f4f6;
   --foreground: #000000;
-  --card: #ffffff;
-  --card-foreground: #000000;
-  --popover: #ffffff;
-  --popover-foreground: #000000;
+  --card: #666666;
+  --card-foreground: #ffffff;
+  --popover: #666666;
+  --popover-foreground: #ffffff;
   --primary: #e3262e;
   --primary-foreground: #000000;
   --secondary: #e9edff;
@@ -40,7 +40,7 @@ code {
   --border: #dce2ef;
   --input: #d4dbea;
   --ring: #7c9cff;
-  --field: #ffffff;
+  --field: #666666;
   --success: #16834a;
   --warning: #a15c07;
   --chart-1: #2448a5;
@@ -49,8 +49,8 @@ code {
   --chart-4: #a23b82;
   --chart-5: #c2410c;
   --radius: 0.5rem;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #000000;
+  --sidebar: #666666;
+  --sidebar-foreground: #ffffff;
   --sidebar-primary: #df292b;
   --sidebar-primary-foreground: #000000;
   --sidebar-accent: #e8edff;
@@ -119,32 +119,32 @@ code {
     min-height: 100vh;
   }
   /* Superfícies sólidas: sem transparência ou desfoque nos painéis. */
-  header.sticky { background: #ffffff !important; color: #172033 !important; backdrop-filter: none !important; }
-  [class*="bg-background/"], [class*="bg-primary/5"] { background-color: #ffffff !important; }
+  header.sticky { background: #666666 !important; color: #ffffff !important; backdrop-filter: none !important; }
+  [class*="bg-background/"], [class*="bg-primary/5"] { background-color: #666666 !important; color: #ffffff !important; }
   [class*="bg-primary/5"] { color: #172033 !important; border-color: #cbd5e1 !important; }
   /* Camadas flutuantes sempre opacas e com contraste alto. */
   [data-slot='dialog-content'], [data-slot='sheet-content'], [data-slot='popover-content'], [data-slot='dropdown-menu-content'], [data-slot='dropdown-menu-sub-content'], [data-slot='select-content'], [data-slot='tooltip-content'] {
-    background-color: #ffffff !important;
-    color: #172033 !important;
+    background-color: #666666 !important;
+    color: #ffffff !important;
     opacity: 1 !important;
     border-color: #cbd5e1 !important;
     box-shadow: 0 16px 40px rgba(0, 0, 0, .24) !important;
   }
   [data-slot='dialog-overlay'], [data-slot='sheet-overlay'] { background: rgba(0, 0, 0, .68) !important; }
-  [data-sonner-toast] { background: #ffffff !important; color: #172033 !important; border: 1px solid #cbd5e1 !important; opacity: 1 !important; box-shadow: 0 12px 32px rgba(0,0,0,.22) !important; }
+  [data-sonner-toast] { background: #666666 !important; color: #ffffff !important; border: 1px solid #cbd5e1 !important; opacity: 1 !important; box-shadow: 0 12px 32px rgba(0,0,0,.22) !important; }
   [data-slot='dialog-content'] *, [data-slot='sheet-content'] *, [data-slot='popover-content'] *, [data-slot='dropdown-menu-content'] *, [data-slot='select-content'] * { color: inherit; }
 
   /* Login e seleção de áreas: superfícies claras, texto preto e controles vermelhos. */
-  body:has(input[name='email']) main > div { background: #ffffff !important; border-color: #d1d5db !important; color: #000000 !important; }
-  body:has(input[name='email']) main > div aside { background: #ffffff !important; border-color: #d1d5db !important; color: #000000 !important; }
-  body:has(input[name='email']) main > div section { background: #ffffff !important; color: #000000 !important; }
-  body:has(input[name='email']) main > div :is(h1,h2,h3,p,label,span) { color: #000000 !important; opacity: 1 !important; }
-  body:has(input[name='email']) main > div input { background: #ffffff !important; color: #000000 !important; border-color: #9ca3af !important; }
-  body:has(input[name='email']) main > div input::placeholder { color: #333333 !important; opacity: 1 !important; }
+  body:has(input[name='email']) main > div { background: #666666 !important; border-color: #d1d5db !important; color: #ffffff !important; }
+  body:has(input[name='email']) main > div aside { background: #666666 !important; border-color: #d1d5db !important; color: #ffffff !important; }
+  body:has(input[name='email']) main > div section { background: #666666 !important; color: #ffffff !important; }
+  body:has(input[name='email']) main > div :is(h1,h2,h3,p,label,span) { color: #ffffff !important; opacity: 1 !important; }
+  body:has(input[name='email']) main > div input { background: #666666 !important; color: #ffffff !important; border-color: #9ca3af !important; }
+  body:has(input[name='email']) main > div input::placeholder { color: #ffffff !important; opacity: 1 !important; }
   body:has(input[name='email']) main > div button { background: #e3262e !important; color: #000000 !important; border-color: #e3262e !important; opacity: 1 !important; }
   body:has(button[aria-label='Sair da conta']) main { color: #000000 !important; }
-  body:has(button[aria-label='Sair da conta']) main > div { background: #ffffff !important; color: #000000 !important; border-color: #d1d5db !important; }
-  body:has(button[aria-label='Sair da conta']) main > div :is(h1,h2,h3,p,span) { color: #000000 !important; opacity: 1 !important; }
+  body:has(button[aria-label='Sair da conta']) main > div { background: #666666 !important; color: #ffffff !important; border-color: #d1d5db !important; }
+  body:has(button[aria-label='Sair da conta']) main > div :is(h1,h2,h3,p,span) { color: #ffffff !important; opacity: 1 !important; }
   body:has(button[aria-label='Sair da conta']) main > div button { background: #e3262e !important; color: #000000 !important; }
 
   input[type='date']::-webkit-calendar-picker-indicator {
@@ -175,10 +175,10 @@ code {
 @layer base {
   body, body * { opacity: 1; }
   p, label, small, span, th, td, h1, h2, h3, h4 { color: #000000; }
-  input, textarea, select { background-color: #ffffff !important; color: #000000 !important; }
+  input, textarea, select { background-color: #666666 !important; color: #ffffff !important; }
   button:not([disabled]) { color: #000000; }
   button[class*="bg-primary"], button[class*="bg-[#e3262e"]], [role="tab"][data-state="active"] { background-color: #e3262e !important; color: #000000 !important; }
-  [class*="bg-primary/"], [class*="bg-background/"] { background-color: #ffffff !important; }
+  [class*="bg-primary/"], [class*="bg-background/"] { background-color: #666666 !important; color: #ffffff !important; }
   [class*="text-muted-foreground"], [class*="text-foreground/"] { color: #111111 !important; }
 }
 
