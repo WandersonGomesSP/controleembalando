@@ -13,3 +13,19 @@ alter table cobrideira.bobinas
 
 alter table cobrideira.bobinas
   alter column micragem set not null;
+
+-- Atualiza também os registros arquivados na lixeira, se houver.
+update cobrideira.bobinas_lixeira
+set dados = jsonb_set(
+  jsonb_set(
+    dados,
+    '{micragem}',
+    to_jsonb(round(((dados->>'largura')::numeric - trunc((dados->>'largura')::numeric)) * 100)::integer),
+    true
+  ),
+  '{largura}',
+  to_jsonb(trunc((dados->>'largura')::numeric)),
+  true
+)
+where dados->>'micragem' is null
+  and dados ? 'largura';
