@@ -2,6 +2,8 @@ import * as React from 'react'
 import {
   ArrowLeft,
   ClipboardList,
+  ChevronDown,
+  ChevronRight,
   PackagePlus,
   Search,
   Save,
@@ -197,6 +199,17 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
   const [salvando, setSalvando] = React.useState(false)
   const [erroConsulta, setErroConsulta] = React.useState('')
   const [ordenacao, setOrdenacao] = React.useState<{ campo: keyof CobrideiraBobinaRow; asc: boolean }>({ campo: 'data', asc: false })
+  const [modoVisualizacao, setModoVisualizacao] = React.useState<'lista' | 'cards'>('lista')
+  const [registrosExpandidos, setRegistrosExpandidos] = React.useState<Set<string>>(() => new Set())
+
+  function alternarExpansao(numeroBobina: string) {
+    setRegistrosExpandidos((atuais) => {
+      const novos = new Set(atuais)
+      if (novos.has(numeroBobina)) novos.delete(numeroBobina)
+      else novos.add(numeroBobina)
+      return novos
+    })
+  }
 
   const pesoLiquido = (() => {
     const final = numero(form.pesoFinal)
@@ -856,82 +869,128 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                   : 'Nenhuma bobina cadastrada.'}
               </p>
             ) : (
-              <div className="scroll-area overflow-x-auto">
-                <table className="w-full min-w-[110rem] text-left text-sm">
-                  <thead className="sticky top-0 bg-muted text-xs text-muted-foreground">
-                    <tr>
-                      <th className="whitespace-nowrap px-3 py-3">Nº Bobina</th>
-                      <th className="whitespace-nowrap px-3 py-3">Cód. bobina</th>
-                      <th className="whitespace-nowrap px-3 py-3">Data</th>
-                      <th className="whitespace-nowrap px-3 py-3">Aba / período</th>
-                      <th className="whitespace-nowrap px-3 py-3">Material</th>
-                      <th className="whitespace-nowrap px-3 py-3">Largura</th>
-                      <th className="whitespace-nowrap px-3 py-3">Peso bruto</th>
-                      <th className="whitespace-nowrap px-3 py-3">Peso final</th>
-                      <th className="whitespace-nowrap px-3 py-3">Peso cilindro</th>
-                      <th className="whitespace-nowrap px-3 py-3">Peso líquido</th>
-                      <th className="whitespace-nowrap px-3 py-3">Metragem</th>
-                      <th className="whitespace-nowrap px-3 py-3">Perda</th>
-                      <th className="whitespace-nowrap px-3 py-3">Fornecedor filme</th>
-                      <th className="whitespace-nowrap px-3 py-3">Vareta (g)</th>
-                      <th className="whitespace-nowrap px-3 py-3">Cola (kg)</th>
-                      <th className="whitespace-nowrap px-3 py-3">Lote cola</th>
-                      <th className="whitespace-nowrap px-3 py-3">Código interno</th>
-                      <th className="whitespace-nowrap px-3 py-3">Fornecedor cola</th>
-                      <th className="whitespace-nowrap px-3 py-3">Turno</th>
-                      <th className="whitespace-nowrap px-3 py-3">Linha</th>
-                      <th className="whitespace-nowrap px-3 py-3">Cor fundo</th>
-                      <th className="whitespace-nowrap px-3 py-3">Pigmento (kg)</th>
-                      <th className="whitespace-nowrap px-3 py-3">Cor mistura</th>
-                      <th className="whitespace-nowrap px-3 py-3">Pigmento mistura</th>
-                      <th className="whitespace-nowrap px-3 py-3">Cliente</th>
-                      <th className="whitespace-nowrap px-3 py-3">Cor impressão</th>
-                      <th className="whitespace-nowrap px-3 py-3">Emenda</th>
-                      <th className="whitespace-nowrap px-3 py-3">Código emenda</th>
-                      <th className="whitespace-nowrap px-3 py-3">Criado por</th>
-                      <th className="whitespace-nowrap px-3 py-3">Criado em</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {registrosOrdenados.map((registro) => (
-                      <tr
-                        key={registro.numero_bobina}
-                        className="border-b border-border/70 last:border-0"
-                      >
-                        <td className="whitespace-nowrap px-3 py-3 font-mono">{registro.numero_bobina}</td>
-                        <td className="whitespace-nowrap px-3 py-3 font-mono">{registro.cod_bob}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{formatarData(registro.data)}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.aba}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.material}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.largura}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.peso_bruto))} kg</td>
-                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.peso_final))} kg</td>
-                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.peso_cilindro))} kg</td>
-                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.peso_liquido))} kg</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.metragem.toLocaleString('pt-BR')} m</td>
-                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.perda_kg))} kg</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.fornecedor_filme}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.vareta_g}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.kg_cola))} kg</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.lote_cola}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.codigo_interno}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.fornecedor_cola}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.turno}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.linha}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.cor_fundo}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{formatarPeso(Number(registro.pigmento_kg))} kg</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.cor_mistura}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.pigmento_mistura}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.cliente}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.cor_impressao}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.emenda ? 'Sim' : 'Não'}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{registro.codigo_emenda}</td>
-                        <td className="whitespace-nowrap px-3 py-3 font-mono text-xs">{registro.created_by}</td>
-                        <td className="whitespace-nowrap px-3 py-3">{new Date(registro.created_at).toLocaleString('pt-BR')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="grid gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-muted-foreground">{registrosFiltrados.length} registro(s) encontrado(s)</p>
+                  <div className="inline-flex rounded-lg border border-border bg-muted p-1">
+                    <button type="button" onClick={() => setModoVisualizacao('lista')} aria-pressed={modoVisualizacao === 'lista'} className={`rounded-md px-3 py-2 text-sm font-medium ${modoVisualizacao === 'lista' ? 'bg-white text-black shadow-sm' : 'text-muted-foreground'}`}>Lista</button>
+                    <button type="button" onClick={() => setModoVisualizacao('cards')} aria-pressed={modoVisualizacao === 'cards'} className={`rounded-md px-3 py-2 text-sm font-medium ${modoVisualizacao === 'cards' ? 'bg-white text-black shadow-sm' : 'text-muted-foreground'}`}>Cards</button>
+                  </div>
+                </div>
+                {modoVisualizacao === 'lista' ? (
+                  <div className="scroll-area overflow-x-auto">
+                    <table className="w-full min-w-[58rem] text-left text-sm">
+                      <thead className="sticky top-0 bg-muted text-xs text-muted-foreground">
+                        <tr>
+                          <th className="w-10 px-2 py-3" />
+                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'numero_bobina', asc: o.campo === 'numero_bobina' ? !o.asc : true }))}>Nº Bobina ↕</button></th>
+                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'data', asc: o.campo === 'data' ? !o.asc : true }))}>Data ↕</button></th>
+                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'cod_bob', asc: o.campo === 'cod_bob' ? !o.asc : true }))}>Cód. bobina ↕</button></th>
+                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'fornecedor_filme', asc: o.campo === 'fornecedor_filme' ? !o.asc : true }))}>Fornecedor ↕</button></th>
+                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'largura', asc: o.campo === 'largura' ? !o.asc : true }))}>Largura ↕</button></th>
+                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'peso_liquido', asc: o.campo === 'peso_liquido' ? !o.asc : true }))}>Peso líquido ↕</button></th>
+                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'metragem', asc: o.campo === 'metragem' ? !o.asc : true }))}>Metragem ↕</button></th>
+                          <th className="px-3 py-3">Situação</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {registrosOrdenados.map((registro) => {
+                          const expandido = registrosExpandidos.has(registro.numero_bobina)
+                          const detalhes: [string, string | number][] = [
+                            ['Aba / período', registro.aba], ['Material', registro.material],
+                            ['Peso bruto', `${formatarPeso(Number(registro.peso_bruto))} kg`],
+                            ['Peso final', `${formatarPeso(Number(registro.peso_final))} kg`],
+                            ['Peso do cilindro', `${formatarPeso(Number(registro.peso_cilindro))} kg`],
+                            ['Perda', `${formatarPeso(Number(registro.perda_kg))} kg`],
+                            ['Vareta', `${registro.vareta_g} g`], ['Cola', `${formatarPeso(Number(registro.kg_cola))} kg`],
+                            ['Lote da cola', registro.lote_cola], ['Código interno', registro.codigo_interno],
+                            ['Fornecedor da cola', registro.fornecedor_cola], ['Turno', registro.turno],
+                            ['Linha', registro.linha], ['Cor de fundo', registro.cor_fundo],
+                            ['Pigmento', `${formatarPeso(Number(registro.pigmento_kg))} kg`],
+                            ['Cor da mistura', registro.cor_mistura], ['Pigmento da mistura', registro.pigmento_mistura],
+                            ['Cliente', registro.cliente], ['Cor de impressão', registro.cor_impressao],
+                            ['Emenda', registro.emenda ? 'Sim' : 'Não'], ['Código da emenda', registro.codigo_emenda],
+                            ['Criado por', registro.created_by], ['Criado em', new Date(registro.created_at).toLocaleString('pt-BR')],
+                          ]
+                          return (
+                            <React.Fragment key={registro.numero_bobina}>
+                              <tr className="border-b border-border/70">
+                                <td className="px-2 py-3">
+                                  <button type="button" onClick={() => alternarExpansao(registro.numero_bobina)} aria-label={expandido ? 'Recolher detalhes' : 'Expandir detalhes'} aria-expanded={expandido} className="grid size-8 place-items-center rounded-md hover:bg-muted">
+                                    {expandido ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                                  </button>
+                                </td>
+                                <td className="px-3 py-3 font-mono">{registro.numero_bobina}</td>
+                                <td className="px-3 py-3">{formatarData(registro.data)}</td>
+                                <td className="px-3 py-3 font-mono">{registro.cod_bob}</td>
+                                <td className="px-3 py-3">{registro.fornecedor_filme}</td>
+                                <td className="px-3 py-3">{registro.largura}</td>
+                                <td className="px-3 py-3">{formatarPeso(Number(registro.peso_liquido))} kg</td>
+                                <td className="px-3 py-3">{registro.metragem.toLocaleString('pt-BR')} m</td>
+                                <td className="px-3 py-3 text-xs text-muted-foreground">Cadastrada</td>
+                              </tr>
+                              {expandido && (
+                                <tr className="border-b border-border bg-muted/30">
+                                  <td colSpan={9} className="px-4 py-4">
+                                    <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                      {detalhes.map(([rotulo, valor]) => <div key={rotulo} className="min-w-0"><dt className="text-xs text-muted-foreground">{rotulo}</dt><dd className="break-words text-sm font-medium">{valor || '—'}</dd></div>)}
+                                    </dl>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {registrosOrdenados.map((registro) => {
+                      const expandido = registrosExpandidos.has(registro.numero_bobina)
+                      const detalhes: [string, string | number][] = [
+                        ['Cód. bobina', registro.cod_bob], ['Data', formatarData(registro.data)],
+                        ['Aba / período', registro.aba], ['Material', registro.material],
+                        ['Largura', registro.largura], ['Peso bruto', `${formatarPeso(Number(registro.peso_bruto))} kg`],
+                        ['Peso final', `${formatarPeso(Number(registro.peso_final))} kg`],
+                        ['Peso cilindro', `${formatarPeso(Number(registro.peso_cilindro))} kg`],
+                        ['Peso líquido', `${formatarPeso(Number(registro.peso_liquido))} kg`],
+                        ['Metragem', `${registro.metragem} m`], ['Perda', `${formatarPeso(Number(registro.perda_kg))} kg`],
+                        ['Fornecedor filme', registro.fornecedor_filme], ['Vareta', `${registro.vareta_g} g`],
+                        ['Cola', `${formatarPeso(Number(registro.kg_cola))} kg`], ['Lote cola', registro.lote_cola],
+                        ['Código interno', registro.codigo_interno], ['Fornecedor cola', registro.fornecedor_cola],
+                        ['Turno', registro.turno], ['Linha', registro.linha], ['Cor de fundo', registro.cor_fundo],
+                        ['Pigmento', `${formatarPeso(Number(registro.pigmento_kg))} kg`],
+                        ['Cor mistura', registro.cor_mistura], ['Pigmento mistura', registro.pigmento_mistura],
+                        ['Cliente', registro.cliente], ['Cor impressão', registro.cor_impressao],
+                        ['Emenda', registro.emenda ? 'Sim' : 'Não'], ['Código emenda', registro.codigo_emenda],
+                        ['Criado por', registro.created_by], ['Criado em', new Date(registro.created_at).toLocaleString('pt-BR')],
+                      ]
+                      return (
+                        <article key={registro.numero_bobina} className="rounded-xl border border-border bg-white p-4 text-black shadow-sm">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-xs text-gray-500">Nº Bobina</p>
+                              <h3 className="break-words font-mono text-lg font-bold">{registro.numero_bobina}</h3>
+                              <p className="mt-1 text-sm text-gray-600">{registro.cod_bob} · {formatarData(registro.data)}</p>
+                            </div>
+                            <button type="button" onClick={() => alternarExpansao(registro.numero_bobina)} aria-expanded={expandido} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium hover:bg-gray-50">
+                              {expandido ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                              {expandido ? 'Recolher' : 'Detalhes'}
+                            </button>
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3 text-sm">
+                            <div><p className="text-xs text-gray-500">Peso líquido</p><p className="font-semibold">{formatarPeso(Number(registro.peso_liquido))} kg</p></div>
+                            <div><p className="text-xs text-gray-500">Metragem</p><p className="font-semibold">{registro.metragem.toLocaleString('pt-BR')} m</p></div>
+                            <div><p className="text-xs text-gray-500">Fornecedor</p><p className="font-semibold">{registro.fornecedor_filme}</p></div>
+                            <div><p className="text-xs text-gray-500">Situação</p><p className="font-semibold">Cadastrada</p></div>
+                          </div>
+                          {expandido && <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">{detalhes.map(([rotulo, valor]) => <div key={rotulo} className="min-w-0"><dt className="text-xs text-gray-500">{rotulo}</dt><dd className="break-words text-sm font-medium">{valor || '—'}</dd></div>)}</dl>}
+                        </article>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </Panel>
