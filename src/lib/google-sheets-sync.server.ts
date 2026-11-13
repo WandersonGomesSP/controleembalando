@@ -105,7 +105,20 @@ async function googleRequest<T>(
     signal: AbortSignal.timeout(30_000),
   })
   if (!response.ok) {
-    throw new Error(`Falha ao atualizar a planilha Google (HTTP ${response.status}).`)
+    const responseBody = await response.text()
+    let reason = responseBody
+    try {
+      const parsed = JSON.parse(responseBody) as { error?: { message?: string; status?: string; errors?: { reason?: string; message?: string }[] } }
+      reason = [
+        parsed.error?.status,
+        parsed.error?.message,
+        ...(parsed.error?.errors ?? []).map((item) => [item.reason, item.message].filter(Boolean).join(': ')),
+      ].filter(Boolean).join(' — ') || responseBody
+    } catch {
+      // Mantém a resposta original quando o Google não retornar JSON.
+    }
+    console.error('Google Sheets API request failed:', { status: response.status, url, reason })
+    throw new Error(`Falha ao atualizar a planilha Google (HTTP ${response.status}): ${reason.slice(0, 1000)}`)
   }
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
