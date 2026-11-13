@@ -79,12 +79,18 @@ function dataLocalHoje() {
   return data.toISOString().slice(0, 10)
 }
 
+function abaMesAtual() {
+  const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  const agora = new Date()
+  return `${meses[agora.getMonth()]}/${String(agora.getFullYear()).slice(-2)}`
+}
+
 function formularioInicial(): FormularioBobina {
   return {
     numeroBobina: '',
     codBob: '',
     data: dataLocalHoje(),
-    aba: '',
+    aba: abaMesAtual(),
     material: 'BOPP',
     largura: '980.20',
     pesoBruto: '',
@@ -662,8 +668,8 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                     <TextInput
                       id="cb-aba"
                       value={form.aba}
-                      onChange={(e) => atualizar('aba', e.target.value)}
-                      placeholder="Ex.: NOV/2026"
+                      readOnly
+                      placeholder="Mês atual selecionado automaticamente"
                       required
                       maxLength={80}
                     />
