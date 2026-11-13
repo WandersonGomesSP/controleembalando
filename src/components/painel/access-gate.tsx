@@ -156,7 +156,6 @@ export function AccessGate({
   const [access, setAccess] = React.useState<UserAccess | null>(null)
   const [accessLoaded, setAccessLoaded] = React.useState(false)
   const [area, setArea] = React.useState<AreaId | null>(null)
-  const [sessionReady, setSessionReady] = React.useState(false)
   const [loginError, setLoginError] = React.useState('')
   const userIdRef = React.useRef<string | null>(null)
   const authEventSeenRef = React.useRef(false)
@@ -195,7 +194,6 @@ export function AccessGate({
       .then(({ data: sessionData, error }) => {
         if (!ativo) return
         if (error) setLoginError('Não foi possível validar a sessão.')
-        setSessionReady(true)
         if (authEventSeenRef.current) return
         userIdRef.current = sessionData.session?.user.id ?? null
         setActiveUser(sessionData.session?.user ?? null)
@@ -207,7 +205,6 @@ export function AccessGate({
       .catch(() => {
         if (ativo) {
           setLoginError('Não foi possível conectar ao Supabase Auth.')
-          setSessionReady(true)
         }
       })
 
@@ -313,14 +310,6 @@ export function AccessGate({
 
   function chooseArea(nextArea: AreaId) {
     setArea(nextArea)
-  }
-
-  if (!sessionReady || (activeUser && !accessLoaded)) {
-    return (
-      <main className="grid min-h-screen place-items-center px-5 text-sm text-muted-foreground">
-        Validando sessão...
-      </main>
-    )
   }
 
   if (screen === 'development' && activeUser && isDeveloper) {
