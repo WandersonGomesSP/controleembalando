@@ -319,7 +319,12 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
       if (sessionError || !sessionData.session?.access_token) throw new Error('Sua sessão expirou. Entre novamente para sincronizar.')
       const resultado = await synchronizeCobrideiraBobina({ data: { accessToken: sessionData.session.access_token, numeroBobina: registro.numero_bobina } })
-      toast.success('Bobina ' + registro.numero_bobina + ' sincronizada.', { description: resultado.bobinaRows + ' registro(s) enviado(s) para a aba ' + registro.aba + '.' })
+      const linhas = resultado.logBobinas?.map((item) => `${item.guia} · linha ${item.linha} (${item.status})`) ?? []
+      const guiasCriadas = resultado.guiasCriadas?.length ? `Guias criadas: ${resultado.guiasCriadas.join(', ')}. ` : ''
+      toast.success('Bobina ' + registro.numero_bobina + ' sincronizada.', {
+        description: guiasCriadas + (linhas.length ? `Destino: ${linhas.join('; ')}.` : 'Nenhuma linha de bobina foi adicionada.'),
+        duration: 15000,
+      })
     } catch (error: unknown) {
       console.error('[COBRIDEIRA] Erro real ao sincronizar bobina ' + registro.numero_bobina, error)
       toast.error('ERRO AO SINCRONIZAR BOBINA ' + registro.numero_bobina, { description: erroMensagem(error), duration: 15000 })
