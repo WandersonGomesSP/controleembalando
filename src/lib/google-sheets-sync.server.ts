@@ -544,5 +544,9 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
       body: JSON.stringify({ requests: layoutRequests }),
     })
   }
-  return { syncedSheets: sheets.length, historyRows: historyRows.length - 1, bobinaRows: bobinas.length }
+  const historyRows = Math.max(0, (allSheets.find((sheet) => sheet.title === 'Histórico')?.rows.length ?? 1) - 1)
+  const bobinaRows = allSheets
+    .filter((sheet) => sheet.rows[0]?.[0] === 'Número da bobina')
+    .reduce((total, sheet) => total + Math.max(0, sheet.rows.length - 1), 0)
+  return { syncedSheets: sheets.length, historyRows, bobinaRows }
 }
