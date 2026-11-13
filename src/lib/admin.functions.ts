@@ -419,10 +419,10 @@ export const saveProductionCapacity = createServerFn({ method: 'POST' })
   })
 
 export const synchronizeGoogleSheetsNow = createServerFn({ method: 'POST' })
-  .validator(tokenInput)
+  .validator(tokenInput.extend({ periodoBobinas: z.string().trim().min(1).max(30) }))
   .handler(async ({ data }) => {
     await requireDeveloper(data.accessToken)
-    return syncGoogleSheets()
+    return syncGoogleSheets(data.periodoBobinas)
   })
 
 export const confirmGoogleSheetsPermissions = createServerFn({ method: 'POST' })
