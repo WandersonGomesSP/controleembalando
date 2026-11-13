@@ -105,11 +105,8 @@ export type UserRoleRow = {
 }
 
 export type CobrideiraBobinaRow = {
-  id: string
-  idp: string
+  numero_bobina: string
   cod_bob: string
-  outra_bob: boolean
-  dar_baixa_bobina: boolean
   data: string
   aba: string
   material: string
@@ -142,7 +139,7 @@ export type CobrideiraBobinaRow = {
 
 export type CobrideiraBobinaInsert = Omit<
   CobrideiraBobinaRow,
-  'id' | 'peso_liquido' | 'created_by' | 'created_at'
+  'peso_liquido' | 'created_by' | 'created_at'
 >
 
 export type DeveloperAccountRow = {
