@@ -346,6 +346,7 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
                   aria-label="Período das bobinas para sincronizar"
                   className="h-10 w-36 rounded-md border border-border bg-background px-3 text-sm"
                 />
+                <span className="text-xs text-muted-foreground">Digite como no cadastro: Nov/26. Na planilha, a guia será Nov-26.</span>
               </label>
               <button
                 type="button"
