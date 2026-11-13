@@ -512,8 +512,11 @@ export const restoreCobrideiraBobinaFromTrash = createServerFn({ method: 'POST' 
       .from('bobinas_lixeira').select('*')
       .eq('numero_bobina', data.numeroBobina).single()
     if (readError || !archived) throw new Error('Bobina não encontrada na lixeira.')
+    const dadosRestaurados = { ...(archived.dados as Record<string, unknown>) }
+    // peso_liquido é uma coluna GENERATED ALWAYS no banco e não pode ser inserida.
+    delete dadosRestaurados.peso_liquido
     const { error: restoreError } = await client.schema('cobrideira')
-      .from('bobinas').insert(archived.dados as never)
+      .from('bobinas').insert(dadosRestaurados as never)
     if (restoreError) throw new Error(`Não foi possível restaurar a bobina: ${restoreError.message}`)
     const { error: removeError } = await client.schema('cobrideira')
       .from('bobinas_lixeira').delete().eq('numero_bobina', data.numeroBobina)
