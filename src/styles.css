@@ -22,7 +22,7 @@ code {
   --content-width: 82rem;
   --reading-width: 42rem;
   --background: #00008B;
-  --foreground: #ffffff;
+  --foreground: #172033;
   --card: #ffffff;
   --card-foreground: #172033;
   --popover: #ffffff;
@@ -32,7 +32,7 @@ code {
   --secondary: #e9edff;
   --secondary-foreground: #172f78;
   --muted: #eef1fb;
-  --muted-foreground: #667085;
+  --muted-foreground: #344054;
   --accent: #e8edff;
   --accent-foreground: #172f78;
   --destructive: #b42318;
@@ -40,7 +40,7 @@ code {
   --border: #dce2ef;
   --input: #d4dbea;
   --ring: #7c9cff;
-  --field: #f7f8fc;
+  --field: #ffffff;
   --success: #16834a;
   --warning: #a15c07;
   --chart-1: #2448a5;
@@ -117,6 +117,31 @@ code {
     background-size: min(72vw, 680px) auto;
     background-attachment: fixed;
   }
+  /* Camadas flutuantes sempre opacas e com contraste alto. */
+  [data-slot='dialog-content'], [data-slot='sheet-content], [data-slot='popover-content'], [data-slot='dropdown-menu-content'], [data-slot='dropdown-menu-sub-content'], [data-slot='select-content'], [data-slot='tooltip-content'] {
+    background-color: #ffffff !important;
+    color: #172033 !important;
+    opacity: 1 !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .24) !important;
+  }
+  [data-slot='dialog-overlay'], [data-slot='sheet-overlay'] { background: rgba(0, 0, 0, .68) !important; }
+  [data-sonner-toast] { background: #ffffff !important; color: #172033 !important; border: 1px solid #cbd5e1 !important; opacity: 1 !important; box-shadow: 0 12px 32px rgba(0,0,0,.22) !important; }
+  [data-slot='dialog-content'] *, [data-slot='sheet-content'] *, [data-slot='popover-content'] *, [data-slot='dropdown-menu-content'] *, [data-slot='select-content'] * { color: inherit; }
+
+  /* Login e seleção de áreas: cartões escuros sobre o fundo azul. */
+  body:has(input[name='email']) main > div { background: #111827 !important; border-color: #334155 !important; color: #f8fafc !important; }
+  body:has(input[name='email']) main > div aside { background: #0b1220 !important; border-color: #334155 !important; }
+  body:has(input[name='email']) main > div section { background: #111827 !important; color: #f8fafc !important; }
+  body:has(input[name='email']) main > div :is(h1,h2,h3,p,label,span) { color: #f1f5f9; }
+  body:has(input[name='email']) main > div input { background: #ffffff !important; color: #111827 !important; border-color: #64748b !important; }
+  body:has(input[name='email']) main > div input::placeholder { color: #64748b !important; }
+  body:has(input[name='email']) main > div button { color: #ffffff; }
+  body:has(button[aria-label='Sair da conta']) main { color: #f8fafc; }
+  body:has(button[aria-label='Sair da conta']) main > div { background: #111827; color: #f8fafc; border-color: #334155; }
+  body:has(button[aria-label='Sair da conta']) main > div :is(h1,h2,h3,p,span) { color: #f1f5f9; }
+  body:has(button[aria-label='Sair da conta']) main > div button { color: #f8fafc; }
+
   input[type='date']::-webkit-calendar-picker-indicator {
     filter: invert(0.35);
     cursor: pointer;
