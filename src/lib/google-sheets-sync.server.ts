@@ -176,7 +176,7 @@ function codigos(value: unknown) {
     .join(', ')
 }
 
-async function loadSheetData(client: ReturnType<typeof createClient<Database>>, dataInicio?: string, dataFim?: string): Promise<SheetData[]> {
+async function loadSheetData(client: ReturnType<typeof createClient<Database>>, dataInicio?: string, dataFim?: string, numeroBobina?: string): Promise<SheetData[]> {
   const [insumos, producoes, tubetes, logs, bobinas] = await Promise.all([
     allRows('insumos_rolos', (start, end) =>
       client.from('insumos_rolos').select('*').order('data_registro').order('id_codigo').range(start, end),
@@ -192,6 +192,7 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
     ),
     allRows('cobrideira.bobinas', (start, end) => {
       let query = client.schema('cobrideira').from('bobinas').select('*')
+      if (numeroBobina) query = query.eq('numero_bobina', numeroBobina)
       if (dataInicio) {
         query = query.gte('created_at', new Date(`${dataInicio}T00:00:00-03:00`).toISOString())
       }
@@ -360,21 +361,21 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
   ]
 }
 
-export async function syncGoogleSheets(dataInicio?: string, dataFim?: string) {
+export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, numeroBobina?: string) {
   const config = readConfig()
   const client = createClient<Database>(config.supabaseUrl, config.serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
   const [token, allSheets] = await Promise.all([
     googleAccessToken(config.serviceAccountEmail, config.privateKey),
-    loadSheetData(client, dataInicio, dataFim),
+    loadSheetData(client, dataInicio, dataFim, numeroBobina),
   ])
   // A sincronização manual com intervalo de datas altera somente as guias de bobinas.
   // A rotina automática sem intervalo continua atualizando as demais guias normalmente.
-  const sheets = dataInicio && dataFim
+  const sheets = numeroBobina || (dataInicio && dataFim)
     ? allSheets.filter((sheet) => sheet.rows[0]?.[0] === 'Número da bobina')
     : allSheets
-  if (dataInicio && dataFim && !sheets.length) {
+  if ((numeroBobina || (dataInicio && dataFim)) && !sheets.length) {
     throw new Error(`Não há bobinas cadastradas entre ${dataInicio} e ${dataFim}. Nenhuma guia foi atualizada.`)
   }
   const spreadsheetUrl = `${GOOGLE_SHEETS_API}/${encodeURIComponent(config.spreadsheetId)}`
