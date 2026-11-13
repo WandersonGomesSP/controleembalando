@@ -111,7 +111,7 @@ code {
   body {
     @apply bg-background text-foreground;
     background-color: #00008B;
-    background-image: url('/embalando-watermark.svg');
+    background-image: none;
     background-repeat: no-repeat;
     background-position: center 54%;
     background-size: min(54vw, 480px) auto;
