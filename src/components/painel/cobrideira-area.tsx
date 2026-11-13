@@ -50,7 +50,7 @@ type FormularioBobina = {
   codigoEmenda: string
 }
 
-type Secao = 'cadastro' | 'registros'
+type Secao = 'cadastro' | 'registros' | 'dashboard'
 
 const LARGURAS = [
   '980.20',
@@ -196,6 +196,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
   const [carregando, setCarregando] = React.useState(true)
   const [salvando, setSalvando] = React.useState(false)
   const [erroConsulta, setErroConsulta] = React.useState('')
+  const [ordenacao, setOrdenacao] = React.useState<{ campo: keyof CobrideiraBobinaRow; asc: boolean }>({ campo: 'data', asc: false })
 
   const pesoLiquido = (() => {
     const final = numero(form.pesoFinal)
@@ -222,6 +223,12 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       (!linhaFiltro || registro.linha === linhaFiltro)
     )
   })
+  const registrosOrdenados = [...registrosFiltrados].sort((a, b) => {
+    const av = a[ordenacao.campo]
+    const bv = b[ordenacao.campo]
+    const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av ?? '').localeCompare(String(bv ?? ''), 'pt-BR', { numeric: true })
+    return ordenacao.asc ? cmp : -cmp
+  })
   const pesoTotalFiltrado = registrosFiltrados.reduce(
     (total, registro) => total + Number(registro.peso_liquido || 0),
     0,
@@ -244,14 +251,21 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
   const maxProducaoDia = Math.max(1, ...producaoPorDia.map((item) => item.quantidade))
 
   async function consultarRegistros() {
-    const { data, error } = await supabase
-      .schema('cobrideira')
-      .from('bobinas')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100)
-    if (error) throw error
-    return data
+    const todos: CobrideiraBobinaRow[] = []
+    const tamanhoPagina = 1000
+    for (let inicio = 0; ; inicio += tamanhoPagina) {
+      const { data, error } = await supabase
+        .schema('cobrideira')
+        .from('bobinas')
+        .select('*')
+        .order('data', { ascending: false })
+        .order('numero_bobina', { ascending: false })
+        .range(inicio, inicio + tamanhoPagina - 1)
+      if (error) throw error
+      todos.push(...(data ?? []))
+      if (!data || data.length < tamanhoPagina) break
+    }
+    return todos
   }
 
   React.useEffect(() => {
@@ -378,7 +392,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
         .select('*')
         .single()
       if (error) throw error
-      setRegistros((atuais) => [data, ...atuais].slice(0, 100))
+      setRegistros((atuais) => [data, ...atuais])
       setForm(formularioInicial())
       setSecao('registros')
       toast.success('Bobina cadastrada na Cobrideira.')
@@ -418,7 +432,8 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
               Trocar setor
             </button>
           </div>
-          <nav aria-label="Menus da Cobrideira" className="flex gap-2 pb-3">
+          <nav aria-label="Menus da Cobrideira" className="flex flex-wrap gap-2 pb-3">
+            <button type="button" aria-current={secao === 'dashboard' ? 'page' : undefined} onClick={() => setSecao('dashboard')} className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'dashboard' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}>Painel BI</button>
             <button
               type="button"
               aria-current={secao === 'cadastro' ? 'page' : undefined}
@@ -442,7 +457,30 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       </header>
 
       <main className="mx-auto grid max-w-[90rem] gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        {secao === 'cadastro' ? (
+        {secao === 'dashboard' ? (
+          <section className="grid gap-5">
+            <div><h2 className="text-2xl font-bold">Produção da Cobrideira</h2><p className="text-sm text-muted-foreground">Indicadores consolidados de todos os registros carregados.</p></div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                ['Filme consumido', formatarPeso(registrosFiltrados.reduce((s,r)=>s+Number(r.peso_bruto||0),0))+' kg'],
+                ['Cola consumida', formatarPeso(registrosFiltrados.reduce((s,r)=>s+Number(r.kg_cola||0),0))+' kg'],
+                ['% Vap/Cola', (()=>{const peso=registrosFiltrados.reduce((s,r)=>s+Number(r.peso_liquido||0),0);const cola=registrosFiltrados.reduce((s,r)=>s+Number(r.kg_cola||0),0);return peso?formatarPeso(cola/peso*100)+'%':'0,00%'})()],
+                ['Pigmento total', formatarPeso(registrosFiltrados.reduce((s,r)=>s+Number(r.pigmento_kg||0),0))+' kg'],
+                ['Bobinas', registrosFiltrados.length.toLocaleString('pt-BR')],
+                ['Comprimento total', metragemTotalFiltrada.toLocaleString('pt-BR')+' m'],
+                ['Área total', formatarPeso(registrosFiltrados.reduce((s,r)=>s+Number(r.largura||0)*Number(r.metragem||0)/1000,0))+' m²'],
+                ['Peso produzido', formatarPeso(pesoTotalFiltrado)+' kg'],
+              ].map(([label,value])=><div key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 text-2xl font-bold text-slate-900">{value}</p></div>)}
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Panel title="Peso por largura"><div className="space-y-3">{Object.entries(registrosFiltrados.reduce<Record<string,number>>((a,r)=>{const k=String(r.largura);a[k]=(a[k]||0)+Number(r.peso_liquido||0);return a},{})).sort((a,b)=>Number(a[0])-Number(b[0])).map(([k,v])=><div key={k}><div className="mb-1 flex justify-between text-sm"><span>{k} mm</span><b>{formatarPeso(v)} kg</b></div><div className="h-3 rounded bg-slate-100"><div className="h-3 rounded bg-blue-700" style={{width:(v/Math.max(1,...Object.values(registrosFiltrados.reduce<Record<string,number>>((a,r)=>{const k=String(r.largura);a[k]=(a[k]||0)+Number(r.peso_liquido||0);return a},{})))*100)+'%'}} /></div></div>)}</div></Panel>
+              <Panel title="Pigmento por cor"><div className="space-y-3">{Object.entries(registrosFiltrados.reduce<Record<string,number>>((a,r)=>{const k=r.cor_mistura||r.cor_fundo||'Não informado';a[k]=(a[k]||0)+Number(r.pigmento_kg||0);return a},{})).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([k,v])=><div key={k} className="flex justify-between border-b border-slate-100 pb-2 text-sm"><span>{k}</span><b>{formatarPeso(v)} kg</b></div>)}</div></Panel>
+              <Panel title="Bobinas por turno"><div className="grid grid-cols-2 gap-3">{['1º TURNO','2º TURNO'].map(t=><div key={t} className="rounded-lg bg-slate-50 p-4"><p className="text-sm text-slate-500">{t}</p><p className="text-2xl font-bold">{registrosFiltrados.filter(r=>r.turno===t).length.toLocaleString('pt-BR')}</p></div>)}</div></Panel>
+              <Panel title="Produção por tipo de linha"><div className="space-y-2">{LINHAS.map(l=><div key={l} className="flex justify-between rounded-lg bg-slate-50 p-3 text-sm"><span>{l}</span><b>{registrosFiltrados.filter(r=>r.linha===l).length.toLocaleString('pt-BR')}</b></div>)}</div></Panel>
+            </div>
+            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Micragem e horas de parada não existem como campos na tabela atual; esses gráficos só poderão ser preenchidos depois de incluir esses dados no banco. Os indicadores acima não inventam esses valores.</p>
+          </section>
+        ) : secao === 'cadastro' ? (
           <>
             <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm leading-6 text-muted-foreground">
               Cadastro salvo no schema isolado{' '}
@@ -906,18 +944,18 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                 <table className="w-full min-w-[58rem] text-left text-sm">
                   <thead className="sticky top-0 bg-muted text-xs text-muted-foreground">
                     <tr>
-                      <th className="px-3 py-3">Data</th>
-                      <th className="px-3 py-3">Número da bobina</th>
-                      <th className="px-3 py-3">Cód. bobina</th>
-                      <th className="px-3 py-3">Fornecedor</th>
-                      <th className="px-3 py-3">Largura</th>
-                      <th className="px-3 py-3">Peso líquido</th>
-                      <th className="px-3 py-3">Metragem</th>
+                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'data',asc:o.campo==='data'?!o.asc:true}))}>Data ↕</button></th>
+                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'numero_bobina',asc:o.campo==='numero_bobina'?!o.asc:true}))}>Nº Bobina ↕</button></th>
+                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'cod_bob',asc:o.campo==='cod_bob'?!o.asc:true}))}>Cód. bobina ↕</button></th>
+                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'fornecedor_filme',asc:o.campo==='fornecedor_filme'?!o.asc:true}))}>Fornecedor ↕</button></th>
+                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'largura',asc:o.campo==='largura'?!o.asc:true}))}>Largura ↕</button></th>
+                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'peso_liquido',asc:o.campo==='peso_liquido'?!o.asc:true}))}>Peso líquido ↕</button></th>
+                      <th className="px-3 py-3"><button type="button" onClick={()=>setOrdenacao(o=>({campo:'metragem',asc:o.campo==='metragem'?!o.asc:true}))}>Metragem ↕</button></th>
                       <th className="px-3 py-3">Situação</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {registrosFiltrados.map((registro) => (
+                    {registrosOrdenados.map((registro) => (
                       <tr
                         key={registro.numero_bobina}
                         className="border-b border-border/70 last:border-0"
