@@ -8,6 +8,8 @@ import {
   Search,
   Save,
   RefreshCw,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -18,10 +20,11 @@ import {
   TextInput,
 } from '@/components/painel/fields'
 import { supabase } from '@/lib/supabase'
-import { synchronizeCobrideiraBobina, updateCobrideiraBobina } from '@/lib/admin.functions'
+import { synchronizeCobrideiraBobina, updateCobrideiraBobina, moveCobrideiraBobinaToTrash, listCobrideiraBobinasTrash, restoreCobrideiraBobinaFromTrash, permanentlyDeleteCobrideiraBobina } from '@/lib/admin.functions'
 import type {
   CobrideiraBobinaInsert,
   CobrideiraBobinaRow,
+  CobrideiraBobinaLixeiraRow,
 } from '@/lib/database.types'
 
 type FormularioBobina = {
@@ -54,7 +57,7 @@ type FormularioBobina = {
   codigoEmenda: string
 }
 
-type Secao = 'cadastro' | 'registros'
+type Secao = 'cadastro' | 'registros' | 'lixeira'
 
 const LARGURAS = [
   '980.20',
@@ -199,6 +202,8 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
   const [secao, setSecao] = React.useState<Secao>('cadastro')
   const [form, setForm] = React.useState(formularioInicial)
   const [registros, setRegistros] = React.useState<CobrideiraBobinaRow[]>([])
+  const [itensLixeira, setItensLixeira] = React.useState<CobrideiraBobinaLixeiraRow[]>([])
+  const [carregandoLixeira, setCarregandoLixeira] = React.useState(false)
   const [busca, setBusca] = React.useState('')
   const [dataInicial, setDataInicial] = React.useState('')
   const [dataFinal, setDataFinal] = React.useState('')
@@ -320,6 +325,58 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       toast.error('ERRO AO SINCRONIZAR BOBINA ' + registro.numero_bobina, { description: erroMensagem(error), duration: 15000 })
     } finally {
       setSincronizandoBobina(null)
+    }
+  }
+
+
+  async function tokenAtual() {
+    const { data, error } = await supabase.auth.getSession()
+    if (error || !data.session?.access_token) throw new Error('Sessão expirada. Entre novamente.')
+    return data.session.access_token
+  }
+
+  async function moverParaLixeira(registro: CobrideiraBobinaRow) {
+    if (!window.confirm(`Mover a bobina ${registro.numero_bobina} para a lixeira? Ela poderá ser restaurada depois.`)) return
+    try {
+      await moveCobrideiraBobinaToTrash({ data: { accessToken: await tokenAtual(), numeroBobina: registro.numero_bobina } })
+      setRegistros((atuais) => atuais.filter((item) => item.numero_bobina !== registro.numero_bobina))
+      toast.success(`Bobina ${registro.numero_bobina} movida para a lixeira.`)
+    } catch (error) {
+      toast.error('Não foi possível mover para a lixeira', { description: erroMensagem(error), duration: 15000 })
+    }
+  }
+
+  async function carregarLixeira() {
+    setCarregandoLixeira(true)
+    try {
+      const rows = await listCobrideiraBobinasTrash({ data: { accessToken: await tokenAtual() } })
+      setItensLixeira(rows as CobrideiraBobinaLixeiraRow[])
+    } catch (error) {
+      toast.error('Não foi possível carregar a lixeira', { description: erroMensagem(error), duration: 15000 })
+    } finally {
+      setCarregandoLixeira(false)
+    }
+  }
+
+  async function restaurarDaLixeira(numeroBobina: string) {
+    try {
+      await restoreCobrideiraBobinaFromTrash({ data: { accessToken: await tokenAtual(), numeroBobina } })
+      toast.success(`Bobina ${numeroBobina} restaurada.`)
+      await carregarLixeira()
+      await carregarRegistros()
+    } catch (error) {
+      toast.error('Não foi possível restaurar a bobina', { description: erroMensagem(error), duration: 15000 })
+    }
+  }
+
+  async function excluirDefinitivamente(numeroBobina: string) {
+    if (!window.confirm(`Excluir DEFINITIVAMENTE a bobina ${numeroBobina}? Esta ação não pode ser desfeita.`)) return
+    try {
+      await permanentlyDeleteCobrideiraBobina({ data: { accessToken: await tokenAtual(), numeroBobina } })
+      setItensLixeira((atuais) => atuais.filter((item) => item.numero_bobina !== numeroBobina))
+      toast.success(`Bobina ${numeroBobina} excluída definitivamente.`)
+    } catch (error) {
+      toast.error('Não foi possível excluir definitivamente', { description: erroMensagem(error), duration: 15000 })
     }
   }
 
@@ -538,6 +595,9 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
             >
               <ClipboardList className="size-4" />
               Bobinas registradas
+            </button>
+            <button type="button" aria-current={secao === 'lixeira' ? 'page' : undefined} onClick={() => { setSecao('lixeira'); void carregarLixeira() }} className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'lixeira' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}>
+              <Trash2 className="size-4" /> Lixeira
             </button>
           </nav>
         </div>
@@ -897,7 +957,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
               </form>
             </Panel>
           </>
-        ) : (
+        ) : secao === 'registros' ? (
           <Panel
             title="Bobinas registradas"
             description="Todos os registros da Cobrideira."
@@ -1046,6 +1106,8 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                                         {sincronizandoBobina === registro.numero_bobina ? 'Sincronizando...' : 'Sincronizar'}
                                       </button>
                                       <button type="button" onClick={() => iniciarEdicao(registro)} className="rounded-full bg-[#e3262e] px-4 py-2 text-sm font-bold text-black hover:bg-[#ff3b42]">Editar dados</button>
+                                <button type="button" onClick={() => void moverParaLixeira(registro)} className="inline-flex items-center gap-2 rounded-full border border-red-300 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50"><Trash2 className="size-4" /> Lixeira</button>
+                                      <button type="button" onClick={() => void moverParaLixeira(registro)} className="inline-flex items-center gap-2 rounded-full border border-red-300 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50"><Trash2 className="size-4" /> Mover para lixeira</button>
                                     </div>
                                   </td>
                                 </tr>
@@ -1114,6 +1176,28 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                     })}
                   </div>
                 )}
+              </div>
+            )}
+          </Panel>
+        ) : (
+          <Panel title="Lixeira de bobinas" description="Bobinas removidas do cadastro ativo. Você pode restaurar ou excluir definitivamente.">
+            <div className="mb-4 flex justify-end">
+              <button type="button" onClick={() => void carregarLixeira()} disabled={carregandoLixeira} className="rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-muted disabled:opacity-50">{carregandoLixeira ? 'Atualizando...' : 'Atualizar lixeira'}</button>
+            </div>
+            {carregandoLixeira ? <p className="py-8 text-center text-sm text-muted-foreground">Carregando lixeira...</p> : itensLixeira.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">A lixeira está vazia.</p> : (
+              <div className="grid gap-3">
+                {itensLixeira.map((item) => (
+                  <article key={item.numero_bobina} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
+                    <div>
+                      <p className="font-mono font-bold">{item.numero_bobina}</p>
+                      <p className="text-sm text-muted-foreground">{item.dados.cod_bob} · Guia: {item.dados.aba} · Excluída em {new Date(item.excluida_em).toLocaleString('pt-BR')}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => void restaurarDaLixeira(item.numero_bobina)} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-muted"><RotateCcw className="size-4" /> Restaurar</button>
+                      <button type="button" onClick={() => void excluirDefinitivamente(item.numero_bobina)} className="inline-flex items-center gap-2 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"><Trash2 className="size-4" /> Excluir definitivamente</button>
+                    </div>
+                  </article>
+                ))}
               </div>
             )}
           </Panel>
