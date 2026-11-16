@@ -276,24 +276,8 @@ const LINHAS = ['Padrão', 'Personalizada', 'Impressa Linha']
 
 type CampoFiltro = keyof CobrideiraBobinaRow
 const CAMPOS_FILTRO: { campo: CampoFiltro; label: string }[] = [
-  // Manter os campos solicitados; remover apenas metragem, número da bobina,
-  // largura completa e peso bruto dos filtros.
   { campo: 'largura', label: 'Largura' },
   { campo: 'micragem', label: 'Micragem' },
-  { campo: 'peso_final', label: 'Peso final' },
-  { campo: 'peso_cilindro', label: 'Peso do cilindro' },
-  { campo: 'peso_liquido', label: 'Peso líquido' },
-  { campo: 'perda_kg', label: 'Perda (kg)' },
-  { campo: 'vareta_g', label: 'Vareta' },
-  { campo: 'kg_cola', label: 'Cola (kg)' },
-  { campo: 'codigo_interno', label: 'Código interno da cola' },
-  { campo: 'pigmento_kg', label: 'Pigmento (kg)' },
-  { campo: 'cor_mistura', label: 'Cor da mistura' },
-  { campo: 'pigmento_mistura', label: 'Pigmento da mistura' },
-  { campo: 'cliente', label: 'Cliente' },
-  { campo: 'cor_impressao', label: 'Cor de impressão' },
-  { campo: 'emenda', label: 'Emenda' },
-  { campo: 'codigo_emenda', label: 'Código da emenda' },
 ]
 
 function valorFiltro(registro: CobrideiraBobinaRow, campo: CampoFiltro) {
@@ -514,6 +498,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [mostrarFiltros, setMostrarFiltros] = React.useState(false)
   const [filtrosColunas, setFiltrosColunas] = React.useState<Partial<Record<CampoFiltro, string>>>({})
   const [paginaRegistros, setPaginaRegistros] = React.useState(0)
+  const [mesSelecionado, setMesSelecionado] = React.useState(() => dataLocalHoje().slice(0, 7))
   const [emailsCriadores, setEmailsCriadores] = React.useState<Record<string, string>>({})
   const [carregando, setCarregando] = React.useState(true)
   const [salvando, setSalvando] = React.useState(false)
@@ -562,18 +547,17 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const clienteVisivel = form.linha !== 'Padrão'
   const corImpressaoVisivel =
     form.linha === 'Personalizada' || form.linha === 'Impressa Linha'
+  const termoBusca = busca.trim().toLocaleLowerCase('pt-BR')
   const registrosFiltrados = registros.filter((registro) => {
-    const termo = busca.trim().toLocaleLowerCase('pt-BR')
     const correspondeBusca =
-      !termo ||
-      registro.numero_bobina.toLocaleLowerCase('pt-BR').includes(termo) ||
-      registro.cod_bob.toLocaleLowerCase('pt-BR').includes(termo) ||
-      registro.cliente.toLocaleLowerCase('pt-BR').includes(termo)
-    return correspondeBusca && CAMPOS_FILTRO.every(({ campo }) => {
+      !termoBusca ||
+      registro.numero_bobina.toLocaleLowerCase('pt-BR').includes(termoBusca) ||
+      registro.cod_bob.toLocaleLowerCase('pt-BR').includes(termoBusca) ||
+      registro.cliente.toLocaleLowerCase('pt-BR').includes(termoBusca)
+    const correspondeMes = Boolean(termoBusca) || !mesSelecionado || registro.data.slice(0, 7) === mesSelecionado
+    return correspondeBusca && correspondeMes && CAMPOS_FILTRO.every(({ campo }) => {
       const selecionado = filtrosColunas[campo]
-      if (!selecionado) return true
-      if (campo === 'cliente') return clientesParecidos(registro.cliente, selecionado)
-      return valorFiltro(registro, campo) === selecionado
+      return !selecionado || valorFiltro(registro, campo) === selecionado
     })
   })
   const registrosOrdenados = [...registrosFiltrados].sort((a, b) => {
@@ -582,20 +566,14 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av ?? '').localeCompare(String(bv ?? ''), 'pt-BR', { numeric: true })
     return ordenacao.asc ? cmp : -cmp
   })
-  const mesAtual = dataLocalHoje().slice(0, 7)
-  const registrosMesAtual = registrosOrdenados.filter((registro) => registro.data.slice(0, 7) === mesAtual)
-  const registrosAnteriores = registrosOrdenados.filter((registro) => registro.data.slice(0, 7) !== mesAtual)
   const tamanhoPagina = 25
-  const totalPaginasMes = Math.ceil(registrosMesAtual.length / tamanhoPagina)
-  const totalPaginas = busca.trim() || Object.values(filtrosColunas).some(Boolean)
-    ? Math.max(1, Math.ceil(registrosOrdenados.length / tamanhoPagina))
-    : totalPaginasMes + Math.ceil(registrosAnteriores.length / tamanhoPagina)
-  const registrosPagina = busca.trim() || Object.values(filtrosColunas).some(Boolean)
-    ? registrosOrdenados.slice(paginaRegistros * tamanhoPagina, (paginaRegistros + 1) * tamanhoPagina)
-    : paginaRegistros < totalPaginasMes
-      ? registrosMesAtual.slice(paginaRegistros * tamanhoPagina, (paginaRegistros + 1) * tamanhoPagina)
-      : registrosAnteriores.slice((paginaRegistros - totalPaginasMes) * tamanhoPagina, (paginaRegistros - totalPaginasMes + 1) * tamanhoPagina)
-  const mostrandoHistorico = !busca.trim() && !Object.values(filtrosColunas).some(Boolean) && paginaRegistros >= totalPaginasMes
+  const totalPaginas = Math.max(1, Math.ceil(registrosOrdenados.length / tamanhoPagina))
+  const registrosPagina = registrosOrdenados.slice(paginaRegistros * tamanhoPagina, (paginaRegistros + 1) * tamanhoPagina)
+  const mesesDisponiveis = Array.from(new Set(registros.map((registro) => registro.data.slice(0, 7)).filter(Boolean))).sort((a, b) => b.localeCompare(a))
+  const nomeMes = (valor: string) => {
+    const [ano, mes] = valor.split('-').map(Number)
+    return new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  }
 
 
   async function consultarRegistros() {
@@ -1566,6 +1544,13 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               </button>
               {mostrarFiltros && (
                 <section className="mt-3 grid gap-3 rounded-xl border border-border bg-white p-4 text-black sm:grid-cols-2 lg:grid-cols-4">
+                  {<label className="grid gap-1 text-xs font-semibold">
+                    Mês
+                    <select value={mesSelecionado} onChange={(event) => { setMesSelecionado(event.target.value); setPaginaRegistros(0) }} className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-2 text-sm font-normal text-black">
+                      <option value="">Todos os meses</option>
+                      {mesesDisponiveis.map((mes) => <option key={mes} value={mes}>{nomeMes(mes)}</option>)}
+                    </select>
+                  </label>}
                   {CAMPOS_FILTRO.map(({ campo, label }) => {
                     const opcoesBase = Array.from(new Set(registros.map((registro) => valorFiltro(registro, campo)).filter(Boolean)))
                     if (campo === 'micragem' && !opcoesBase.includes('25')) opcoesBase.push('25')
@@ -1584,14 +1569,14 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                     )
                   })}
                   <div className="flex items-end">
-                    <button type="button" onClick={() => { setFiltrosColunas({}); setBusca(''); setPaginaRegistros(0) }} className="h-10 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42]">Limpar filtros</button>
+                    <button type="button" onClick={() => { setFiltrosColunas({}); setBusca(''); setMesSelecionado(dataLocalHoje().slice(0, 7)); setPaginaRegistros(0) }} className="h-10 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42]">Limpar filtros</button>
                   </div>
                 </section>
               )}
             </div>
 
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
-              <p className="text-muted-foreground">{mostrandoHistorico ? 'Histórico de meses anteriores' : (busca.trim() || Object.values(filtrosColunas).some(Boolean) ? 'Resultados da pesquisa em todos os meses' : 'Registros do mês atual')} · {registrosOrdenados.length} registro(s)</p>
+              <p className="text-muted-foreground">{busca.trim() ? 'Resultados da pesquisa em todos os meses' : mesSelecionado ? nomeMes(mesSelecionado) : 'Todos os meses'} · {registrosOrdenados.length} registro(s)</p>
               <div className="flex items-center gap-2">
                 <button type="button" disabled={paginaRegistros === 0} onClick={() => setPaginaRegistros((p) => Math.max(0, p - 1))} className="rounded-full border border-border px-3 py-2 disabled:opacity-40">Anterior</button>
                 <span className="tabular-nums">Página {paginaRegistros + 1} de {totalPaginas}</span>
@@ -1601,10 +1586,10 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             <div className="relative mb-4 max-w-md">
               <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <TextInput
-                aria-label="Buscar por IDP ou código da bobina"
+                aria-label="Buscar por IDP, código da bobina ou cliente"
                 value={busca}
                 onChange={(e) => { setBusca(e.target.value); setPaginaRegistros(0) }}
-                placeholder="Buscar IDP ou código da bobina"
+                placeholder="Buscar IDP, código da bobina ou cliente (todos os meses)"
                 className="pl-9"
               />
             </div>
