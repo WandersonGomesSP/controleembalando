@@ -32,7 +32,14 @@ function quebrarTexto(texto: string, maxCaracteres = 37) {
 
 function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
   const turno = String(bobina.turno ?? '').replace(/\s*TURNO\s*/i, '').trim()
-  const pigmento = [bobina.cor_mistura, bobina.pigmento_mistura].filter(Boolean).join(' / ')
+  const limparZeroDecimal = (valor: unknown) => {
+    const texto = String(valor ?? '').trim()
+    if (!texto || /^[-+]?0+(?:[.,]0+)?$/.test(texto)) return ''
+    return texto.replace(/^(\d+)[.,]0+$/, '$1')
+  }
+  const pigmentosInformados = [limparZeroDecimal(bobina.cor_mistura), limparZeroDecimal(bobina.pigmento_mistura)].filter(Boolean)
+  const pigmento = pigmentosInformados.length ? pigmentosInformados.join(' / ') : String(bobina.cor_fundo || '').trim()
+  const codigoInternoCola = limparZeroDecimal(bobina.codigo_interno) || '—'
   const pesoPigmento = Number(bobina.pigmento_kg) > 0
     ? ` / PESO: ${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(Number(bobina.pigmento_kg))}`
     : ''
@@ -46,7 +53,7 @@ function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
     { text: `FORN. BOPP: ${bobina.fornecedor_filme}` },
     { text: `METRAGEM PRODUZIDA: ${bobina.metragem}` },
     { text: `EMENDA: ${bobina.emenda ? 'SIM' : 'NÃO'}` },
-    { text: `LOTE DOW: ${String(bobina.lote_cola || '—')} / CÓD: ${String(bobina.codigo_interno || '—')}` },
+    { text: `LOTE DOW: ${String(bobina.lote_cola || '—')} / CÓD: ${codigoInternoCola}` },
     { text: `COLA: ${bobina.fornecedor_cola || (Number(bobina.kg_cola) > 0 ? `${bobina.kg_cola} KG` : '—')}` },
     { text: `COR: ${bobina.cor_fundo || '—'}` },
     ...(pigmento || Number(bobina.pigmento_kg) > 0
@@ -86,7 +93,8 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const prepared = lines.map((line) => {
     const requestedSize = line.size ?? 13
     const text = line.value !== undefined ? line.text + line.value : line.text
-    const textWidth = larguraTexto(text, requestedSize)
+    const deslocamentoValor = line.value !== undefined ? requestedSize * 0.278 * 15 : 0
+    const textWidth = larguraTexto(text, requestedSize) + deslocamentoValor
     const size = textWidth > maxWidth ? requestedSize * maxWidth / textWidth : requestedSize
     const prefixWidth = line.value !== undefined ? larguraTexto(line.text, size) : 0
     const valueWidth = line.value !== undefined ? larguraTexto(line.value, size) : 0
@@ -110,10 +118,12 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
     if (line.value !== undefined) {
       commands.push('0 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
+      const deslocamentoValor = size * 0.278 * 15
       const folgaDireita = size * 0.278 * 3
-      commands.push(`0 g ${x + prefixWidth} ${y - 3} ${valueWidth + folgaDireita} 18 re f`)
+      const inicioValor = x + prefixWidth + deslocamentoValor
+      commands.push(`0 g ${inicioValor} ${y - 3} ${valueWidth + folgaDireita} 18 re f`)
       commands.push('1 g')
-      commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x + prefixWidth} ${y} Tm <${pdfTextHex(line.value)}> Tj ET`)
+      commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${inicioValor} ${y} Tm <${pdfTextHex(line.value)}> Tj ET`)
       commands.push('0 g')
     } else {
       if (line.highlight) {
