@@ -189,13 +189,17 @@ async function loadSheetData(
     'PESO DO CILINDRO (KG)', 'PESO FINAL BOB. (KG)', 'PESO LÍQ. (KG)',
   ]
   const linhasPorAba = new Map<string, (string | number)[][]>()
+  const codigosComPesoBruto = new Set<string>()
   for (const row of selecionadas) {
     const periodo = String(row.aba ?? '').trim() || 'Sem período'
     const title = periodo.replace(/[:?*\\[\\]\\\\]/g, '-').slice(0, 100) || 'Sem período'
     if (!linhasPorAba.has(title)) linhasPorAba.set(title, [headers])
+    const codigo = String(row.cod_bob ?? '').trim().toLocaleUpperCase('pt-BR')
+    const pesoBruto = !codigo || codigosComPesoBruto.has(codigo) ? '' : Number(row.peso_bruto)
+    if (codigo && Number(row.peso_bruto) > 0) codigosComPesoBruto.add(codigo)
     linhasPorAba.get(title)!.push([
       dataBR(row.data), row.numero_bobina, row.material, Number(row.largura), Number(row.micragem),
-      Number(row.peso_bruto), '', Number(row.perda_kg), row.fornecedor_filme, row.cod_bob,
+      pesoBruto, '', Number(row.perda_kg), row.fornecedor_filme, row.cod_bob,
       Number(row.vareta_g), Number(row.kg_cola), row.lote_cola, row.fornecedor_cola,
       row.codigo_interno, row.linha, row.cor_fundo, Number(row.pigmento_kg),
       row.cor_mistura, row.pigmento_mistura, row.cliente, row.turno, Number(row.metragem),
