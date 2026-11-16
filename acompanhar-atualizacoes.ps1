@@ -58,6 +58,12 @@ try {
       Write-Host "Ha arquivos locais alterados. Nao vou sobrescreve-los; resolva-os para receber a atualizacao." -ForegroundColor Yellow
       continue
     }
+    Write-Host ""
+    Write-Host "============================================" -ForegroundColor Yellow
+    Write-Host "  NOVA ATUALIZACAO ENCONTRADA!" -ForegroundColor Yellow
+    Write-Host "  Baixando arquivos e reiniciando o sistema..." -ForegroundColor Green
+    Write-Host "============================================" -ForegroundColor Yellow
+    try { [Console]::Beep(1000, 250); [Console]::Beep(1400, 250) } catch { }
     Write-Host "Nova versao encontrada. Atualizando e reiniciando..." -ForegroundColor Cyan
     git pull --ff-only origin desenvolvimento
     if ($LASTEXITCODE -ne 0) {
