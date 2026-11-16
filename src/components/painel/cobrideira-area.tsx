@@ -1566,7 +1566,10 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   {CAMPOS_FILTRO.map(({ campo, label }) => {
                     const opcoesBase = Array.from(new Set(registros.map((registro) => valorFiltro(registro, campo)).filter(Boolean)))
                     if (campo === 'micragem' && !opcoesBase.includes('25')) opcoesBase.push('25')
-                    const opcoes = opcoesBase.sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
+                    const ordenadas = opcoesBase.sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
+                    const opcoes = campo === 'cliente'
+                      ? ordenadas.filter((opcao, indice, lista) => !lista.slice(0, indice).some((anterior) => clientesParecidos(anterior, opcao)))
+                      : ordenadas
                     return (
                       <label key={campo} className="grid gap-1 text-xs font-semibold">
                         {label}
@@ -1661,7 +1664,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                             ['Cor da mistura', registro.cor_mistura], ['Pigmento da mistura', registro.pigmento_mistura],
                             ['Cliente', registro.cliente], ['Cor de impressão', registro.cor_impressao],
                             ['Emenda', registro.emenda ? 'Sim' : 'Não'], ['Código da emenda', registro.codigo_emenda],
-                            ['Criado por', emailsCriadores[registro.created_by] ?? registro.created_by], ['Criado em', new Date(registro.created_at).toLocaleString('pt-BR')],
+                            ['Criado por', emailsCriadores[registro.created_by] ?? 'Email não localizado'], ['Criado em', new Date(registro.created_at).toLocaleString('pt-BR')],
                           ]
                           return (
                             <React.Fragment key={registro.numero_bobina}>
