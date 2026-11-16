@@ -41,7 +41,8 @@ export function TextInput({
   return (
     <input
       autoComplete={autoComplete}
-      className={cn(fieldClass, 'relative z-10 pointer-events-auto touch-manipulation', valorValido && '!bg-emerald-50 !border-emerald-200', className)}
+      style={{ ...props.style, backgroundColor: valorValido ? '#dcfce7' : props.style?.backgroundColor, borderColor: valorValido ? '#86efac' : props.style?.borderColor }}
+      className={cn(fieldClass, 'relative z-10 pointer-events-auto touch-manipulation', className)}
       onPointerDown={(event) => {
         onPointerDown?.(event)
         if (!event.defaultPrevented && !event.currentTarget.disabled && !event.currentTarget.readOnly) {
@@ -69,7 +70,7 @@ export function SelectInput({
   const valorValido = highlightValid && valorAtual.trim().length > 0 && opcoesValidas.includes(valorAtual)
   return (
     <div className="relative">
-      <select className={cn(fieldClass, 'cursor-pointer appearance-none pr-9', valorValido && '!bg-emerald-50 !border-emerald-200', className)} {...props}>
+      <select style={{ ...props.style, backgroundColor: valorValido ? '#dcfce7' : props.style?.backgroundColor, borderColor: valorValido ? '#86efac' : props.style?.borderColor }} className={cn(fieldClass, 'cursor-pointer appearance-none pr-9', className)} {...props}>
         {placeholder && <option value="" disabled>{placeholder}</option>}
         {options.map((o) => (
           <option key={typeof o === 'string' ? o : o.value} value={typeof o === 'string' ? o : o.value}>
