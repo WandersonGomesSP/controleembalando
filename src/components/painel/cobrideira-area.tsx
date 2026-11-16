@@ -583,7 +583,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const registrosMesAtual = registrosOrdenados.filter((registro) => registro.data.slice(0, 7) === mesAtual)
   const registrosAnteriores = registrosOrdenados.filter((registro) => registro.data.slice(0, 7) !== mesAtual)
   const tamanhoPagina = 25
-  const totalPaginasMes = Math.max(1, Math.ceil(registrosMesAtual.length / tamanhoPagina))
+  const totalPaginasMes = Math.ceil(registrosMesAtual.length / tamanhoPagina)
   const totalPaginas = busca.trim() || Object.values(filtrosColunas).some(Boolean)
     ? Math.max(1, Math.ceil(registrosOrdenados.length / tamanhoPagina))
     : totalPaginasMes + Math.ceil(registrosAnteriores.length / tamanhoPagina)
@@ -1729,7 +1729,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         ['Cor mistura', registro.cor_mistura], ['Pigmento mistura', registro.pigmento_mistura],
                         ['Cliente', registro.cliente], ['Cor impressão', registro.cor_impressao],
                         ['Emenda', registro.emenda ? 'Sim' : 'Não'], ['Código emenda', registro.codigo_emenda],
-                        ['Criado por', registro.created_by], ['Criado em', new Date(registro.created_at).toLocaleString('pt-BR')],
+                        ['Criado por', emailsCriadores[registro.created_by] ?? 'Email não localizado'], ['Criado em', new Date(registro.created_at).toLocaleString('pt-BR')],
                       ]
                       return (
                         <article key={registro.numero_bobina} className="rounded-xl border border-border bg-white p-4 text-black shadow-sm">
