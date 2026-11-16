@@ -278,10 +278,45 @@ type CampoFiltro = keyof CobrideiraBobinaRow
 const CAMPOS_FILTRO: { campo: CampoFiltro; label: string }[] = [
   { campo: 'largura', label: 'Largura' },
   { campo: 'micragem', label: 'Micragem' },
+  { campo: 'vareta_g', label: 'Vareta' },
+  { campo: 'cliente', label: 'Cliente' },
+  { campo: 'cor_fundo', label: 'Cor de fundo' },
+  { campo: 'fornecedor_filme', label: 'Fornecedor do filme' },
+  { campo: 'material', label: 'Material' },
+  { campo: 'fornecedor_cola', label: 'Fornecedor da cola' },
+  { campo: 'linha', label: 'Linha' },
+  { campo: 'turno', label: 'Turno' },
 ]
 
 function valorFiltro(registro: CobrideiraBobinaRow, campo: CampoFiltro) {
   return String(registro[campo] ?? '')
+}
+
+function normalizarTextoCliente(valor: string) {
+  return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]/g, '')
+}
+
+function distanciaEdicao(a: string, b: string): number {
+  const linha = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    let diagonal = linha[0]
+    linha[0] = i
+    for (let j = 1; j <= b.length; j++) {
+      const acima = linha[j]
+      linha[j] = Math.min(linha[j] + 1, linha[j - 1] + 1, diagonal + (a[i - 1] === b[j - 1] ? 0 : 1))
+      diagonal = acima
+    }
+  }
+  return linha[b.length]
+}
+
+function clientesParecidos(a: string, b: string) {
+  const x = normalizarTextoCliente(a)
+  const y = normalizarTextoCliente(b)
+  if (!x || !y) return x === y
+  if (x === y) return true
+  if (Math.min(x.length, y.length) < 5) return false
+  return distanciaEdicao(x, y) <= Math.max(1, Math.floor(Math.max(x.length, y.length) * 0.15))
 }
 
 function dataLocalHoje() {
@@ -529,7 +564,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     const correspondeMes = Boolean(termoBusca) || !mesSelecionado || registro.data.slice(0, 7) === mesSelecionado
     return correspondeBusca && correspondeMes && CAMPOS_FILTRO.every(({ campo }) => {
       const selecionado = filtrosColunas[campo]
-      return !selecionado || valorFiltro(registro, campo) === selecionado
+      return !selecionado || (campo === 'cliente' ? clientesParecidos(valorFiltro(registro, campo), selecionado) : valorFiltro(registro, campo) === selecionado)
     })
   })
   const registrosOrdenados = [...registrosFiltrados].sort((a, b) => {
