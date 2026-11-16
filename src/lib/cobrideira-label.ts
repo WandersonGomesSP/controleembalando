@@ -79,7 +79,7 @@ function larguraTexto(texto: string, tamanho: number) {
 function buildPdf(bobina: CobrideiraBobinaRow) {
   const commands: string[] = []
   const lines = labelLines(bobina)
-  const horizontalPadding = 0.01
+  const horizontalPadding = 2.83
   const maxWidth = 290 - horizontalPadding
   const prepared = lines.map((line) => {
     const requestedSize = line.size ?? 13
@@ -109,11 +109,11 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
       commands.push('0 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
       commands.push(`0.89 0.15 0.18 rg ${x + prefixWidth - 1} ${y - 3} ${valueWidth + 3} 18 re f`)
-      commands.push('0 g')
+      commands.push('1 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x + prefixWidth} ${y} Tm <${pdfTextHex(line.value)}> Tj ET`)
     } else {
       if (line.highlight) {
-        commands.push(`0.89 0.15 0.18 rg ${x - 1} ${y - 3} ${width + 2} 18 re f`, '0 g')
+        commands.push(`0.89 0.15 0.18 rg ${x - 1} ${y - 3} ${width + 2} 18 re f`, '1 g')
       } else commands.push('0 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
     }
