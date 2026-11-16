@@ -59,7 +59,8 @@ type FormularioBobina = {
   codigoEmenda: string
 }
 
-type Secao = 'cadastro' | 'registros' | 'lixeira'
+type Secao = 'cadastro' | 'registros' | 'operadores' | 'lixeira'
+type OperadorCobrideira = { nome: string; turno: '1º TURNO' | '2º TURNO' }
 
 type LinhaCSVPreparada = { linha: number; bobina: CobrideiraBobinaInsert | null; erro: string | null }
 
@@ -406,6 +407,10 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
   const [secao, setSecao] = React.useState<Secao>('cadastro')
   const [form, setForm] = React.useState(formularioInicial)
   const [registros, setRegistros] = React.useState<CobrideiraBobinaRow[]>([])
+  const [operadores, setOperadores] = React.useState<OperadorCobrideira[]>([])
+  const [novoOperador, setNovoOperador] = React.useState('')
+  const [turnoNovoOperador, setTurnoNovoOperador] = React.useState<'1º TURNO' | '2º TURNO'>('1º TURNO')
+  const [carregandoOperadores, setCarregandoOperadores] = React.useState(false)
   const [itensLixeira, setItensLixeira] = React.useState<CobrideiraBobinaLixeiraRow[]>([])
   const [carregandoLixeira, setCarregandoLixeira] = React.useState(false)
   const [busca, setBusca] = React.useState('')
@@ -681,6 +686,57 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
     } finally { setImportandoCSV(false) }
   }
 
+  async function carregarOperadores() {
+    setCarregandoOperadores(true)
+    try {
+      const { data, error } = await supabase.schema('cobrideira').from('operadores').select('nome, turno').order('nome')
+      if (error) throw error
+      setOperadores((data ?? []) as OperadorCobrideira[])
+    } catch (error) {
+      toast.error('Não foi possível carregar os operadores.', { description: erroMensagem(error) })
+    } finally {
+      setCarregandoOperadores(false)
+    }
+  }
+
+  async function adicionarOperador(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const nome = novoOperador.trim().toLocaleUpperCase('pt-BR')
+    if (!nome) return
+    try {
+      const { error } = await supabase.schema('cobrideira').from('operadores').insert({ nome, turno: turnoNovoOperador })
+      if (error) throw error
+      setNovoOperador('')
+      toast.success(`Operador ${nome} cadastrado.`)
+      await carregarOperadores()
+    } catch (error) {
+      toast.error('Não foi possível cadastrar o operador.', { description: erroMensagem(error) })
+    }
+  }
+
+  async function alterarTurnoOperador(nome: string, turno: '1º TURNO' | '2º TURNO') {
+    try {
+      const { error } = await supabase.schema('cobrideira').from('operadores').update({ turno }).eq('nome', nome)
+      if (error) throw error
+      setOperadores((atuais) => atuais.map((item) => item.nome === nome ? { ...item, turno } : item))
+      toast.success(`Turno de ${nome} atualizado.`)
+    } catch (error) {
+      toast.error('Não foi possível alterar o turno.', { description: erroMensagem(error) })
+    }
+  }
+
+  async function removerOperador(nome: string) {
+    if (!window.confirm(`Remover o operador ${nome}?`)) return
+    try {
+      const { error } = await supabase.schema('cobrideira').from('operadores').delete().eq('nome', nome)
+      if (error) throw error
+      setOperadores((atuais) => atuais.filter((item) => item.nome !== nome))
+      toast.success(`Operador ${nome} removido.`)
+    } catch (error) {
+      toast.error('Não foi possível remover o operador.', { description: erroMensagem(error) })
+    }
+  }
+
   async function carregarLixeira() {
     setCarregandoLixeira(true)
     try {
@@ -940,6 +996,9 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
             >
               <ClipboardList className="size-4" />
               Bobinas registradas
+            </button>
+            <button type="button" aria-current={secao === 'operadores' ? 'page' : undefined} onClick={() => { setSecao('operadores'); void carregarOperadores() }} className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'operadores' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}>
+              <Users className="size-4" /> Operadores
             </button>
             <button type="button" aria-current={secao === 'lixeira' ? 'page' : undefined} onClick={() => { setSecao('lixeira'); void carregarLixeira() }} className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'lixeira' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}>
               <Trash2 className="size-4" /> Lixeira
@@ -1565,6 +1624,38 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                     })}
                   </div>
                 )}
+              </div>
+            )}
+          </Panel>
+        ) : secao === 'operadores' ? (
+          <Panel title="Operadores da Cobrideira" description="Cadastre os operadores e defina em qual turno cada um trabalha.">
+            <form onSubmit={adicionarOperador} className="mb-5 grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-[1fr_180px_auto]">
+              <Field label="Nome do operador" htmlFor="cb-novo-operador">
+                <TextInput id="cb-novo-operador" value={novoOperador} onChange={(e) => setNovoOperador(e.target.value)} placeholder="Digite o nome" required maxLength={120} />
+              </Field>
+              <Field label="Turno" htmlFor="cb-turno-operador">
+                <select id="cb-turno-operador" value={turnoNovoOperador} onChange={(e) => setTurnoNovoOperador(e.target.value as '1º TURNO' | '2º TURNO')} className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm text-black">
+                  <option value="1º TURNO">1º TURNO</option>
+                  <option value="2º TURNO">2º TURNO</option>
+                </select>
+              </Field>
+              <div className="flex items-end"><button type="submit" className="h-10 rounded-full bg-[#e3262e] px-5 text-sm font-bold text-black hover:bg-[#ff3b42]">Adicionar operador</button></div>
+            </form>
+            {carregandoOperadores ? <p className="py-6 text-center text-sm text-muted-foreground">Carregando operadores...</p> : operadores.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">Nenhum operador cadastrado.</p> : (
+              <div className="grid gap-2">
+                {operadores.map((operador) => (
+                  <div key={operador.nome} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3">
+                    <span className="font-semibold">{operador.nome}</span>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-semibold text-muted-foreground" htmlFor={`turno-${operador.nome}`}>Turno</label>
+                      <select id={`turno-${operador.nome}`} value={operador.turno} onChange={(e) => void alterarTurnoOperador(operador.nome, e.target.value as '1º TURNO' | '2º TURNO')} className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm text-black">
+                        <option value="1º TURNO">1º TURNO</option>
+                        <option value="2º TURNO">2º TURNO</option>
+                      </select>
+                      <button type="button" onClick={() => void removerOperador(operador.nome)} className="rounded-full border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Remover</button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </Panel>
