@@ -112,24 +112,27 @@ function dataCSV(valor: string): string {
   const br = v.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/)
   if (br) {
     const ano = br[3].length === 2 ? `20${br[3]}` : br[3]
-    return `${ano}-${br[2].padStart(2, '0')}-${br[1].padStart(2, '0')}`
+    const resultado = `${ano}-${br[2].padStart(2, '0')}-${br[1].padStart(2, '0')}`
+    const [a, m, d] = resultado.split('-').map(Number)
+    const data = new Date(Date.UTC(a, m - 1, d))
+    return data.getUTCFullYear() === a && data.getUTCMonth() === m - 1 && data.getUTCDate() === d ? resultado : ''
   }
   return ''
 }
 
 function prepararLinhaCSV(cabecalhos: string[], valores: string[], linha: number): LinhaCSVPreparada {
   const aliases: Record<string, string[]> = {
-    numero_bobina: ['numerobobina', 'nobobina', 'bobina', 'idp', 'numero', 'nbob'],
-    cod_bob: ['codbob', 'codigobobina', 'codigoexterno', 'codigo'],
-    data: ['data', 'dataproducao', 'datacad', 'datacadastro'],
+    numero_bobina: ['numerobobina', 'nobobina', 'bobina', 'idp', 'numero', 'nbob', 'nbobina'],
+    cod_bob: ['codbob', 'codbobina', 'codigobobina', 'codigoexterno', 'codigo'],
+    data: ['data', 'dataproducao', 'datacad', 'datacadastro', 'datadecadastro'],
     aba: ['aba', 'periodo', 'mes', 'guiadestino'],
     material: ['material', 'filme', 'tipo'],
     largura: ['largura', 'larguramm'],
     micragem: ['micragem', 'micra', 'espessura'],
-    peso_bruto: ['pesobruto', 'bruto'],
-    peso_final: ['pesofinal', 'final'],
-    peso_cilindro: ['pesocilindro', 'cilindro'],
-    metragem: ['metragem', 'metros', 'metragemm'],
+    peso_bruto: ['pesobruto', 'pesobrutokg', 'bruto'],
+    peso_final: ['pesofinal', 'pesofinalkg', 'final'],
+    peso_cilindro: ['pesocilindro', 'pesocilindrokg', 'cilindro'],
+    metragem: ['metragem', 'metragemm', 'metragemmetros', 'metros'],
     perda_kg: ['perda', 'perdakg'],
     fornecedor_filme: ['fornecedorfilme', 'fornecedor'],
     vareta_g: ['vareta', 'varetag', 'gramasvareta'],
