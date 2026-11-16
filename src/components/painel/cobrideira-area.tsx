@@ -436,7 +436,15 @@ function CampoDecimal({
 }
 
 export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChangeArea: () => void; isDeveloper?: boolean }) {
-  const [secao, setSecao] = React.useState<Secao>('cadastro')
+  const [secao, setSecao] = React.useState<Secao>(() => {
+    try {
+      const salva = localStorage.getItem('controleembalando-cobrideira-menu') as Secao | null
+      return salva && ['cadastro', 'registros', 'operadores', 'lixeira'].includes(salva) ? salva : 'cadastro'
+    } catch { return 'cadastro' }
+  })
+  React.useEffect(() => {
+    try { localStorage.setItem('controleembalando-cobrideira-menu', secao) } catch { /* armazenamento local indisponível */ }
+  }, [secao])
   const [form, setForm] = React.useState(formularioInicial)
   React.useEffect(() => {
     setForm((atual) => ({ ...atual, ...lerCamposReutilizaveis() }))
