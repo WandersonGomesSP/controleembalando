@@ -106,6 +106,7 @@ export type UserRoleRow = {
 
 export type CobrideiraBobinaRow = {
   numero_bobina: string
+  operador: string
   cod_bob: string
   data: string
   aba: string
