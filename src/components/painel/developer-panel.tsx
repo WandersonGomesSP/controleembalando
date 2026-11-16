@@ -61,7 +61,6 @@ const NOMES_AREAS = {
   tubeteira: 'Tubeteira',
   rebobinadeira: 'Rebobinadeira',
   cobrideira: 'Cobrideira',
-  estufa: 'Estufa',
 } as const
 
 function numeroOuNulo(value: FormDataEntryValue | null) {
