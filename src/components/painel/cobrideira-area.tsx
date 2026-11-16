@@ -274,32 +274,17 @@ const FORNECEDORES_FILME = ['INNOVA', 'TITAN', 'JHP']
 const VARETAS = ['16', '18', '20', '22', '26', '28']
 const LINHAS = ['Padrão', 'Personalizada', 'Impressa Linha']
 
-type CampoFiltro = keyof CobrideiraBobinaRow | 'largura_completa'
+type CampoFiltro = keyof CobrideiraBobinaRow
 const CAMPOS_FILTRO: { campo: CampoFiltro; label: string }[] = [
-  { campo: 'numero_bobina', label: 'Nº Bobina' },
-  { campo: 'data', label: 'Data de produção' },
-  { campo: 'cod_bob', label: 'Código da bobina' },
-  { campo: 'operador', label: 'Operador' },
-  { campo: 'aba', label: 'Aba / período' },
-  { campo: 'material', label: 'Material' },
-  { campo: 'largura_completa', label: 'Largura completa' },
   { campo: 'largura', label: 'Largura' },
   { campo: 'micragem', label: 'Micragem' },
-  { campo: 'peso_bruto', label: 'Peso bruto' },
   { campo: 'peso_final', label: 'Peso final' },
   { campo: 'peso_cilindro', label: 'Peso do cilindro' },
   { campo: 'peso_liquido', label: 'Peso líquido' },
-  { campo: 'metragem', label: 'Metragem' },
   { campo: 'perda_kg', label: 'Perda (kg)' },
-  { campo: 'fornecedor_filme', label: 'Fornecedor do filme' },
-  { campo: 'vareta_g', label: 'Vareta (g)' },
+  { campo: 'vareta_g', label: 'Vareta' },
   { campo: 'kg_cola', label: 'Cola (kg)' },
-  { campo: 'lote_cola', label: 'Lote da cola' },
   { campo: 'codigo_interno', label: 'Código interno da cola' },
-  { campo: 'fornecedor_cola', label: 'Fornecedor da cola' },
-  { campo: 'turno', label: 'Turno' },
-  { campo: 'linha', label: 'Linha' },
-  { campo: 'cor_fundo', label: 'Cor de fundo' },
   { campo: 'pigmento_kg', label: 'Pigmento (kg)' },
   { campo: 'cor_mistura', label: 'Cor da mistura' },
   { campo: 'pigmento_mistura', label: 'Pigmento da mistura' },
@@ -307,13 +292,37 @@ const CAMPOS_FILTRO: { campo: CampoFiltro; label: string }[] = [
   { campo: 'cor_impressao', label: 'Cor de impressão' },
   { campo: 'emenda', label: 'Emenda' },
   { campo: 'codigo_emenda', label: 'Código da emenda' },
-  { campo: 'created_by', label: 'Cadastrado por' },
-  { campo: 'created_at', label: 'Data de cadastro' },
 ]
 
 function valorFiltro(registro: CobrideiraBobinaRow, campo: CampoFiltro) {
-  if (campo === 'largura_completa') return `${registro.largura}.${String(registro.micragem).padStart(2, '0')}`
   return String(registro[campo] ?? '')
+}
+
+function normalizarTextoCliente(valor: string) {
+  return valor.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]/g, '')
+}
+
+function distanciaEdicao(a: string, b: string): number {
+  const linha = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    let diagonal = linha[0]
+    linha[0] = i
+    for (let j = 1; j <= b.length; j++) {
+      const acima = linha[j]
+      linha[j] = Math.min(linha[j] + 1, linha[j - 1] + 1, diagonal + (a[i - 1] === b[j - 1] ? 0 : 1))
+      diagonal = acima
+    }
+  }
+  return linha[b.length]
+}
+
+function clientesParecidos(a: string, b: string) {
+  const x = normalizarTextoCliente(a)
+  const y = normalizarTextoCliente(b)
+  if (!x || !y) return x === y
+  if (x === y) return true
+  if (Math.min(x.length, y.length) < 5) return false
+  return distanciaEdicao(x, y) <= Math.max(1, Math.floor(Math.max(x.length, y.length) * 0.15))
 }
 
 function dataLocalHoje() {
@@ -501,6 +510,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [busca, setBusca] = React.useState('')
   const [mostrarFiltros, setMostrarFiltros] = React.useState(false)
   const [filtrosColunas, setFiltrosColunas] = React.useState<Partial<Record<CampoFiltro, string>>>({})
+  const [paginaRegistros, setPaginaRegistros] = React.useState(0)
+  const [emailsCriadores, setEmailsCriadores] = React.useState<Record<string, string>>({})
   const [carregando, setCarregando] = React.useState(true)
   const [salvando, setSalvando] = React.useState(false)
   const [sincronizandoBobina, setSincronizandoBobina] = React.useState<string | null>(null)
@@ -555,10 +566,12 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
       registro.numero_bobina.toLocaleLowerCase('pt-BR').includes(termo) ||
       registro.cod_bob.toLocaleLowerCase('pt-BR').includes(termo) ||
       registro.cliente.toLocaleLowerCase('pt-BR').includes(termo)
-    return (
-      correspondeBusca &&
-      CAMPOS_FILTRO.every(({ campo }) => !filtrosColunas[campo] || valorFiltro(registro, campo) === filtrosColunas[campo])
-    )
+    return correspondeBusca && CAMPOS_FILTRO.every(({ campo }) => {
+      const selecionado = filtrosColunas[campo]
+      if (!selecionado) return true
+      if (campo === 'cliente') return clientesParecidos(registro.cliente, selecionado)
+      return valorFiltro(registro, campo) === selecionado
+    })
   })
   const registrosOrdenados = [...registrosFiltrados].sort((a, b) => {
     const av = a[ordenacao.campo]
@@ -566,6 +579,20 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av ?? '').localeCompare(String(bv ?? ''), 'pt-BR', { numeric: true })
     return ordenacao.asc ? cmp : -cmp
   })
+  const mesAtual = dataLocalHoje().slice(0, 7)
+  const registrosMesAtual = registrosOrdenados.filter((registro) => registro.data.slice(0, 7) === mesAtual)
+  const registrosAnteriores = registrosOrdenados.filter((registro) => registro.data.slice(0, 7) !== mesAtual)
+  const tamanhoPagina = 25
+  const totalPaginasMes = Math.max(1, Math.ceil(registrosMesAtual.length / tamanhoPagina))
+  const totalPaginas = busca.trim() || Object.values(filtrosColunas).some(Boolean)
+    ? Math.max(1, Math.ceil(registrosOrdenados.length / tamanhoPagina))
+    : totalPaginasMes + Math.ceil(registrosAnteriores.length / tamanhoPagina)
+  const registrosPagina = busca.trim() || Object.values(filtrosColunas).some(Boolean)
+    ? registrosOrdenados.slice(paginaRegistros * tamanhoPagina, (paginaRegistros + 1) * tamanhoPagina)
+    : paginaRegistros < totalPaginasMes
+      ? registrosMesAtual.slice(paginaRegistros * tamanhoPagina, (paginaRegistros + 1) * tamanhoPagina)
+      : registrosAnteriores.slice((paginaRegistros - totalPaginasMes) * tamanhoPagina, (paginaRegistros - totalPaginasMes + 1) * tamanhoPagina)
+  const mostrandoHistorico = !busca.trim() && !Object.values(filtrosColunas).some(Boolean) && paginaRegistros >= totalPaginasMes
 
 
   async function consultarRegistros() {
@@ -1448,7 +1475,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   <PrimaryButton
                     type="submit"
                     disabled={salvando}
-                    className="sm:w-auto"
+                    className="sm:w-auto bg-emerald-600 text-white hover:bg-emerald-700"
                   >
                     <Save className="size-4" />
                     {salvando ? 'Salvando...' : editandoNumero ? 'Salvar alterações' : 'Salvar registro'}
@@ -1523,12 +1550,13 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               {mostrarFiltros && (
                 <section className="mt-3 grid gap-3 rounded-xl border border-border bg-white p-4 text-black sm:grid-cols-2 lg:grid-cols-4">
                   {CAMPOS_FILTRO.map(({ campo, label }) => {
-                    const opcoes = Array.from(new Set(registros.map((registro) => valorFiltro(registro, campo)).filter(Boolean)))
-                      .sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
+                    const opcoesBase = Array.from(new Set(registros.map((registro) => valorFiltro(registro, campo)).filter(Boolean)))
+                    if (campo === 'micragem' && !opcoesBase.includes('25')) opcoesBase.push('25')
+                    const opcoes = opcoesBase.sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
                     return (
                       <label key={campo} className="grid gap-1 text-xs font-semibold">
                         {label}
-                        <select value={filtrosColunas[campo] ?? ''} onChange={(event) => setFiltrosColunas((atuais) => ({ ...atuais, [campo]: event.target.value }))} className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-2 text-sm font-normal text-black">
+                        <select value={filtrosColunas[campo] ?? ''} onChange={(event) => setFiltrosColunas((atuais) => ({ ...atuais, [campo]: event.target.value })); setPaginaRegistros(0)} className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-2 text-sm font-normal text-black">
                           <option value="">Todos</option>
                           {opcoes.map((opcao) => <option key={opcao} value={opcao}>{campo === 'data' ? formatarData(opcao) : opcao}</option>)}
                         </select>
@@ -1536,18 +1564,26 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                     )
                   })}
                   <div className="flex items-end">
-                    <button type="button" onClick={() => { setFiltrosColunas({}); setBusca('') }} className="h-10 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42]">Limpar filtros</button>
+                    <button type="button" onClick={() => { setFiltrosColunas({}); setBusca(''); setPaginaRegistros(0) }} className="h-10 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42]">Limpar filtros</button>
                   </div>
                 </section>
               )}
             </div>
 
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <p className="text-muted-foreground">{mostrandoHistorico ? 'Histórico de meses anteriores' : (busca.trim() || Object.values(filtrosColunas).some(Boolean) ? 'Resultados da pesquisa em todos os meses' : 'Registros do mês atual')} · {registrosOrdenados.length} registro(s)</p>
+              <div className="flex items-center gap-2">
+                <button type="button" disabled={paginaRegistros === 0} onClick={() => setPaginaRegistros((p) => Math.max(0, p - 1))} className="rounded-full border border-border px-3 py-2 disabled:opacity-40">Anterior</button>
+                <span className="tabular-nums">Página {paginaRegistros + 1} de {totalPaginas}</span>
+                <button type="button" disabled={paginaRegistros + 1 >= totalPaginas} onClick={() => setPaginaRegistros((p) => Math.min(totalPaginas - 1, p + 1))} className="rounded-full border border-border px-3 py-2 disabled:opacity-40">Próxima</button>
+              </div>
+            </div>
             <div className="relative mb-4 max-w-md">
               <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <TextInput
                 aria-label="Buscar por IDP ou código da bobina"
                 value={busca}
-                onChange={(e) => setBusca(e.target.value)}
+                onChange={(e) => { setBusca(e.target.value); setPaginaRegistros(0) }}
                 placeholder="Buscar IDP ou código da bobina"
                 className="pl-9"
               />
@@ -1595,7 +1631,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         </tr>
                       </thead>
                       <tbody>
-                        {registrosOrdenados.map((registro) => {
+                        {registrosPagina.map((registro) => {
                           const expandido = registrosExpandidos.has(registro.numero_bobina)
                           const detalhes: [string, string | number][] = [
                             ['Aba / período', registro.aba], ['Material', registro.material],
@@ -1611,7 +1647,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                             ['Cor da mistura', registro.cor_mistura], ['Pigmento da mistura', registro.pigmento_mistura],
                             ['Cliente', registro.cliente], ['Cor de impressão', registro.cor_impressao],
                             ['Emenda', registro.emenda ? 'Sim' : 'Não'], ['Código da emenda', registro.codigo_emenda],
-                            ['Criado por', registro.created_by], ['Criado em', new Date(registro.created_at).toLocaleString('pt-BR')],
+                            ['Criado por', emailsCriadores[registro.created_by] ?? registro.created_by], ['Criado em', new Date(registro.created_at).toLocaleString('pt-BR')],
                           ]
                           return (
                             <React.Fragment key={registro.numero_bobina}>
@@ -1730,7 +1766,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   <option value="2º TURNO">2º TURNO</option>
                 </select>
               </Field>
-              <div className="flex items-end"><button type="submit" className="h-10 rounded-full bg-[#e3262e] px-5 text-sm font-bold text-black hover:bg-[#ff3b42]">Adicionar operador</button></div>
+              <div className="flex items-end"><button type="submit" className="h-10 rounded-full bg-emerald-600 px-5 text-sm font-bold text-white hover:bg-emerald-700">Adicionar operador</button></div>
             </form>
             {carregandoOperadores ? <p className="py-6 text-center text-sm text-muted-foreground">Carregando operadores...</p> : operadores.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">Nenhum operador cadastrado.</p> : (
               <div className="grid gap-2">
