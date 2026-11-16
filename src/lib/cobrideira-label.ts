@@ -94,7 +94,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
 
   // Usa a altura útil da etiqueta: primeira linha próxima do topo e validade
   // próxima da margem inferior, sem desenhar fundo branco.
-  const topoTexto = 350
+  const topoTexto = 342
   const baseTexto = 7
   const lineHeight = prepared.length > 1
     ? (topoTexto - baseTexto) / (prepared.length - 1)
