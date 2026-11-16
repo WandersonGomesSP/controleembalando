@@ -299,7 +299,7 @@ function valorFiltro(registro: CobrideiraBobinaRow, campo: CampoFiltro) {
 }
 
 function normalizarTextoCliente(valor: string) {
-  return valor.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]/g, '')
+  return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]/g, '')
 }
 
 function distanciaEdicao(a: string, b: string): number {
