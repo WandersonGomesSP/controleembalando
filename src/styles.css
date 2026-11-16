@@ -16,6 +16,14 @@ code {
 }
 
 :root {
+  --navy: #0B1F4D;
+  --red: #B91C1C;
+  --text: #1E293B;
+  --muted: #64748B;
+  --line: #E2E8F0;
+  --head: #F1F5F9;
+  --zebra: #F8FAFC;
+  --white: #FFFFFF;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono-ui: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
   --font-heading: var(--font-body);
@@ -250,4 +258,78 @@ html body [data-sonner-toast] [data-icon] {
   body:has(button[aria-label='Sair da conta']) main > div button {
     color: #ffffff !important;
   }
+}
+
+
+/* Tabela Bobinas registradas — paleta e cabeçalho exclusivos da Cobrideira. */
+.cobrideira-registros-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--text);
+}
+.cobrideira-registros-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.cobrideira-registros-table thead th {
+  padding: 14px 16px;
+  background: var(--head);
+  color: var(--navy);
+  border-bottom: 2px solid var(--red);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.cobrideira-registros-table thead th button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.cobrideira-registros-table thead th.num,
+.cobrideira-registros-table tbody td:nth-child(6),
+.cobrideira-registros-table tbody td:nth-child(7),
+.cobrideira-registros-table tbody td:nth-child(8) {
+  text-align: right;
+}
+.cobrideira-registros-table thead th.active,
+.cobrideira-registros-table thead th.active button,
+.cobrideira-registros-table thead th.active .sort {
+  color: var(--red);
+}
+.cobrideira-registros-table .sort {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+}
+.cobrideira-registros-table thead th.select-col,
+.cobrideira-registros-table tbody td:first-child {
+  width: 1%;
+  text-align: center;
+}
+.cobrideira-registros-table input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--red);
+}
+.cobrideira-registros-table tbody td {
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+.cobrideira-registros-table tbody tr:nth-child(odd) {
+  background: var(--zebra);
+}
+.cobrideira-registros-table tbody td:nth-child(4) {
+  color: var(--navy);
+  font-family: var(--font-mono-ui), monospace;
 }
