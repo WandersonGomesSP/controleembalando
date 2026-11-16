@@ -68,11 +68,8 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const commands: string[] = []
   const x = 0
   const lines = labelLines(bobina)
-  const topBottomMargin = 9
-  let y = 360 - topBottomMargin
-  const lineHeight = lines.length > 1
-    ? (360 - topBottomMargin * 2) / (lines.length - 1)
-    : 0
+  let y = 350
+  const lineHeight = 18
 
   for (const line of lines) {
     const size = line.size ?? 13
