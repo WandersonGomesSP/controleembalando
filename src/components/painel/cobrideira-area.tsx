@@ -620,7 +620,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       const preparadas = linhas.slice(1).map((valores, indice) => prepararLinhaCSV(linhas[0], valores, indice + 2))
       const ids = new Set<string>()
       const pesoPorCodigo = new Map<string, number>()
-      for (const registro of registros) {
+      for (const registro of [...registros].sort((a, b) => a.created_at.localeCompare(b.created_at))) {
         const codigo = registro.cod_bob.trim().toLocaleUpperCase('pt-BR')
         if (codigo && Number(registro.peso_bruto) > 0 && !pesoPorCodigo.has(codigo)) {
           pesoPorCodigo.set(codigo, Number(registro.peso_bruto))
@@ -766,10 +766,12 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
   async function salvar(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const codigoNormalizado = form.codBob.trim().toLocaleUpperCase('pt-BR')
-    const pesoBrutoConhecido = registros.find((registro) =>
-      registro.cod_bob.trim().toLocaleUpperCase('pt-BR') === codigoNormalizado &&
-      Number(registro.peso_bruto) > 0
-    )?.peso_bruto
+    const pesoBrutoConhecido = [...registros]
+      .filter((registro) =>
+        registro.cod_bob.trim().toLocaleUpperCase('pt-BR') === codigoNormalizado &&
+        Number(registro.peso_bruto) > 0
+      )
+      .sort((x, y) => x.created_at.localeCompare(y.created_at))[0]?.peso_bruto
     const brutoInformado = numero(form.pesoBruto)
     const bruto = pesoBrutoConhecido !== undefined ? Number(pesoBrutoConhecido) : brutoInformado
     const final = numero(form.pesoFinal)
