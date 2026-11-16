@@ -73,8 +73,8 @@ function Painel({ onChangeArea }: { onChangeArea: () => void }) {
         <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md">
           <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-4 pt-4 sm:px-6">
             <div className="flex items-center justify-between gap-4">
-              <div className="ml-2 flex items-center gap-3 sm:ml-6 sm:gap-4">
-                <img src="/embalando-logo.svg" alt="Embalando Fitas Adesivas" className="h-12 w-40 shrink-0 object-contain sm:h-14 sm:w-48" />
+              <div className="ml-3 flex items-center gap-3 sm:ml-8 sm:gap-4">
+                <img src="/embalando-logo.svg" alt="Embalando Fitas Adesivas" className="h-14 w-56 shrink-0 object-contain sm:h-16 sm:w-64" />
                 <div>
                   <h1 className="text-lg leading-tight font-semibold tracking-tight">
                     Tubeteira
