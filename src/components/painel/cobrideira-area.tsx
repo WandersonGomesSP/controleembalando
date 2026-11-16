@@ -1161,8 +1161,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               title={editandoNumero ? `Editar bobina · ${editandoNumero}` : 'Cadastro de produção · nova bobina'}
               description="Preencha os dados da bobina. O peso líquido é calculado pelo peso final menos o peso do cilindro."
             >
-              <form onSubmit={salvar} autoComplete="off" className="grid gap-6">
-                <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <form onSubmit={salvar} autoComplete="off" className="grid grid-cols-2 gap-x-3 gap-y-2 lg:grid-cols-4 2xl:grid-cols-6">
+                <section className="contents">
                   <Field label="Número da bobina" htmlFor="cb-numero-bobina">
                     <TextInput highlightValid
                       id="cb-numero-bobina"
@@ -1210,9 +1210,9 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   </Field>
                 </section>
 
-                <div className="grid gap-6 xl:grid-cols-2">
-                  <Panel title="Bobina e produção">
-                    <div className="grid gap-4 sm:grid-cols-2">
+                <div className="contents">
+                  <div className="contents">
+                    <div className="contents">
                       <Field label="Material" htmlFor="cb-material">
                         <TextInput highlightValid
                           id="cb-material"
@@ -1306,9 +1306,9 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         />
                       </Field>
                     </div>
-                  </Panel>
+                  </div>
 
-                  <Panel title="Cola, turno e linha">
+                  <div className="contents">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <CampoDecimal
                         id="cb-kg-cola"
@@ -1421,8 +1421,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   </Panel>
                 </div>
 
-                <Panel title="Cor, pigmento e emenda">
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="contents">
+                  <div className="contents">
                     <Field label="Cor de fundo" htmlFor="cb-cor-fundo">
                       <TextInput highlightValid
                         id="cb-cor-fundo"
@@ -1496,7 +1496,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   </div>
                 </Panel>
 
-                <div className="flex justify-end gap-2">
+                <div className="col-span-full flex justify-end gap-2">
                   {editandoNumero && (
                     <button
                       type="button"
