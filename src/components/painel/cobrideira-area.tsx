@@ -428,6 +428,20 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
   const [importandoCSV, setImportandoCSV] = React.useState(false)
   const [mostrarPreviaCSV, setMostrarPreviaCSV] = React.useState(false)
 
+  function pesoBrutoContabilizado(registro: CobrideiraBobinaRow) {
+    const codigo = registro.cod_bob.trim().toLocaleUpperCase('pt-BR')
+    if (!codigo) return Number(registro.peso_bruto)
+    const primeiraComPeso = registros
+      .filter((item) =>
+        item.cod_bob.trim().toLocaleUpperCase('pt-BR') === codigo &&
+        Number(item.peso_bruto) > 0
+      )
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))[0]
+    return primeiraComPeso?.numero_bobina === registro.numero_bobina
+      ? Number(registro.peso_bruto)
+      : 0
+  }
+
   function alternarExpansao(numeroBobina: string) {
     setRegistrosExpandidos((atuais) => {
       const novos = new Set(atuais)
@@ -1432,7 +1446,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                           const expandido = registrosExpandidos.has(registro.numero_bobina)
                           const detalhes: [string, string | number][] = [
                             ['Aba / período', registro.aba], ['Material', registro.material],
-                            ['Peso bruto', `${formatarPeso(Number(registro.peso_bruto))} kg`],
+                            ['Peso bruto', pesoBrutoContabilizado(registro) > 0 ? `${formatarPeso(pesoBrutoContabilizado(registro))} kg` : 'Já contabilizado pelo mesmo código'],
                             ['Peso final', `${formatarPeso(Number(registro.peso_final))} kg`],
                             ['Peso do cilindro', `${formatarPeso(Number(registro.peso_cilindro))} kg`],
                             ['Perda', `${formatarPeso(Number(registro.perda_kg))} kg`],
@@ -1495,7 +1509,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                       const detalhes: [string, string | number][] = [
                         ['Cód. bobina', registro.cod_bob], ['Data', formatarData(registro.data)],
                         ['Aba / período', registro.aba], ['Material', registro.material],
-                        ['Largura', `${registro.largura}.${String(registro.micragem).padStart(2, '0')}`], ['Peso bruto', `${formatarPeso(Number(registro.peso_bruto))} kg`],
+                        ['Largura', `${registro.largura}.${String(registro.micragem).padStart(2, '0')}`], ['Peso bruto', pesoBrutoContabilizado(registro) > 0 ? `${formatarPeso(pesoBrutoContabilizado(registro))} kg` : 'Já contabilizado pelo mesmo código'],
                         ['Peso final', `${formatarPeso(Number(registro.peso_final))} kg`],
                         ['Peso cilindro', `${formatarPeso(Number(registro.peso_cilindro))} kg`],
                         ['Peso líquido', `${formatarPeso(Number(registro.peso_liquido))} kg`],
