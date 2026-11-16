@@ -316,6 +316,7 @@ function distanciaEdicao(a: string, b: string): number {
   return linha[b.length]
 }
 
+// Agrupa variações pequenas de grafia do mesmo cliente nos filtros.
 function clientesParecidos(a: string, b: string) {
   const x = normalizarTextoCliente(a)
   const y = normalizarTextoCliente(b)
