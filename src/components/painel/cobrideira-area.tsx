@@ -501,26 +501,6 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   React.useEffect(() => {
     setForm((atual) => ({ ...atual, ...lerCamposReutilizaveis() }))
   }, [])
-  React.useEffect(() => {
-    if (carregando || editandoNumero || numeroBobinaManual || !form.data) return
-    const prefixo = `${form.data.slice(5, 7)}${form.data.slice(2, 4)}`
-    const numerosUsados = new Set(registros.map((registro) => registro.numero_bobina))
-    let maiorSequencia = 0
-    for (const numero of numerosUsados) {
-      if (numero.startsWith(prefixo) && /^\\d{7}$/.test(numero)) {
-        maiorSequencia = Math.max(maiorSequencia, Number(numero.slice(4)))
-      }
-    }
-    let sequencia = maiorSequencia + 1
-    let proximo = `${prefixo}${String(sequencia).padStart(3, '0')}`
-    while (numerosUsados.has(proximo) && sequencia < 1000) {
-      sequencia++
-      proximo = `${prefixo}${String(sequencia).padStart(3, '0')}`
-    }
-    if (sequencia <= 999) {
-      setForm((atual) => atual.numeroBobina === proximo ? atual : { ...atual, numeroBobina: proximo })
-    }
-  }, [carregando, editandoNumero, form.data, numeroBobinaManual, registros])
   const [registros, setRegistros] = React.useState<CobrideiraBobinaRow[]>([])
   const [operadores, setOperadores] = React.useState<OperadorCobrideira[]>([])
   const [novoOperador, setNovoOperador] = React.useState('')
@@ -548,6 +528,27 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [csvNome, setCsvNome] = React.useState('')
   const [importandoCSV, setImportandoCSV] = React.useState(false)
   const [mostrarPreviaCSV, setMostrarPreviaCSV] = React.useState(false)
+
+  React.useEffect(() => {
+    if (carregando || editandoNumero || numeroBobinaManual || !form.data) return
+    const prefixo = `${form.data.slice(5, 7)}${form.data.slice(2, 4)}`
+    const numerosUsados = new Set(registros.map((registro) => registro.numero_bobina))
+    let maiorSequencia = 0
+    for (const numero of numerosUsados) {
+      if (numero.startsWith(prefixo) && /^\d{7}$/.test(numero)) {
+        maiorSequencia = Math.max(maiorSequencia, Number(numero.slice(4)))
+      }
+    }
+    let sequencia = maiorSequencia + 1
+    let proximo = `${prefixo}${String(sequencia).padStart(3, '0')}`
+    while (numerosUsados.has(proximo) && sequencia < 1000) {
+      sequencia++
+      proximo = `${prefixo}${String(sequencia).padStart(3, '0')}`
+    }
+    if (sequencia <= 999) {
+      setForm((atual) => atual.numeroBobina === proximo ? atual : { ...atual, numeroBobina: proximo })
+    }
+  }, [carregando, editandoNumero, form.data, numeroBobinaManual, registros])
 
   function pesoBrutoContabilizado(registro: CobrideiraBobinaRow) {
     const codigo = registro.cod_bob.trim().toLocaleUpperCase('pt-BR')
