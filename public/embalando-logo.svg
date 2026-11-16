@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400" role="img" aria-label="Embalando Fitas Adesivas">
-  <g transform="translate(20 20) scale(0.45) translate(-520 -140)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 200" role="img" aria-label="Embalando Fitas Adesivas">
+  <g transform="translate(0 0) scale(0.45)">
     <path d="M90 205 265 35 520 205 265 375Z" fill="#10145e" stroke="#ef252d" stroke-width="10"/>
     <path d="M215 112h76c54 0 98 39 98 87 0 28-15 52-39 68l-42-69c11-8 17-18 17-29 0-18-16-32-36-32h-74z" fill="#ef252d"/>
     <path d="M215 112v55h-42v-55zM215 167h-42v54h42zM215 221h-42l-22 38h64z" fill="#ef252d"/>
     <path d="M290 112c54 0 98 39 98 87 0 28-15 52-39 68l-61-101c13-8 19-18 19-29 0-14-12-25-29-25z" fill="#ef252d"/>
   </g>
-  <text x="420" y="190" fill="#10145e" font-family="Brush Script MT, Segoe Script, cursive" font-size="132">Embalando®</text>
-  <text x="445" y="285" fill="#ef252d" font-family="Arial, sans-serif" font-size="60" font-weight="800" letter-spacing="5">FITAS ADESIVAS</text>
+  <text x="260" y="100" fill="#10145e" font-family="Brush Script MT, Segoe Script, cursive" font-size="88">Embalando®</text>
+  <text x="280" y="155" fill="#ef252d" font-family="Arial, sans-serif" font-size="42" font-weight="800" letter-spacing="3">FITAS ADESIVAS</text>
 </svg>
