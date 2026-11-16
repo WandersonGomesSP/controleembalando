@@ -1133,7 +1133,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               type="button"
               aria-current={secao === 'cadastro' ? 'page' : undefined}
               onClick={() => setSecao('cadastro')}
-              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'cadastro' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
+              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'cadastro' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
             >
               <PackagePlus className="size-4" />
               Cadastrar bobina
@@ -1142,15 +1142,15 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               type="button"
               aria-current={secao === 'registros' ? 'page' : undefined}
               onClick={() => setSecao('registros')}
-              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'registros' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
+              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'registros' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
             >
               <ClipboardList className="size-4" />
               Bobinas registradas
             </button>
-            {false && isDeveloper && <button type="button" aria-current={secao === 'operadores' ? 'page' : undefined} onClick={() => { setSecao('operadores'); void carregarOperadores() }} className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'operadores' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}>
+            {false && isDeveloper && <button type="button" aria-current={secao === 'operadores' ? 'page' : undefined} onClick={() => { setSecao('operadores'); void carregarOperadores() }} className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'operadores' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}>
               <Users className="size-4" /> Operadores
             </button>}
-            <button type="button" aria-current={secao === 'lixeira' ? 'page' : undefined} onClick={() => { setSecao('lixeira'); void carregarLixeira() }} className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'lixeira' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}>
+            <button type="button" aria-current={secao === 'lixeira' ? 'page' : undefined} onClick={() => { setSecao('lixeira'); void carregarLixeira() }} className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'lixeira' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}>
               <Trash2 className="size-4" /> Lixeira
             </button>
           </nav>
