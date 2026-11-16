@@ -154,119 +154,32 @@ function dataBR(value: string | null | undefined) {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : value
 }
 
-function dataHoraBR(value: string) {
-  return new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    dateStyle: 'short',
-    timeStyle: 'medium',
-  }).format(new Date(value))
-}
 
-function asObject(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {}
-}
 
-function codigos(value: unknown) {
-  return Object.values(asObject(value))
-    .flatMap((group) => Array.isArray(group) ? group : [])
-    .map(String)
-    .join(', ')
-}
 
-async function loadSheetData(client: ReturnType<typeof createClient<Database>>, dataInicio?: string, dataFim?: string, numeroBobina?: string): Promise<SheetData[]> {
-  // Esta planilha é exclusiva da Cobrideira: não consulta nem exporta dados
-  // de Tubeteira, estoque geral, produção de tubos ou histórico operacional.
+async function loadSheetData(
+  client: ReturnType<typeof createClient<Database>>,
+  dataInicio?: string,
+  dataFim?: string,
+  numeroBobina?: string,
+): Promise<SheetData[]> {
+  // Esta planilha é exclusiva da Cobrideira. Não consulta dados da Tubeteira,
+  // estoque geral, produção de tubos ou histórico operacional.
   const bobinas = await allRows('cobrideira.bobinas', (start, end) =>
     client.schema('cobrideira').from('bobinas').select('*')
       .order('created_at').order('numero_bobina').range(start, end),
   )
-  const insumos: Database['public']['Tables']['insumos_rolos']['Row'][] = []
-  const producoes: Database['public']['Tables']['producao_tubos']['Row'][] = []
-  const tubetes: Database['public']['Tables']['lotes_tubete']['Row'][] = []
-  const logs: Database['public']['Tables']['stock_operation_logs']['Row'][] = []
-  // Carrega todas as bobinas para identificar a matéria-prima única por código,
-  // mas mantém o filtro solicitado para decidir quais registros serão sincronizados.
-  const bobinasTodas = bobinas
   const inicioFiltro = dataInicio ? new Date(`${dataInicio}T00:00:00-03:00`).getTime() : null
   const fimFiltro = dataFim ? new Date(`${dataFim}T00:00:00-03:00`) : null
   if (fimFiltro) fimFiltro.setUTCDate(fimFiltro.getUTCDate() + 1)
-  const bobinasSelecionadas = bobinasTodas.filter((row) => {
+  const selecionadas = bobinas.filter((row) => {
     if (numeroBobina) return row.numero_bobina === numeroBobina
     const criadoEm = new Date(row.created_at).getTime()
     return (inicioFiltro === null || criadoEm >= inicioFiltro) &&
       (fimFiltro === null || criadoEm < fimFiltro.getTime())
   })
-  const primeiraBobinaPorCodigo = new Map<string, string>()
-  const pesoBrutoPorCodigo = new Map<string, number>()
-  for (const row of bobinasTodas) {
-    const codigo = String(row.cod_bob ?? '').trim().toLocaleUpperCase('pt-BR')
-    if (codigo && Number(row.peso_bruto) > 0) {
-      if (!primeiraBobinaPorCodigo.has(codigo)) primeiraBobinaPorCodigo.set(codigo, row.numero_bobina)
-      if (!pesoBrutoPorCodigo.has(codigo)) pesoBrutoPorCodigo.set(codigo, Number(row.peso_bruto))
-    }
-  }
 
-  const rollRows: (string | number)[][] = [[
-    'Tipo', 'Código', 'Medida / categoria', 'Peso líquido (kg)', 'Validade',
-    'Data de registro', 'Peso alterado',
-  ]]
-  for (const row of insumos) {
-    rollRows.push([
-      row.tipo === 'ROTULO' ? 'Rótulo' : 'Capa',
-      row.id_codigo,
-      row.medida_categoria,
-      Number(row.peso_liq_kg),
-      row.validade ?? '',
-      dataBR(row.data_registro),
-      row.peso_alterado ? 'Sim' : 'Não',
-    ])
-  }
-
-  const tubeRows: (string | number)[][] = [[
-    'ID', 'Data', 'Medida', 'Espessura', 'Capa', 'Operador', 'Carrinhos',
-    'Tubos por carrinho', 'Containers', 'Tubos por container',
-    'Total produzido', 'Perda (kg)', 'Códigos',
-  ]]
-  for (const row of producoes) {
-    tubeRows.push([
-      row.id,
-      dataBR(row.data),
-      row.tubo,
-      row.espessura,
-      row.capa,
-      row.operador,
-      row.quantidade_carrinhos,
-      row.tubos_por_carrinho,
-      row.quantidade_containers,
-      row.tubos_por_container,
-      row.quantidade_tubos,
-      Number(row.perda),
-      codigos(row.codigos),
-    ])
-  }
-
-  const tubeteRows: (string | number)[][] = [[
-    'ID', 'Data da produção', 'Medida', 'Cor', 'Caixas',
-    'Unidades por caixa', 'Total de tubetes', 'Perda (kg)', 'Operador',
-  ]]
-  for (const row of tubetes) {
-    tubeteRows.push([
-      row.id,
-      dataBR(row.data_producao),
-      row.medida,
-      row.cor,
-      row.caixas,
-      row.unidades_por_caixa,
-      row.caixas * row.unidades_por_caixa,
-      Number(row.perda_kg),
-      row.operador,
-    ])
-  }
-
-  // Layout da planilha correta de bobinas. A coluna G é intencionalmente vazia.
-  const bobinaHeaders = [
+  const headers = [
     'DATA', 'N° BOB.', 'MATERIAL', 'LARGURA (MM)', 'MICRAGEM',
     'PESO BRUTO BOB.', '', 'PERDA (KG)', 'FORNEC. FILME', 'COD. BOBINA',
     'GRAM. VARETA (G)', '(KG) COLA TOT. UTILZ.', 'LOTE COLA', 'FORNEC. COLA',
@@ -275,92 +188,22 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
     'TURNO', 'COMP. ADESIVADO (M)', 'EMENDA', 'COD. BOB. EMENDA',
     'PESO DO CILINDRO (KG)', 'PESO FINAL BOB. (KG)', 'PESO LÍQ. (KG)',
   ]
-  const bobinaRows: (string | number)[][] = [bobinaHeaders]
-  for (const row of bobinasSelecionadas) {
-    const codigo = String(row.cod_bob ?? '').trim().toLocaleUpperCase('pt-BR')
-    const pesoBrutoUnico = !codigo || primeiraBobinaPorCodigo.get(codigo) === row.numero_bobina
-      ? Number(row.peso_bruto)
-      : ''
-    bobinaRows.push([
+  const linhasPorAba = new Map<string, (string | number)[][]>()
+  for (const row of selecionadas) {
+    const periodo = String(row.aba ?? '').trim() || 'Sem período'
+    const title = periodo.replace(/[:?*\\[\\]\\\\]/g, '-').slice(0, 100) || 'Sem período'
+    if (!linhasPorAba.has(title)) linhasPorAba.set(title, [headers])
+    linhasPorAba.get(title)!.push([
       dataBR(row.data), row.numero_bobina, row.material, Number(row.largura), Number(row.micragem),
-      pesoBrutoUnico, '', Number(row.perda_kg), row.fornecedor_filme,
-      row.cod_bob, Number(row.vareta_g), Number(row.kg_cola), row.lote_cola,
-      row.fornecedor_cola, row.codigo_interno, row.linha, row.cor_fundo,
-      Number(row.pigmento_kg), row.cor_mistura, row.pigmento_mistura,
-      row.cliente, row.turno, Number(row.metragem), row.emenda ? 'Sim' : 'Não',
-      row.codigo_emenda, Number(row.peso_cilindro), Number(row.peso_final),
-      Number(row.peso_liquido),
+      Number(row.peso_bruto), '', Number(row.perda_kg), row.fornecedor_filme, row.cod_bob,
+      Number(row.vareta_g), Number(row.kg_cola), row.lote_cola, row.fornecedor_cola,
+      row.codigo_interno, row.linha, row.cor_fundo, Number(row.pigmento_kg),
+      row.cor_mistura, row.pigmento_mistura, row.cliente, row.turno, Number(row.metragem),
+      row.emenda ? 'Sim' : 'Não', row.codigo_emenda, Number(row.peso_cilindro),
+      Number(row.peso_final), Number(row.peso_liquido),
     ].map((value) => value === null || value === undefined ? '' : value))
   }
-
-  const bobinaSheets = new Map<string, (string | number)[][]>()
-  for (let index = 0; index < bobinasSelecionadas.length; index += 1) {
-    const periodo = String(bobinasSelecionadas[index].aba ?? '').trim() || 'Sem período'
-    // Preserva a barra no nome da guia (ex.: Nov/26). O Google Sheets permite "/".
-    // Normaliza somente caracteres que não são aceitos em títulos de guias.
-    const title = periodo.replace(/[:?*\[\]\\]/g, '-').slice(0, 100) || 'Sem período'
-    if (!bobinaSheets.has(title)) bobinaSheets.set(title, [bobinaHeaders])
-    bobinaSheets.get(title)!.push(bobinaRows[index + 1])
-  }
-
-  const historyRows: (string | number)[][] = [[
-    'Data e hora (São Paulo)', 'Ação', 'Entidade', 'ID do registro',
-    'Quantidade', 'Códigos', 'Operador', 'Responsável', 'Detalhes',
-  ]]
-  for (const log of logs) {
-    historyRows.push([
-      dataHoraBR(log.ocorrido_em),
-      log.acao,
-      log.entidade,
-      log.registro_id,
-      Number(log.quantidade),
-      log.codigos.join(', '),
-      log.operador,
-      log.ator_email ?? '',
-      JSON.stringify(log.detalhes),
-    ])
-  }
-
-  const rolosAtivos = insumos.length
-  const rotulos = insumos.filter((item) => item.tipo === 'ROTULO')
-  const capas = insumos.filter((item) => item.tipo === 'CAPA')
-  const pesoRotulos = rotulos.reduce((total, item) => total + Number(item.peso_liq_kg), 0)
-  const pesoCapas = capas.reduce((total, item) => total + Number(item.peso_liq_kg), 0)
-  const totalTubos = producoes.reduce((total, item) => total + item.quantidade_tubos, 0)
-  const perdaTubos = producoes.reduce((total, item) => total + Number(item.perda), 0)
-  const totalTubetes = tubetes.reduce(
-    (total, item) => total + item.caixas * item.unidades_por_caixa,
-    0,
-  )
-  const dashboardRows: (string | number)[][] = [
-    ['Indicador', 'Valor'],
-    ['Rótulos disponíveis (rolos)', rotulos.length],
-    ['Peso de rótulos disponível (kg)', Number(pesoRotulos.toFixed(3))],
-    ['Capas disponíveis (rolos)', capas.length],
-    ['Peso de capas disponível (kg)', Number(pesoCapas.toFixed(3))],
-    ['Total de rolos disponíveis', rolosAtivos],
-    ['Tubos produzidos', totalTubos],
-    ['Lançamentos de produção de tubos', producoes.length],
-    ['Perda na produção de tubos (kg)', Number(perdaTubos.toFixed(3))],
-    ['Tubetes produzidos', totalTubetes],
-    ['Caixas de tubetes', tubetes.reduce((total, item) => total + item.caixas, 0)],
-    ['Registros no histórico', logs.length],
-    ['Última sincronização (São Paulo)', dataHoraBR(new Date().toISOString())],
-    ['', ''],
-    ['Produção por medida', 'Tubos produzidos'],
-  ]
-  const tubosPorMedida = new Map<string, number>()
-  for (const item of producoes) {
-    tubosPorMedida.set(item.tubo, (tubosPorMedida.get(item.tubo) ?? 0) + item.quantidade_tubos)
-  }
-  for (const [medida, quantidade] of [...tubosPorMedida].sort(([left], [right]) =>
-    left.localeCompare(right, 'pt-BR', { numeric: true }),
-  )) {
-    dashboardRows.push([medida, quantidade])
-  }
-
-  // Somente guias mensais de bobinas da Cobrideira são sincronizadas.
-  return Array.from(bobinaSheets, ([title, rows]) => ({ title, rows }))
+  return Array.from(linhasPorAba, ([title, rows]) => ({ title, rows }))
 }
 
 export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, numeroBobina?: string) {
