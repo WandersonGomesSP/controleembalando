@@ -10,10 +10,6 @@ function pdfTextHex(value: string) {
   return bytes.map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase()
 }
 
-function escapePdf(value: string) {
-  return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
-}
-
 function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
   const turno = String(bobina.turno ?? '').replace(/\\s*TURNO\\s*/i, '').trim()
   const operador = String(bobina.created_by ?? '').split('@')[0].replace(/[._-]+/g, ' ').toUpperCase()
