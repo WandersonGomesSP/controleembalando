@@ -43,8 +43,14 @@ try {
       $server = Start-DevServer
       continue
     }
-    git fetch origin desenvolvimento 2>$null | Out-Null
-    if ($LASTEXITCODE -ne 0) { continue }
+    # No Windows PowerShell 5.1, mensagens normais do Git em stderr podem virar erros.
+    # Mesclamos a saida e validamos o codigo de retorno real do Git.
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    git fetch origin desenvolvimento 2>&1 | Out-Null
+    $fetchExitCode = $LASTEXITCODE
+    $ErrorActionPreference = $previousPreference
+    if ($fetchExitCode -ne 0) { continue }
     $remoteHead = (git rev-parse origin/desenvolvimento).Trim()
     if ($remoteHead -eq $lastHead) { continue }
     $alteracoes = git status --porcelain
