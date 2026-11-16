@@ -103,7 +103,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
 
   for (const item of prepared) {
     const { line, size, prefixWidth, valueWidth, width } = item
-    const x = Math.max(horizontalPadding, (290 - width) / 2)
+    const x = horizontalPadding
     const font = line.bold ? 'F2' : 'F1'
     if (line.value !== undefined) {
       commands.push('0 g')
