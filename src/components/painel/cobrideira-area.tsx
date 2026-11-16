@@ -566,17 +566,6 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
     return data.session.access_token
   }
 
-  async function moverParaLixeira(registro: CobrideiraBobinaRow) {
-    if (!window.confirm(`Mover a bobina ${registro.numero_bobina} para a lixeira? Ela poderá ser restaurada depois.`)) return
-    try {
-      await moveCobrideiraBobinaToTrash({ data: { accessToken: await tokenAtual(), numeroBobina: registro.numero_bobina } })
-      setRegistros((atuais) => atuais.filter((item) => item.numero_bobina !== registro.numero_bobina))
-      toast.success(`Bobina ${registro.numero_bobina} movida para a lixeira.`)
-    } catch (error) {
-      toast.error('Não foi possível mover para a lixeira', { description: erroMensagem(error), duration: 15000 })
-    }
-  }
-
   function alternarSelecao(numeroBobina: string) {
     setSelecionadas((atuais) => {
       const novas = new Set(atuais)
