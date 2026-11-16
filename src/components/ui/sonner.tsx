@@ -12,11 +12,11 @@ import { Toaster as Sonner, type ToasterProps } from 'sonner'
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
-      theme="dark"
+      theme="light"
       position="bottom-left"
       duration={5000}
       closeButton
-      toastOptions={{ classNames: { toast: "!bg-slate-900 !text-white !border-slate-700", title: "!text-white", description: "!text-slate-200", closeButton: "!bg-slate-800 !text-white !border-slate-600" } }}
+      toastOptions={{ classNames: { toast: "!bg-white !text-black !border-gray-300", title: "!text-black", description: "!text-black", closeButton: "!bg-gray-100 !text-black !border-gray-400" } }}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,
