@@ -522,7 +522,6 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [editandoNumero, setEditandoNumero] = React.useState<string | null>(null)
   const [erroConsulta, setErroConsulta] = React.useState('')
   const [ordenacao, setOrdenacao] = React.useState<{ campo: keyof CobrideiraBobinaRow; asc: boolean }>({ campo: 'data', asc: false })
-  const [modoVisualizacao, setModoVisualizacao] = React.useState<'lista' | 'cards'>('lista')
   const [registrosExpandidos, setRegistrosExpandidos] = React.useState<Set<string>>(() => new Set())
   const [selecionadas, setSelecionadas] = React.useState<Set<string>>(() => new Set())
   const [csvLinhas, setCsvLinhas] = React.useState<LinhaCSVPreparada[]>([])
@@ -1105,16 +1104,17 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-0 bg-white/95 shadow-sm backdrop-blur">
-        <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-3 pt-3 sm:px-6 sm:pt-4">
+      <header className="sticky top-0 z-30 border-b border-[#e2e8f0] bg-white">
+        <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-7 pt-[18px] pb-4">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
-            <div className="ml-3 flex min-w-0 items-center gap-3 sm:ml-10 sm:gap-5 lg:ml-16">
-              <img src="/embalando-logo.svg" alt="Embalando Fitas Adesivas" className="h-16 w-56 shrink-0 object-contain sm:h-20 sm:w-64" />
+            <div className="flex min-w-0 items-center gap-[18px]">
+              <img src="/logo-embalando.png" alt="Embalando Fitas Adesivas" className="block h-16 w-auto shrink-0 object-contain max-[767px]:h-12" />
+              <div aria-hidden="true" className="hidden h-12 w-px shrink-0 bg-[#cbd5e1] md:block" />
               <div className="min-w-0">
-                <h1 className="text-xl leading-tight font-bold tracking-tight sm:text-2xl">
+                <h1 className="text-[24px] leading-[1.1] font-bold text-[#0b1f4d]">
                   Cobrideira
                 </h1>
-                <p className="text-xs leading-snug text-muted-foreground sm:text-sm">
+                <p className="mt-1 text-[13px] leading-normal text-[#475569]">
                   Cadastro e controle de bobinas
                 </p>
               </div>
@@ -1133,7 +1133,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               type="button"
               aria-current={secao === 'cadastro' ? 'page' : undefined}
               onClick={() => setSecao('cadastro')}
-              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'cadastro' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]'}`}
+              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'cadastro' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
             >
               <PackagePlus className="size-4" />
               Cadastrar bobina
@@ -1142,15 +1142,15 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               type="button"
               aria-current={secao === 'registros' ? 'page' : undefined}
               onClick={() => setSecao('registros')}
-              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'registros' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]'}`}
+              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'registros' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
             >
               <ClipboardList className="size-4" />
               Bobinas registradas
             </button>
-            {false && isDeveloper && <button type="button" aria-current={secao === 'operadores' ? 'page' : undefined} onClick={() => { setSecao('operadores'); void carregarOperadores() }} className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'operadores' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]'}`}>
+            {false && isDeveloper && <button type="button" aria-current={secao === 'operadores' ? 'page' : undefined} onClick={() => { setSecao('operadores'); void carregarOperadores() }} className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'operadores' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}>
               <Users className="size-4" /> Operadores
             </button>}
-            <button type="button" aria-current={secao === 'lixeira' ? 'page' : undefined} onClick={() => { setSecao('lixeira'); void carregarLixeira() }} className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'lixeira' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]'}`}>
+            <button type="button" aria-current={secao === 'lixeira' ? 'page' : undefined} onClick={() => { setSecao('lixeira'); void carregarLixeira() }} className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'lixeira' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}>
               <Trash2 className="size-4" /> Lixeira
             </button>
           </nav>
@@ -1661,12 +1661,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               <div className="grid gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm text-muted-foreground">{registrosFiltrados.length} registro(s) encontrado(s)</p>
-                  <div className="inline-flex rounded-lg border border-border bg-muted p-1">
-                    <button type="button" onClick={() => setModoVisualizacao('lista')} aria-pressed={modoVisualizacao === 'lista'} className={`rounded-md px-3 py-2 text-sm font-medium ${modoVisualizacao === 'lista' ? 'bg-white text-black shadow-sm' : 'text-muted-foreground'}`}>Lista</button>
-                    <button type="button" onClick={() => setModoVisualizacao('cards')} aria-pressed={modoVisualizacao === 'cards'} className={`rounded-md px-3 py-2 text-sm font-medium ${modoVisualizacao === 'cards' ? 'bg-white text-black shadow-sm' : 'text-muted-foreground'}`}>Cards</button>
-                  </div>
                 </div>
-                {modoVisualizacao === 'lista' ? (
+                
                   <div className="scroll-area overflow-x-auto">
                     <table className="w-full min-w-[58rem] text-left text-sm">
                       <thead className="sticky top-0 bg-muted text-xs text-muted-foreground">
@@ -1744,65 +1740,6 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       </tbody>
                     </table>
                   </div>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {registrosPagina.map((registro) => {
-                      const expandido = registrosExpandidos.has(registro.numero_bobina)
-                      const detalhes: [string, string | number][] = [
-                        ['Cód. bobina', registro.cod_bob], ['Data', formatarData(registro.data)],
-                        ['Aba / período', registro.aba], ['Material', registro.material],
-                        ['Largura', `${registro.largura}.${String(registro.micragem).padStart(2, '0')}`], ['Peso bruto', pesoBrutoContabilizado(registro) > 0 ? `${formatarPeso(pesoBrutoContabilizado(registro))} kg` : 'Já contabilizado pelo mesmo código'],
-                        ['Peso final', `${formatarPeso(Number(registro.peso_final))} kg`],
-                        ['Peso cilindro', `${formatarPeso(Number(registro.peso_cilindro))} kg`],
-                        ['Peso líquido', `${formatarPeso(Number(registro.peso_liquido))} kg`],
-                        ['Metragem', `${registro.metragem} m`], ['Perda', `${formatarPeso(Number(registro.perda_kg))} kg`],
-                        ['Fornecedor filme', registro.fornecedor_filme], ['Vareta', `${registro.vareta_g} g`],
-                        ['Cola', `${formatarPeso(Number(registro.kg_cola))} kg`], ['Lote cola', registro.lote_cola],
-                        ['Código interno', registro.codigo_interno], ['Fornecedor cola', registro.fornecedor_cola],
-                        ['Turno', registro.turno], ['Linha', registro.linha], ['Cor de fundo', registro.cor_fundo],
-                        ['Pigmento', `${formatarPeso(Number(registro.pigmento_kg))} kg`],
-                        ['Cor mistura', registro.cor_mistura], ['Pigmento mistura', registro.pigmento_mistura],
-                        ['Cliente', registro.cliente], ['Cor impressão', registro.cor_impressao],
-                        ['Emenda', registro.emenda ? 'Sim' : 'Não'], ['Código emenda', registro.codigo_emenda],
-                        ['Criado por', emailsCriadores[registro.created_by] ?? 'Email não localizado'], ['Criado em', new Date(registro.created_at).toLocaleString('pt-BR')],
-                      ]
-                      return (
-                        <article key={registro.numero_bobina} className="rounded-xl border border-border bg-white p-4 text-black shadow-sm">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex min-w-0 items-start gap-2"><input type="checkbox" aria-label={`Selecionar bobina ${registro.numero_bobina}`} checked={selecionadas.has(registro.numero_bobina)} onChange={() => alternarSelecao(registro.numero_bobina)} className="mt-1" /><div className="min-w-0">
-                              <p className="text-xs text-gray-500">Nº Bobina</p>
-                              <h3 className="break-words font-mono text-lg font-bold">{registro.numero_bobina}</h3>
-                              <p className="mt-1 text-sm text-gray-600">{registro.cod_bob} · {formatarData(registro.data)}</p>
-                            </div></div>
-                            <button type="button" onClick={() => alternarExpansao(registro.numero_bobina)} aria-expanded={expandido} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium hover:bg-gray-50">
-                              {expandido ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                              {expandido ? 'Recolher' : 'Detalhes'}
-                            </button>
-                          </div>
-                          <div className="mt-3 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3 text-sm">
-                            <div><p className="text-xs text-gray-500">Peso líquido</p><p className="font-semibold">{formatarPeso(Number(registro.peso_liquido))} kg</p></div>
-                            <div><p className="text-xs text-gray-500">Metragem</p><p className="font-semibold">{registro.metragem.toLocaleString('pt-BR')} m</p></div>
-                            <div><p className="text-xs text-gray-500">Fornecedor</p><p className="font-semibold">{registro.fornecedor_filme}</p></div>
-                            <div><p className="text-xs text-gray-500">Situação</p><p className="font-semibold">Cadastrada</p></div>
-                          </div>
-                          {expandido && (
-                            <>
-                              <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">{detalhes.map(([rotulo, valor]) => <div key={rotulo} className="min-w-0"><dt className="text-xs text-gray-500">{rotulo}</dt><dd className="break-words text-sm font-medium">{valor || '—'}</dd></div>)}</dl>
-                              <div className="mt-4 flex flex-wrap justify-end gap-2">
-                                <button type="button" onClick={() => downloadCobrideiraLabel(registro)} className="rounded-full border border-gray-300 px-4 py-2 text-sm font-bold hover:bg-gray-50">Baixar etiqueta PDF</button>
-                                <button type="button" onClick={() => void sincronizarBobina(registro)} disabled={sincronizandoBobina !== null} className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-4 py-2 text-sm font-bold hover:bg-gray-50 disabled:opacity-50">
-                                  <RefreshCw className={`size-4 ${sincronizandoBobina === registro.numero_bobina ? 'animate-spin' : ''}`} />
-                                  {sincronizandoBobina === registro.numero_bobina ? 'Sincronizando...' : 'Sincronizar'}
-                                </button>
-                                <button type="button" onClick={() => iniciarEdicao(registro)} className="rounded-full bg-[#e3262e] px-4 py-2 text-sm font-bold text-black hover:bg-[#ff3b42]">Editar dados</button>
-                              </div>
-                            </>
-                          )}
-                        </article>
-                      )
-                    })}
-                  </div>
-                )}
               </div>
             )}
           </Panel>
