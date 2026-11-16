@@ -916,7 +916,11 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     campo: K,
     valor: FormularioBobina[K],
   ) {
-    setForm((atual) => ({ ...atual, [campo]: valor }))
+    setForm((atual) => {
+      const proximo = { ...atual, [campo]: valor }
+      salvarCamposReutilizaveis(proximo)
+      return proximo
+    })
   }
 
   function iniciarEdicao(registro: CobrideiraBobinaRow) {
@@ -1079,10 +1083,11 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         downloadCobrideiraLabel(resultado.data as CobrideiraBobinaRow)
         toast.success('Bobina cadastrada. Etiqueta PDF baixada.')
       }
+      salvarCamposReutilizaveis(form)
       setEditandoNumero(null)
       setNumeroBobinaManual(false)
       setForm({ ...formularioInicial(), ...lerCamposReutilizaveis() })
-      setSecao('registros')
+      setSecao('cadastro')
     } catch (error: unknown) {
       console.error('[COBRIDEIRA] Erro real ao ' + (editandoNumero ? 'editar' : 'cadastrar') + ' bobina', {
         numeroOriginal: editandoNumero,
@@ -1154,14 +1159,15 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-[90rem] gap-6 px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto grid max-w-[96rem] gap-3 px-3 py-3 sm:px-4 sm:py-4">
         {secao === 'cadastro' ? (
           <>
             <Panel
+              className="[&>div:last-child]:!p-2"
               title={editandoNumero ? `Editar bobina · ${editandoNumero}` : 'Cadastro de produção · nova bobina'}
               description="Preencha os dados da bobina. O peso líquido é calculado pelo peso final menos o peso do cilindro."
             >
-              <form onSubmit={salvar} autoComplete="off" className="grid grid-cols-2 gap-x-3 gap-y-2 lg:grid-cols-4 2xl:grid-cols-6">
+              <form onSubmit={salvar} autoComplete="off" className="grid grid-cols-2 gap-x-2 gap-y-1.5 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-7">
                 <section className="contents">
                   <Field label="Número da bobina" htmlFor="cb-numero-bobina">
                     <TextInput highlightValid
@@ -1309,7 +1315,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   </div>
 
                   <div className="contents">
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="contents">
                       <CampoDecimal
                         id="cb-kg-cola"
                         label="Cola (kg)"
@@ -1418,7 +1424,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         </Field>
                       )}
                     </div>
-                  </Panel>
+                  </div>
                 </div>
 
                 <div className="contents">
@@ -1494,7 +1500,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       </Field>
                     )}
                   </div>
-                </Panel>
+                </div>
 
                 <div className="col-span-full flex justify-end gap-2">
                   {editandoNumero && (
