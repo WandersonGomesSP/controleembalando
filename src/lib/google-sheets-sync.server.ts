@@ -176,24 +176,16 @@ function codigos(value: unknown) {
 }
 
 async function loadSheetData(client: ReturnType<typeof createClient<Database>>, dataInicio?: string, dataFim?: string, numeroBobina?: string): Promise<SheetData[]> {
-  const [insumos, producoes, tubetes, logs, bobinas] = await Promise.all([
-    allRows('insumos_rolos', (start, end) =>
-      client.from('insumos_rolos').select('*').order('data_registro').order('id_codigo').range(start, end),
-    ),
-    allRows('producao_tubos', (start, end) =>
-      client.from('producao_tubos').select('*').order('data').order('id').range(start, end),
-    ),
-    allRows('lotes_tubete', (start, end) =>
-      client.from('lotes_tubete').select('*').order('data_producao').order('id').range(start, end),
-    ),
-    allRows('stock_operation_logs', (start, end) =>
-      client.from('stock_operation_logs').select('*').order('id', { ascending: false }).range(start, end),
-    ),
-    allRows('cobrideira.bobinas', (start, end) =>
-      client.schema('cobrideira').from('bobinas').select('*')
-        .order('created_at').order('numero_bobina').range(start, end),
-    ),
-  ])
+  // Esta planilha é exclusiva da Cobrideira: não consulta nem exporta dados
+  // de Tubeteira, estoque geral, produção de tubos ou histórico operacional.
+  const bobinas = await allRows('cobrideira.bobinas', (start, end) =>
+    client.schema('cobrideira').from('bobinas').select('*')
+      .order('created_at').order('numero_bobina').range(start, end),
+  )
+  const insumos: Database['public']['Tables']['insumos_rolos']['Row'][] = []
+  const producoes: Database['public']['Tables']['producao_tubos']['Row'][] = []
+  const tubetes: Database['public']['Tables']['lotes_tubete']['Row'][] = []
+  const logs: Database['public']['Tables']['stock_operation_logs']['Row'][] = []
   // Carrega todas as bobinas para identificar a matéria-prima única por código,
   // mas mantém o filtro solicitado para decidir quais registros serão sincronizados.
   const bobinasTodas = bobinas
@@ -367,14 +359,8 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
     dashboardRows.push([medida, quantidade])
   }
 
-  return [
-    { title: 'Dashboard', rows: dashboardRows },
-    { title: 'Rótulos e Capas', rows: rollRows },
-    { title: 'Tubos', rows: tubeRows },
-    { title: 'Tubetes', rows: tubeteRows },
-    { title: 'Histórico', rows: historyRows },
-    ...Array.from(bobinaSheets, ([title, rows]) => ({ title, rows })),
-  ]
+  // Somente guias mensais de bobinas da Cobrideira são sincronizadas.
+  return Array.from(bobinaSheets, ([title, rows]) => ({ title, rows }))
 }
 
 export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, numeroBobina?: string) {
