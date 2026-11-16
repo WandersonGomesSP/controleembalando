@@ -404,7 +404,7 @@ function CampoDecimal({
   )
 }
 
-export function CobrideiraArea({ onChangeArea, isDeveloper }: { onChangeArea: () => void; isDeveloper: boolean }) {
+export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChangeArea: () => void; isDeveloper?: boolean }) {
   const [secao, setSecao] = React.useState<Secao>('cadastro')
   const [form, setForm] = React.useState(formularioInicial)
   const [registros, setRegistros] = React.useState<CobrideiraBobinaRow[]>([])
