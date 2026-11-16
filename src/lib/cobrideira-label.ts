@@ -38,7 +38,11 @@ function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
     return texto.replace(/^(\d+)[.,]0+$/, '$1')
   }
   const pigmentosInformados = [limparZeroDecimal(bobina.cor_mistura), limparZeroDecimal(bobina.pigmento_mistura)].filter(Boolean)
-  const pigmento = pigmentosInformados.length ? pigmentosInformados.join(' / ') : String(bobina.cor_fundo || '').trim()
+  const corDeFundo = String(bobina.cor_fundo || '').trim()
+  const fundoCristal = /^cristal$/i.test(corDeFundo)
+  const pigmento = pigmentosInformados.length
+    ? pigmentosInformados.join(' / ')
+    : fundoCristal ? '' : corDeFundo
   const codigoInternoCola = limparZeroDecimal(bobina.codigo_interno) || '—'
   const pesoPigmento = Number(bobina.pigmento_kg) > 0
     ? ` / PESO: ${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(Number(bobina.pigmento_kg))}`
@@ -56,7 +60,7 @@ function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
     { text: `LOTE DOW: ${String(bobina.lote_cola || '—')} / CÓD: ${codigoInternoCola}` },
     { text: `COLA: ${bobina.fornecedor_cola || (Number(bobina.kg_cola) > 0 ? `${bobina.kg_cola} KG` : '—')}` },
     { text: `COR: ${bobina.cor_fundo || '—'}` },
-    ...(pigmento || Number(bobina.pigmento_kg) > 0
+    ...(pigmento || (!fundoCristal && Number(bobina.pigmento_kg) > 0)
       ? [{ text: `PIGMENTO: ${pigmento}${pesoPigmento}` }]
       : []),
     { text: 'METRAGEM TOTAL ADESIVADO: ', value: String(bobina.metragem), size: 13 },
