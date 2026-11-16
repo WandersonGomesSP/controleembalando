@@ -74,12 +74,10 @@ function Painel({ onChangeArea }: { onChangeArea: () => void }) {
           <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-4 pt-4 sm:px-6">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-[0_8px_24px_-8px_var(--primary)]">
-                  <Cylinder className="size-5" />
-                </span>
+                <img src="/embalando-logo.svg" alt="Embalando Fitas Adesivas" className="h-12 w-16 shrink-0 object-contain sm:h-14 sm:w-20" />
                 <div>
                   <h1 className="text-lg leading-tight font-semibold tracking-tight">
-                    Controle Embalando
+                    Tubeteira
                   </h1>
                   <p className="text-xs text-muted-foreground">
                     Tubeteira · Produção e estoque
@@ -89,9 +87,9 @@ function Painel({ onChangeArea }: { onChangeArea: () => void }) {
               <button
                 type="button"
                 onClick={onChangeArea}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-black bg-black px-3 text-xs font-semibold text-white transition-colors hover:bg-zinc-800 hover:text-white !bg-black !text-white !border-black"
               >
-                Trocar área
+                Trocar de setor
               </button>
             </div>
 
