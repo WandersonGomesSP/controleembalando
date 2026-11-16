@@ -203,9 +203,9 @@ async function loadSheetData(
       Number(row.vareta_g), Number(row.kg_cola), row.lote_cola, row.fornecedor_cola,
       row.codigo_interno, row.linha, row.cor_fundo, Number(row.pigmento_kg),
       row.cor_mistura, row.pigmento_mistura, row.cliente, row.turno, Number(row.metragem),
-      row.emenda ? 'Sim' : 'Não', row.codigo_emenda, Number(row.peso_cilindro),
+      row.emenda ? 'SIM' : 'NÃO', row.codigo_emenda, Number(row.peso_cilindro),
       Number(row.peso_final), Number(row.peso_liquido),
-    ].map((value) => value === null || value === undefined ? '' : value))
+    ].map((value) => value === null || value === undefined || (typeof value === 'number' && value === 0) ? '' : value))
   }
   return Array.from(linhasPorAba, ([title, rows]) => ({ title, rows }))
 }
