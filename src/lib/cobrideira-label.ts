@@ -92,14 +92,14 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
     return { line, size, prefixWidth, valueWidth, width }
   })
 
-  // Mantém o espaçamento de leitura e centraliza o conjunto para que as
-  // margens superior e inferior da impressão fiquem iguais.
+  // Usa a altura útil da etiqueta: primeira linha próxima do topo e validade
+  // próxima da margem inferior, sem desenhar fundo branco.
+  const topoTexto = 350
+  const baseTexto = 7
   const lineHeight = prepared.length > 1
-    ? Math.min(18, (360 - 18 - Math.max(...prepared.map((item) => item.size))) / (prepared.length - 1))
-    : 18
-  const verticalSpan = lineHeight * Math.max(0, prepared.length - 1)
-  const maiorFonte = Math.max(...prepared.map((item) => item.size), 13)
-  let y = (360 + verticalSpan - maiorFonte * 0.5) / 2
+    ? (topoTexto - baseTexto) / (prepared.length - 1)
+    : 0
+  let y = topoTexto
 
   for (const item of prepared) {
     const { line, size, prefixWidth, valueWidth, width } = item
@@ -108,16 +108,15 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
     if (line.value !== undefined) {
       commands.push('0 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
-      commands.push(`0 g ${x + prefixWidth - 1} ${y - 3} ${valueWidth + 3} 18 re f`)
-      commands.push('1 g')
+      commands.push(`0.89 0.15 0.18 rg ${x + prefixWidth - 1} ${y - 3} ${valueWidth + 3} 18 re f`)
+      commands.push('0 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x + prefixWidth} ${y} Tm <${pdfTextHex(line.value)}> Tj ET`)
     } else {
       if (line.highlight) {
-        commands.push(`0 g ${x - 1} ${y - 3} ${width + 2} 18 re f`, '1 g')
+        commands.push(`0.89 0.15 0.18 rg ${x - 1} ${y - 3} ${width + 2} 18 re f`, '0 g')
       } else commands.push('0 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
     }
-    commands.push(`0 G 0.55 w ${x} ${y - 2.5} m ${x + width} ${y - 2.5} l S`)
     y -= lineHeight
   }
 
