@@ -286,6 +286,35 @@ function abaMesAtual() {
   return `${meses[agora.getMonth()]}/${String(agora.getFullYear()).slice(-2)}`
 }
 
+const COBRIDEIRA_FORM_CACHE_KEY = 'cobrideira-form-last-values'
+const CAMPOS_REUTILIZAVEIS: (keyof FormularioBobina)[] = [
+  'data', 'largura', 'material', 'fornecedorFilme', 'corFundo',
+  'kgCola', 'loteCola', 'codigoInterno', 'fornecedorCola', 'linha', 'operador',
+]
+
+function lerCamposReutilizaveis(): Partial<FormularioBobina> {
+  try {
+    const raw = localStorage.getItem(COBRIDEIRA_FORM_CACHE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Partial<FormularioBobina>
+    return Object.fromEntries(
+      CAMPOS_REUTILIZAVEIS.filter((key) => typeof parsed[key] === 'string').map((key) => [key, parsed[key]]),
+    ) as Partial<FormularioBobina>
+  } catch {
+    return {}
+  }
+}
+
+function salvarCamposReutilizaveis(form: FormularioBobina) {
+  try {
+    localStorage.setItem(COBRIDEIRA_FORM_CACHE_KEY, JSON.stringify(
+      Object.fromEntries(CAMPOS_REUTILIZAVEIS.map((key) => [key, form[key]])),
+    ))
+  } catch {
+    // Armazenamento local indisponível.
+  }
+}
+
 function formularioInicial(): FormularioBobina {
   return {
     numeroBobina: '',
@@ -565,11 +594,12 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
       setLogSincronizacao([planilha, linkPlanilha, guiasCriadas, ...linhas].filter(Boolean))
       toast.success('Bobina ' + registro.numero_bobina + ' sincronizada.', {
         description: [planilha, linkPlanilha, guiasCriadas, ...linhas].filter(Boolean).join(' · ') || 'Sincronização concluída.',
-        duration: 20000,
+        duration: 5000,
+        closeButton: true,
       })
     } catch (error: unknown) {
       console.error('[COBRIDEIRA] Erro real ao sincronizar bobina ' + registro.numero_bobina, error)
-      toast.error('ERRO AO SINCRONIZAR BOBINA ' + registro.numero_bobina, { description: erroMensagem(error), duration: 15000 })
+      toast.error('ERRO AO SINCRONIZAR BOBINA ' + registro.numero_bobina, { description: erroMensagem(error), duration: 5000, closeButton: true })
     } finally {
       setSincronizandoBobina(null)
     }
