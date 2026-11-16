@@ -472,6 +472,7 @@ function CampoDecimal({
     <Field label={label} htmlFor={id}>
       <TextInput
         id={id}
+        highlightValid={value.trim().length > 0 && numero(value) !== null && Number(value.replace(',', '.')) >= 0}
         type="text"
         inputMode="decimal"
         value={value}
@@ -1163,7 +1164,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               <form onSubmit={salvar} autoComplete="off" className="grid gap-6">
                 <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <Field label="Número da bobina" htmlFor="cb-numero-bobina">
-                    <TextInput
+                    <TextInput highlightValid
                       id="cb-numero-bobina"
                       value={form.numeroBobina}
                       type="text"
@@ -1178,7 +1179,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                     />
                   </Field>
                   <Field label="Cód. bobina (externo)" htmlFor="cb-codigo">
-                    <TextInput
+                    <TextInput highlightValid
                       id="cb-codigo"
                       value={form.codBob}
                       onChange={(e) =>
@@ -1189,7 +1190,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                     />
                   </Field>
                   <Field label="Data" htmlFor="cb-data">
-                    <TextInput
+                    <TextInput highlightValid
                       id="cb-data"
                       type="date"
                       value={form.data}
@@ -1198,7 +1199,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                     />
                   </Field>
                   <Field label="Aba / período de destino" htmlFor="cb-aba">
-                    <TextInput
+                    <TextInput highlightValid
                       id="cb-aba"
                       value={form.aba}
                       readOnly
@@ -1213,7 +1214,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   <Panel title="Bobina e produção">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field label="Material" htmlFor="cb-material">
-                        <TextInput
+                        <TextInput highlightValid
                           id="cb-material"
                           value={form.material}
                           onChange={(e) =>
@@ -1224,7 +1225,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         />
                       </Field>
                       <Field label="Largura" htmlFor="cb-largura">
-                        <SelectInput
+                        <SelectInput highlightValid
                           id="cb-largura"
                           value={form.largura}
                           onChange={(e) =>
@@ -1265,7 +1266,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         readOnly
                       />
                       <Field label="Metragem" htmlFor="cb-metragem">
-                        <TextInput
+                        <TextInput highlightValid
                           id="cb-metragem"
                           type="number"
                           min={1}
@@ -1287,7 +1288,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         label="Fornecedor do filme"
                         htmlFor="cb-fornecedor-filme"
                       >
-                        <SelectInput
+                        <SelectInput highlightValid
                           id="cb-fornecedor-filme"
                           value={form.fornecedorFilme}
                           onChange={(e) =>
@@ -1297,7 +1298,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         />
                       </Field>
                       <Field label="Vareta (g)" htmlFor="cb-vareta">
-                        <SelectInput
+                        <SelectInput highlightValid
                           id="cb-vareta"
                           value={form.vareta}
                           onChange={(e) => atualizar('vareta', e.target.value)}
@@ -1316,7 +1317,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         onChange={(value) => atualizar('kgCola', value)}
                       />
                       <Field label="Lote da cola" htmlFor="cb-lote-cola">
-                        <TextInput
+                        <TextInput highlightValid
                           id="cb-lote-cola"
                           value={form.loteCola}
                           onChange={(e) =>
@@ -1329,7 +1330,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         label="Código interno da cola"
                         htmlFor="cb-codigo-interno"
                       >
-                        <TextInput
+                        <TextInput highlightValid
                           id="cb-codigo-interno"
                           value={form.codigoInterno}
                           onChange={(e) =>
@@ -1345,7 +1346,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         label="Fornecedor da cola"
                         htmlFor="cb-fornecedor-cola"
                       >
-                        <TextInput
+                        <TextInput highlightValid
                           id="cb-fornecedor-cola"
                           value={form.fornecedorCola}
                           onChange={(e) =>
@@ -1358,7 +1359,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         />
                       </Field>
                       <Field label="Operador" htmlFor="cb-operador">
-                        <SelectInput
+                        <SelectInput highlightValid
                           id="cb-operador"
                           value={form.operador}
                           onChange={(e) => {
@@ -1370,7 +1371,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         />
                       </Field>
                       <Field label="Turno" htmlFor="cb-turno">
-                        <SelectInput
+                        <SelectInput highlightValid
                           id="cb-turno"
                           value={form.turno}
                           onChange={(e) => atualizar('turno', e.target.value)}
@@ -1379,7 +1380,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         />
                       </Field>
                       <Field label="Linha" htmlFor="cb-linha">
-                        <SelectInput
+                        <SelectInput highlightValid
                           id="cb-linha"
                           value={form.linha}
                           onChange={(e) => atualizar('linha', e.target.value)}
@@ -1388,7 +1389,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       </Field>
                       {clienteVisivel && (
                         <Field label="Cliente" htmlFor="cb-cliente">
-                          <TextInput
+                          <TextInput highlightValid
                             id="cb-cliente"
                             value={form.cliente}
                             onChange={(e) =>
@@ -1403,7 +1404,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                           label="Cor de impressão"
                           htmlFor="cb-cor-impressao"
                         >
-                          <TextInput
+                          <TextInput highlightValid
                             id="cb-cor-impressao"
                             value={form.corImpressao}
                             onChange={(e) =>
@@ -1423,7 +1424,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                 <Panel title="Cor, pigmento e emenda">
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <Field label="Cor de fundo" htmlFor="cb-cor-fundo">
-                      <TextInput
+                      <TextInput highlightValid
                         id="cb-cor-fundo"
                         value={form.corFundo}
                         onChange={(e) =>
@@ -1440,7 +1441,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       onChange={(value) => atualizar('pigmento', value)}
                     />
                     <Field label="Cor da mistura" htmlFor="cb-cor-mistura">
-                      <TextInput
+                      <TextInput highlightValid
                         id="cb-cor-mistura"
                         value={form.corMistura}
                         onChange={(e) =>
@@ -1453,7 +1454,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       label="Pigmento da mistura"
                       htmlFor="cb-pigmento-mistura"
                     >
-                      <TextInput
+                      <TextInput highlightValid
                         id="cb-pigmento-mistura"
                         value={form.pigmentoMistura}
                         onChange={(e) =>
@@ -1466,7 +1467,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       />
                     </Field>
                     <Field label="Emenda" htmlFor="cb-emenda">
-                      <SelectInput
+                      <SelectInput highlightValid
                         id="cb-emenda"
                         value={form.emenda}
                         onChange={(e) => atualizar('emenda', e.target.value)}
@@ -1478,7 +1479,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         label="Código da emenda"
                         htmlFor="cb-codigo-emenda"
                       >
-                        <TextInput
+                        <TextInput highlightValid
                           id="cb-codigo-emenda"
                           value={form.codigoEmenda}
                           onChange={(e) =>
