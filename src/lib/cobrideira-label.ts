@@ -49,7 +49,9 @@ function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
     { text: `LOTE DOW: ${String(bobina.lote_cola || '—')} / CÓD: ${String(bobina.codigo_interno || '—')}` },
     { text: `COLA: ${bobina.fornecedor_cola || (Number(bobina.kg_cola) > 0 ? `${bobina.kg_cola} KG` : '—')}` },
     { text: `COR: ${bobina.cor_fundo || '—'}` },
-    { text: pigmento ? `PIGMENTO: ${pigmento}${pesoPigmento}` : 'PIGMENTO:' },
+    ...(pigmento || Number(bobina.pigmento_kg) > 0
+      ? [{ text: `PIGMENTO: ${pigmento}${pesoPigmento}` }]
+      : []),
     { text: 'METRAGEM TOTAL ADESIVADO: ', value: String(bobina.metragem), size: 13 },
     { text: 'PESO TOTAL ADESIVADO: ', value: `${formatarPeso(Number(bobina.peso_final))} KG`, size: 13 },
     { text: `GRAMATURA DA BOBINA: ${bobina.vareta_g} G` },
@@ -79,7 +81,7 @@ function larguraTexto(texto: string, tamanho: number) {
 function buildPdf(bobina: CobrideiraBobinaRow) {
   const commands: string[] = []
   const lines = labelLines(bobina)
-  const horizontalPadding = 9.92
+  const horizontalPadding = 12.75
   const maxWidth = 290 - horizontalPadding
   const prepared = lines.map((line) => {
     const requestedSize = line.size ?? 13
@@ -108,7 +110,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
     if (line.value !== undefined) {
       commands.push('0 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
-      const folgaDireita = size * 0.278
+      const folgaDireita = size * 0.278 * 3
       commands.push(`0 g ${x + prefixWidth} ${y - 3} ${valueWidth + folgaDireita} 18 re f`)
       commands.push('1 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x + prefixWidth} ${y} Tm <${pdfTextHex(line.value)}> Tj ET`)
