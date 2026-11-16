@@ -55,7 +55,7 @@ function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
     { text: `GRAMATURA DA BOBINA: ${bobina.vareta_g} G` },
     { text: 'VALIDADE DA BOBINA: 06 MESES' },
   ]
-  return linhas.flatMap((linha) => quebrarTexto(linha.text).map((text) => ({ ...linha, text })))
+  return linhas.flatMap((linha) => quebrarTexto(linha.text, linha.size ? 28 : 37).map((text) => ({ ...linha, text })))
 }
 
 function formatarPeso(value: number) {
