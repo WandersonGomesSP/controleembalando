@@ -276,11 +276,24 @@ const LINHAS = ['Padrão', 'Personalizada', 'Impressa Linha']
 
 type CampoFiltro = keyof CobrideiraBobinaRow
 const CAMPOS_FILTRO: { campo: CampoFiltro; label: string }[] = [
+  // Manter os campos solicitados; remover apenas metragem, número da bobina,
+  // largura completa e peso bruto dos filtros.
   { campo: 'largura', label: 'Largura' },
   { campo: 'micragem', label: 'Micragem' },
+  { campo: 'peso_final', label: 'Peso final' },
+  { campo: 'peso_cilindro', label: 'Peso do cilindro' },
+  { campo: 'peso_liquido', label: 'Peso líquido' },
+  { campo: 'perda_kg', label: 'Perda (kg)' },
   { campo: 'vareta_g', label: 'Vareta' },
+  { campo: 'kg_cola', label: 'Cola (kg)' },
+  { campo: 'codigo_interno', label: 'Código interno da cola' },
   { campo: 'pigmento_kg', label: 'Pigmento (kg)' },
+  { campo: 'cor_mistura', label: 'Cor da mistura' },
+  { campo: 'pigmento_mistura', label: 'Pigmento da mistura' },
   { campo: 'cliente', label: 'Cliente' },
+  { campo: 'cor_impressao', label: 'Cor de impressão' },
+  { campo: 'emenda', label: 'Emenda' },
+  { campo: 'codigo_emenda', label: 'Código da emenda' },
 ]
 
 function valorFiltro(registro: CobrideiraBobinaRow, campo: CampoFiltro) {
