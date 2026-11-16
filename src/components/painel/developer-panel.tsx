@@ -435,8 +435,8 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
           {setorConfiguracao === 'geral' && (
             <>
           <Panel
-            title="Sincronização com Google Sheets"
-            description="Atualização automática de segunda a sexta-feira às 06h (horário de São Paulo)."
+            title="Planilha exclusiva da Cobrideira"
+            description="Esta planilha recebe somente bobinas da Cobrideira. A sincronização automática ocorre de segunda a sexta-feira às 06h (horário de São Paulo)."
           >
             <div className="flex flex-wrap items-end gap-3">
               <label className="grid gap-1 text-sm">
@@ -471,7 +471,7 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
                 {syncingSheets ? 'Sincronizando...' : 'Sincronizar Agora'}
               </button>
               <p className="max-w-xl text-sm text-muted-foreground">
-                Serão consideradas as bobinas cadastradas nesse intervalo. O sistema acrescenta somente as que ainda não existem na planilha e respeita a aba de destino informada em cada cadastro.
+                Serão consideradas somente as bobinas da Cobrideira cadastradas nesse intervalo. Nenhum dado de Tubeteira, estoque geral, tubos, tubetes ou histórico de outros setores será enviado.
               </p>
             </div>
             {!data.googleSheetsPermissionsConfirmed && (
