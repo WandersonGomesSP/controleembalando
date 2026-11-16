@@ -10,16 +10,36 @@ function pdfTextHex(value: string) {
   return bytes.map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase()
 }
 
+function quebrarTexto(texto: string, maxCaracteres = 37) {
+  const palavras = texto.split(/\\s+/)
+  const linhas: string[] = []
+  let atual = ''
+  for (const palavra of palavras) {
+    const partes = palavra.length > maxCaracteres
+      ? palavra.match(new RegExp(`.{1,${maxCaracteres}}`, 'g')) ?? [palavra]
+      : [palavra]
+    for (const parte of partes) {
+      const proxima = atual ? `${atual} ${parte}` : parte
+      if (proxima.length > maxCaracteres && atual) {
+        linhas.push(atual)
+        atual = parte
+      } else atual = proxima
+    }
+  }
+  if (atual) linhas.push(atual)
+  return linhas
+}
+
 function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
   const turno = String(bobina.turno ?? '').replace(/\\s*TURNO\\s*/i, '').trim()
-  const operador = String(bobina.created_by ?? '').split('@')[0].replace(/[._-]+/g, ' ').toUpperCase()
+  const pigmento = [bobina.cor_mistura, bobina.pigmento_mistura].filter(Boolean).join(' / ')
   const pesoPigmento = Number(bobina.pigmento_kg) > 0
     ? ` / PESO: ${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(Number(bobina.pigmento_kg))}`
     : ''
   const linhas: LabelLine[] = [
     { text: `NUMERO DA BOBINA: ${bobina.numero_bobina}`, size: 16, highlight: true },
     { text: `DATA DA PRODUÇÃO: ${new Date(`${bobina.data}T00:00:00`).toLocaleDateString('pt-BR')}` },
-    { text: `OPERADOR: ${operador || '—'} / TURNO: ${turno || '—'}` },
+    { text: `OPERADOR: ${bobina.operador || '—'} / TURNO: ${turno || '—'}` },
     { text: `MEDIDA DA BOB: ${bobina.largura} / MICRAS: ${bobina.micragem}` },
     { text: `COD. BOB: ${bobina.cod_bob} / PESO:` },
     { text: String(Math.round(Number(bobina.peso_bruto))) },
@@ -29,13 +49,13 @@ function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
     { text: `LOTE DOW: ${bobina.lote_cola || '—'} / CÓD: ${bobina.codigo_interno || '—'}` },
     { text: `COLA: ${bobina.fornecedor_cola || (Number(bobina.kg_cola) > 0 ? `${bobina.kg_cola} KG` : '—')}` },
     { text: `COR: ${bobina.cor_fundo || '—'}` },
-    { text: `PIGMENTO: ${bobina.cor_mistura || bobina.pigmento_mistura || '—'}${pesoPigmento}` },
-    { text: `METRAGEM TOTAL ADESIVADO: ${bobina.metragem}` },
-    { text: `PESO TOTAL ADESIVADO: ${formatarPeso(Number(bobina.peso_final))} KG` },
+    { text: pigmento ? `PIGMENTO: ${pigmento}${pesoPigmento}` : 'PIGMENTO:' },
+    { text: `METRAGEM TOTAL ADESIVADO: ${bobina.metragem}`, highlight: true, bold: true },
+    { text: `PESO TOTAL ADESIVADO: ${formatarPeso(Number(bobina.peso_final))} KG`, highlight: true, bold: true },
     { text: `GRAMATURA DA BOBINA: ${bobina.vareta_g} G` },
     { text: 'VALIDADE DA BOBINA: 06 MESES' },
   ]
-  return linhas
+  return linhas.flatMap((linha) => quebrarTexto(linha.text).map((text) => ({ ...linha, text })))
 }
 
 function formatarPeso(value: number) {
