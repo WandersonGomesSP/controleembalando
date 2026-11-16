@@ -149,8 +149,8 @@ export type CobrideiraBobinaLixeiraRow = {
 
 export type CobrideiraBobinaInsert = Omit<
   CobrideiraBobinaRow,
-  'peso_liquido' | 'created_by' | 'created_at'
->
+  'peso_liquido' | 'created_by' | 'created_at' | 'operador'
+> & { operador?: string }
 
 export type DeveloperAccountRow = {
   email: string
