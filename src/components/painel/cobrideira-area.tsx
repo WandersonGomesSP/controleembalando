@@ -497,9 +497,30 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     try { localStorage.setItem('controleembalando-cobrideira-menu', secao) } catch { /* armazenamento local indisponível */ }
   }, [secao])
   const [form, setForm] = React.useState(formularioInicial)
+  const [numeroBobinaManual, setNumeroBobinaManual] = React.useState(false)
   React.useEffect(() => {
     setForm((atual) => ({ ...atual, ...lerCamposReutilizaveis() }))
   }, [])
+  React.useEffect(() => {
+    if (carregando || editandoNumero || numeroBobinaManual || !form.data) return
+    const prefixo = `${form.data.slice(5, 7)}${form.data.slice(2, 4)}`
+    const numerosUsados = new Set(registros.map((registro) => registro.numero_bobina))
+    let maiorSequencia = 0
+    for (const numero of numerosUsados) {
+      if (numero.startsWith(prefixo) && /^\\d{7}$/.test(numero)) {
+        maiorSequencia = Math.max(maiorSequencia, Number(numero.slice(4)))
+      }
+    }
+    let sequencia = maiorSequencia + 1
+    let proximo = `${prefixo}${String(sequencia).padStart(3, '0')}`
+    while (numerosUsados.has(proximo) && sequencia < 1000) {
+      sequencia++
+      proximo = `${prefixo}${String(sequencia).padStart(3, '0')}`
+    }
+    if (sequencia <= 999) {
+      setForm((atual) => atual.numeroBobina === proximo ? atual : { ...atual, numeroBobina: proximo })
+    }
+  }, [carregando, editandoNumero, form.data, numeroBobinaManual, registros])
   const [registros, setRegistros] = React.useState<CobrideiraBobinaRow[]>([])
   const [operadores, setOperadores] = React.useState<OperadorCobrideira[]>([])
   const [novoOperador, setNovoOperador] = React.useState('')
@@ -933,6 +954,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
 
   function cancelarEdicao() {
     setEditandoNumero(null)
+    setNumeroBobinaManual(false)
     setForm({ ...formularioInicial(), ...lerCamposReutilizaveis() })
     setSecao('registros')
   }
@@ -1056,6 +1078,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         toast.success('Bobina cadastrada. Etiqueta PDF baixada.')
       }
       setEditandoNumero(null)
+      setNumeroBobinaManual(false)
       setForm({ ...formularioInicial(), ...lerCamposReutilizaveis() })
       setSecao('registros')
     } catch (error: unknown) {
@@ -1129,7 +1152,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         </div>
       </header>
 
-      <main className="seu-container-branco mx-auto grid max-w-[90rem] gap-6 rounded-2xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto grid max-w-[90rem] gap-6 px-4 py-6 sm:px-6 sm:py-8">
         {secao === 'cadastro' ? (
           <>
             <Panel
@@ -1146,7 +1169,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       inputMode="numeric"
                       autoComplete="off"
                       spellCheck={false}
-                      onChange={(e) => atualizar('numeroBobina', e.target.value)}
+                      onChange={(e) => { setNumeroBobinaManual(true); atualizar('numeroBobina', e.target.value) }}
                       onBlur={(e) => atualizar('numeroBobina', normalizarNumeroBobina(e.target.value))}
                       required
                       maxLength={80}
