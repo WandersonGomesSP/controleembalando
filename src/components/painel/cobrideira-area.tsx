@@ -64,13 +64,13 @@ type Secao = 'cadastro' | 'registros' | 'lixeira'
 type LinhaCSVPreparada = { linha: number; bobina: CobrideiraBobinaInsert | null; erro: string | null }
 
 function normalizarCabecalhoCSV(valor: string) {
-  return valor.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
 function analisarCSV(texto: string): string[][] {
-  const primeiraLinha = texto.replace(/^\\uFEFF/, '').split(/\\r?\\n/, 1)[0] ?? ''
-  const contar = (delimitador: string) => (primeiraLinha.match(new RegExp(delimitador === '\\t' ? '\\t' : delimitador === ';' ? ';' : ',', 'g')) ?? []).length
-  const delimitador = ([',', ';', '\\t'] as const).sort((a, b) => contar(b) - contar(a))[0]
+  const primeiraLinha = texto.replace(/^\uFEFF/, '').split(/\r?\n/, 1)[0] ?? ''
+  const contar = (delimitador: string) => (primeiraLinha.match(new RegExp(delimitador === '\t' ? '\t' : delimitador === ';' ? ';' : ',', 'g')) ?? []).length
+  const delimitador = ([',', ';', '\t']).sort((a, b) => contar(b) - contar(a))[0]
   const linhas: string[][] = []
   let linha: string[] = []
   let campo = ''
@@ -82,8 +82,8 @@ function analisarCSV(texto: string): string[][] {
       else aspas = !aspas
     } else if (caractere === delimitador && !aspas) {
       linha.push(campo.trim()); campo = ''
-    } else if ((caractere === '\\n' || caractere === '\\r') && !aspas) {
-      if (caractere === '\\r' && texto[i + 1] === '\\n') i++
+    } else if ((caractere === '\n' || caractere === '\r') && !aspas) {
+      if (caractere === '\r' && texto[i + 1] === '\n') i++
       linha.push(campo.trim()); campo = ''
       if (linha.some((item) => item !== '')) linhas.push(linha)
       linha = []
@@ -95,11 +95,11 @@ function analisarCSV(texto: string): string[][] {
 }
 
 function numeroCSV(valor: string): number | null {
-  let limpo = valor.trim().replace(/[R$\\s]/g, '')
+  let limpo = valor.trim().replace(/[R$\s]/g, '')
   if (!limpo) return null
   if (limpo.includes(',') && limpo.includes('.')) {
     limpo = limpo.lastIndexOf(',') > limpo.lastIndexOf('.')
-      ? limpo.replace(/\\./g, '').replace(',', '.')
+      ? limpo.replace(/\./g, '').replace(',', '.')
       : limpo.replace(/,/g, '')
   } else if (limpo.includes(',')) limpo = limpo.replace(',', '.')
   const numeroConvertido = Number(limpo)
@@ -108,8 +108,8 @@ function numeroCSV(valor: string): number | null {
 
 function dataCSV(valor: string): string {
   const v = valor.trim()
-  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(v)) return v
-  const br = v.match(/^(\\d{1,2})[/.\\-](\\d{1,2})[/.\\-](\\d{2,4})$/)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+  const br = v.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/)
   if (br) {
     const ano = br[3].length === 2 ? `20${br[3]}` : br[3]
     return `${ano}-${br[2].padStart(2, '0')}-${br[1].padStart(2, '0')}`
@@ -1445,11 +1445,11 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                       return (
                         <article key={registro.numero_bobina} className="rounded-xl border border-border bg-white p-4 text-black shadow-sm">
                           <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
+                            <div className="flex min-w-0 items-start gap-2"><input type="checkbox" aria-label={`Selecionar bobina ${registro.numero_bobina}`} checked={selecionadas.has(registro.numero_bobina)} onChange={() => alternarSelecao(registro.numero_bobina)} className="mt-1" /><div className="min-w-0">
                               <p className="text-xs text-gray-500">Nº Bobina</p>
                               <h3 className="break-words font-mono text-lg font-bold">{registro.numero_bobina}</h3>
                               <p className="mt-1 text-sm text-gray-600">{registro.cod_bob} · {formatarData(registro.data)}</p>
-                            </div>
+                            </div></div>
                             <button type="button" onClick={() => alternarExpansao(registro.numero_bobina)} aria-expanded={expandido} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium hover:bg-gray-50">
                               {expandido ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
                               {expandido ? 'Recolher' : 'Detalhes'}
