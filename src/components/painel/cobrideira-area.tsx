@@ -1287,6 +1287,11 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                 <FileUp className="size-4" /> Importar CSV
                 <input type="file" accept=".csv,text/csv,.txt" className="hidden" onChange={(e) => { void lerArquivoCSV(e.target.files?.[0]); e.currentTarget.value = '' }} />
               </label>
+              {registrosOrdenados.length > 0 && (
+                <button type="button" onClick={() => selecionarVisiveis(!registrosOrdenados.every((registro) => selecionadas.has(registro.numero_bobina)))} className="h-10 rounded-full border border-border px-4 text-sm font-semibold hover:bg-muted">
+                  {registrosOrdenados.every((registro) => selecionadas.has(registro.numero_bobina)) ? 'Desmarcar visíveis' : 'Selecionar visíveis'}
+                </button>
+              )}
               {selecionadas.size > 0 && (
                 <>
                   <span className="text-sm font-semibold">{selecionadas.size} selecionada(s)</span>
