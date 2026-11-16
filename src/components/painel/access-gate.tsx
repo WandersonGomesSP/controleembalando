@@ -4,7 +4,6 @@ import {
   ArrowRight,
   Boxes,
   Cylinder,
-  Factory,
   LockKeyhole,
   LogOut,
   Package,
@@ -20,7 +19,6 @@ type AreaId =
   | 'tubeteira'
   | 'cobrideira'
   | 'rebobinadeira'
-  | 'estufa'
   | 'cartonagem'
   | 'flexografia'
   | 'fracionadeira'
@@ -54,13 +52,6 @@ const AREAS: {
     name: 'Rebobinadeira',
     description: 'Controle da operação de rebobinamento',
     icon: Boxes,
-    available: false,
-  },
-  {
-    id: 'estufa',
-    name: 'Estufa',
-    description: 'Acompanhamento dos ciclos de secagem',
-    icon: Factory,
     available: false,
   },
   {
