@@ -211,3 +211,31 @@ code {
   input::placeholder, textarea::placeholder { color: #64748b !important; }
   [class*="bg-primary/"], [class*="bg-background/"] { background-color: #ffffff !important; color: #111827 !important; }
 }
+
+
+/* Notificações Sonner: fundo claro opaco e texto preto com contraste garantido. */
+html body [data-sonner-toast],
+html body .toaster [data-sonner-toast] {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid #9ca3af !important;
+  opacity: 1 !important;
+}
+html body [data-sonner-toast] [data-title],
+html body [data-sonner-toast] [data-description],
+html body [data-sonner-toast] [data-content],
+html body [data-sonner-toast] p,
+html body [data-sonner-toast] span {
+  color: #000000 !important;
+  opacity: 1 !important;
+}
+html body [data-sonner-toast] button {
+  color: #000000 !important;
+  background: #f3f4f6 !important;
+  border-color: #9ca3af !important;
+  opacity: 1 !important;
+}
+html body [data-sonner-toast] [data-icon] {
+  color: #111827 !important;
+}
