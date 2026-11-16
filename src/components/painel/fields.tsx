@@ -29,8 +29,8 @@ export function Field({
   )
 }
 
-export function TextInput({ className, ...props }: React.ComponentProps<'input'>) {
-  return <input className={cn(fieldClass, className)} {...props} />
+export function TextInput({ className, autoComplete = 'off', ...props }: React.ComponentProps<'input'>) {
+  return <input autoComplete={autoComplete} className={cn(fieldClass, className)} {...props} />
 }
 
 export function SelectInput({
