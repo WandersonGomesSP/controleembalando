@@ -274,6 +274,23 @@ const FORNECEDORES_FILME = ['INNOVA', 'TITAN', 'JHP']
 const VARETAS = ['16', '18', '20', '22', '26', '28']
 const LINHAS = ['Padrão', 'Personalizada', 'Impressa Linha']
 
+type CampoFiltro = 'numero_bobina' | 'data' | 'cod_bob' | 'fornecedor_filme' | 'largura' | 'peso_liquido' | 'metragem'
+const CAMPOS_FILTRO: { campo: CampoFiltro; label: string }[] = [
+  { campo: 'numero_bobina', label: 'Nº Bobina' },
+  { campo: 'data', label: 'Data' },
+  { campo: 'cod_bob', label: 'Código da bobina' },
+  { campo: 'fornecedor_filme', label: 'Fornecedor' },
+  { campo: 'largura', label: 'Largura' },
+  { campo: 'peso_liquido', label: 'Peso líquido' },
+  { campo: 'metragem', label: 'Metragem' },
+]
+
+function valorFiltro(registro: CobrideiraBobinaRow, campo: CampoFiltro) {
+  if (campo === 'largura') return `${registro.largura}.${String(registro.micragem).padStart(2, '0')}`
+  if (campo === 'peso_liquido') return String(registro.peso_liquido)
+  return String(registro[campo] ?? '')
+}
+
 function dataLocalHoje() {
   const data = new Date()
   data.setMinutes(data.getMinutes() - data.getTimezoneOffset())
@@ -457,11 +474,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [itensLixeira, setItensLixeira] = React.useState<CobrideiraBobinaLixeiraRow[]>([])
   const [carregandoLixeira, setCarregandoLixeira] = React.useState(false)
   const [busca, setBusca] = React.useState('')
-  const [dataInicial, setDataInicial] = React.useState('')
-  const [dataFinal, setDataFinal] = React.useState('')
-  const [turnoFiltro, setTurnoFiltro] = React.useState('')
-  const [fornecedorFiltro, setFornecedorFiltro] = React.useState('')
-  const [linhaFiltro, setLinhaFiltro] = React.useState('')
+  const [mostrarFiltros, setMostrarFiltros] = React.useState(false)
+  const [filtrosColunas, setFiltrosColunas] = React.useState<Partial<Record<CampoFiltro, string>>>({})
   const [carregando, setCarregando] = React.useState(true)
   const [salvando, setSalvando] = React.useState(false)
   const [sincronizandoBobina, setSincronizandoBobina] = React.useState<string | null>(null)
@@ -518,11 +532,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
       registro.cliente.toLocaleLowerCase('pt-BR').includes(termo)
     return (
       correspondeBusca &&
-      (!dataInicial || registro.data >= dataInicial) &&
-      (!dataFinal || registro.data <= dataFinal) &&
-      (!turnoFiltro || registro.turno === turnoFiltro) &&
-      (!fornecedorFiltro || registro.fornecedor_filme === fornecedorFiltro) &&
-      (!linhaFiltro || registro.linha === linhaFiltro)
+      CAMPOS_FILTRO.every(({ campo }) => !filtrosColunas[campo] || valorFiltro(registro, campo) === filtrosColunas[campo])
     )
   })
   const registrosOrdenados = [...registrosFiltrados].sort((a, b) => {
@@ -863,7 +873,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
 
   function cancelarEdicao() {
     setEditandoNumero(null)
-    setForm(formularioInicial())
+    setForm({ ...formularioInicial(), ...lerCamposReutilizaveis() })
+    setSecao('registros')
   }
 
   async function salvar(event: React.FormEvent<HTMLFormElement>) {
@@ -1479,40 +1490,32 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                 <p className="mt-2 text-xs text-gray-500">Aceita CSV com separador vírgula, ponto e vírgula ou tabulação; reconhece decimal com vírgula ou ponto e datas brasileiras ou ISO. Linhas inválidas ficam de fora.</p>
               </section>
             )}
-            <section className="mb-5 grid gap-3 rounded-xl border border-border bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
-              <label className="grid gap-1 text-xs font-semibold text-black">
-                Data inicial
-                <input type="date" value={dataInicial} onChange={(e) => setDataInicial(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm text-black" />
-              </label>
-              <label className="grid gap-1 text-xs font-semibold text-black">
-                Data final
-                <input type="date" value={dataFinal} onChange={(e) => setDataFinal(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm text-black" />
-              </label>
-              <label className="grid gap-1 text-xs font-semibold text-black">
-                Turno
-                <select value={turnoFiltro} onChange={(e) => setTurnoFiltro(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm text-black">
-                  <option value="">Todos</option>
-                  {Array.from(new Set(registros.map((r) => r.turno))).map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </label>
-              <label className="grid gap-1 text-xs font-semibold text-black">
-                Fornecedor
-                <select value={fornecedorFiltro} onChange={(e) => setFornecedorFiltro(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm text-black">
-                  <option value="">Todos</option>
-                  {Array.from(new Set(registros.map((r) => r.fornecedor_filme))).map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </label>
-              <label className="grid gap-1 text-xs font-semibold text-black">
-                Linha
-                <select value={linhaFiltro} onChange={(e) => setLinhaFiltro(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm text-black">
-                  <option value="">Todas</option>
-                  {Array.from(new Set(registros.map((r) => r.linha))).map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </label>
-              <button type="button" onClick={() => { setBusca(''); setDataInicial(''); setDataFinal(''); setTurnoFiltro(''); setFornecedorFiltro(''); setLinhaFiltro('') }} className="h-10 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42] sm:col-span-2 lg:col-span-5">
-                Limpar filtros
+            <div className="mb-4">
+              <button type="button" onClick={() => setMostrarFiltros((aberto) => !aberto)} aria-expanded={mostrarFiltros} className="inline-flex h-10 items-center gap-2 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42]">
+                <ChevronDown className={`size-4 transition-transform ${mostrarFiltros ? 'rotate-180' : ''}`} />
+                Filtrar
               </button>
-            </section>
+              {mostrarFiltros && (
+                <section className="mt-3 grid gap-3 rounded-xl border border-border bg-white p-4 text-black sm:grid-cols-2 lg:grid-cols-4">
+                  {CAMPOS_FILTRO.map(({ campo, label }) => {
+                    const opcoes = Array.from(new Set(registros.map((registro) => valorFiltro(registro, campo)).filter(Boolean)))
+                      .sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
+                    return (
+                      <label key={campo} className="grid gap-1 text-xs font-semibold">
+                        {label}
+                        <select value={filtrosColunas[campo] ?? ''} onChange={(event) => setFiltrosColunas((atuais) => ({ ...atuais, [campo]: event.target.value }))} className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-2 text-sm font-normal text-black">
+                          <option value="">Todos</option>
+                          {opcoes.map((opcao) => <option key={opcao} value={opcao}>{campo === 'data' ? formatarData(opcao) : opcao}</option>)}
+                        </select>
+                      </label>
+                    )
+                  })}
+                  <div className="flex items-end">
+                    <button type="button" onClick={() => { setFiltrosColunas({}); setBusca('') }} className="h-10 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42]">Limpar filtros</button>
+                  </div>
+                </section>
+              )}
+            </div>
 
             <div className="relative mb-4 max-w-md">
               <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
