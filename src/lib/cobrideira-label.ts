@@ -17,11 +17,12 @@ function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
     ? ` / PESO: ${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(Number(bobina.pigmento_kg))}`
     : ''
   const linhas: LabelLine[] = [
-    { text: `NUMERO DA BOBINA: ${bobina.numero_bobina}`, size: 16, bold: true, highlight: true },
+    { text: `NUMERO DA BOBINA: ${bobina.numero_bobina}`, size: 16, highlight: true },
     { text: `DATA DA PRODUÇÃO: ${new Date(`${bobina.data}T00:00:00`).toLocaleDateString('pt-BR')}` },
     { text: `OPERADOR: ${operador || '—'} / TURNO: ${turno || '—'}` },
     { text: `MEDIDA DA BOB: ${bobina.largura} / MICRAS: ${bobina.micragem}` },
-    { text: `COD. BOB: ${bobina.cod_bob} / PESO: ${Math.round(Number(bobina.peso_bruto))}` },
+    { text: `COD. BOB: ${bobina.cod_bob} / PESO:` },
+    { text: String(Math.round(Number(bobina.peso_bruto))) },
     { text: `FORN. BOPP: ${bobina.fornecedor_filme}` },
     { text: `METRAGEM PRODUZIDA: ${bobina.metragem}` },
     { text: `EMENDA: ${bobina.emenda ? 'SIM' : 'NÃO'}` },
