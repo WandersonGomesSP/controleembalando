@@ -1664,18 +1664,53 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                 </div>
                 
                   <div className="scroll-area overflow-x-auto">
-                    <table className="w-full min-w-[58rem] text-left text-sm">
-                      <thead className="sticky top-0 bg-muted text-xs text-muted-foreground">
+                    <table className="cobrideira-registros-table w-full min-w-[58rem] text-left text-sm">
+                      <thead>
                         <tr>
-                          <th className="w-10 px-2 py-3"><input type="checkbox" aria-label="Selecionar todas as bobinas visíveis" checked={registrosOrdenados.length > 0 && registrosOrdenados.every((r) => selecionadas.has(r.numero_bobina))} onChange={(e) => selecionarVisiveis(e.target.checked)} /></th>
-                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'numero_bobina', asc: o.campo === 'numero_bobina' ? !o.asc : true }))}>Nº Bobina ↕</button></th>
-                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'data', asc: o.campo === 'data' ? !o.asc : true }))}>Data ↕</button></th>
-                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'cod_bob', asc: o.campo === 'cod_bob' ? !o.asc : true }))}>Cód. bobina ↕</button></th>
-                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'fornecedor_filme', asc: o.campo === 'fornecedor_filme' ? !o.asc : true }))}>Fornecedor ↕</button></th>
-                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'largura', asc: o.campo === 'largura' ? !o.asc : true }))}>Largura ↕</button></th>
-                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'peso_liquido', asc: o.campo === 'peso_liquido' ? !o.asc : true }))}>Peso líquido ↕</button></th>
-                          <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'metragem', asc: o.campo === 'metragem' ? !o.asc : true }))}>Metragem ↕</button></th>
-                          <th className="px-3 py-3">Situação</th>
+                          <th className="select-col">
+                            <input
+                              type="checkbox"
+                              aria-label="Selecionar todas as bobinas visíveis"
+                              checked={registrosOrdenados.length > 0 && registrosOrdenados.every((r) => selecionadas.has(r.numero_bobina))}
+                              onChange={(e) => selecionarVisiveis(e.target.checked)}
+                            />
+                          </th>
+                          <th className={ordenacao.campo === 'numero_bobina' ? 'active' : ''}>
+                            <button type="button" onClick={() => setOrdenacao(o => ({ campo: 'numero_bobina', asc: o.campo === 'numero_bobina' ? !o.asc : true }))}>
+                              Nº Bobina <span className="sort">{ordenacao.campo === 'numero_bobina' ? '▲' : '↕'}</span>
+                            </button>
+                          </th>
+                          <th className={ordenacao.campo === 'data' ? 'active' : ''}>
+                            <button type="button" onClick={() => setOrdenacao(o => ({ campo: 'data', asc: o.campo === 'data' ? !o.asc : true }))}>
+                              Data <span className="sort">{ordenacao.campo === 'data' ? '▲' : '↕'}</span>
+                            </button>
+                          </th>
+                          <th className={ordenacao.campo === 'cod_bob' ? 'active' : ''}>
+                            <button type="button" onClick={() => setOrdenacao(o => ({ campo: 'cod_bob', asc: o.campo === 'cod_bob' ? !o.asc : true }))}>
+                              Cód. bobina <span className="sort">{ordenacao.campo === 'cod_bob' ? '▲' : '↕'}</span>
+                            </button>
+                          </th>
+                          <th className={ordenacao.campo === 'fornecedor_filme' ? 'active' : ''}>
+                            <button type="button" onClick={() => setOrdenacao(o => ({ campo: 'fornecedor_filme', asc: o.campo === 'fornecedor_filme' ? !o.asc : true }))}>
+                              Fornecedor <span className="sort">{ordenacao.campo === 'fornecedor_filme' ? '▲' : '↕'}</span>
+                            </button>
+                          </th>
+                          <th className={`num ${ordenacao.campo === 'largura' ? 'active' : ''}`}>
+                            <button type="button" onClick={() => setOrdenacao(o => ({ campo: 'largura', asc: o.campo === 'largura' ? !o.asc : true }))}>
+                              Largura <span className="sort">{ordenacao.campo === 'largura' ? '▲' : '↕'}</span>
+                            </button>
+                          </th>
+                          <th className={`num ${ordenacao.campo === 'peso_liquido' ? 'active' : ''}`}>
+                            <button type="button" onClick={() => setOrdenacao(o => ({ campo: 'peso_liquido', asc: o.campo === 'peso_liquido' ? !o.asc : true }))}>
+                              Peso líquido <span className="sort">{ordenacao.campo === 'peso_liquido' ? '▲' : '↕'}</span>
+                            </button>
+                          </th>
+                          <th className={`num ${ordenacao.campo === 'metragem' ? 'active' : ''}`}>
+                            <button type="button" onClick={() => setOrdenacao(o => ({ campo: 'metragem', asc: o.campo === 'metragem' ? !o.asc : true }))}>
+                              Metragem <span className="sort">{ordenacao.campo === 'metragem' ? '▲' : '↕'}</span>
+                            </button>
+                          </th>
+                          <th>Situação</th>
                         </tr>
                       </thead>
                       <tbody>
