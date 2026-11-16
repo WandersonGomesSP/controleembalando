@@ -11,7 +11,6 @@ import {
   Trash2,
   RotateCcw,
   FileUp,
-  CheckSquare,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -69,7 +68,15 @@ function normalizarCabecalhoCSV(valor: string) {
 
 function analisarCSV(texto: string): string[][] {
   const primeiraLinha = texto.replace(/^\uFEFF/, '').split(/\r?\n/, 1)[0] ?? ''
-  const contar = (delimitador: string) => (primeiraLinha.match(new RegExp(delimitador === '\t' ? '\t' : delimitador === ';' ? ';' : ',', 'g')) ?? []).length
+  const contar = (delimitador: string) => {
+    let quantidade = 0
+    let dentroDeAspas = false
+    for (const caractere of primeiraLinha) {
+      if (caractere === '"') dentroDeAspas = !dentroDeAspas
+      else if (caractere === delimitador && !dentroDeAspas) quantidade++
+    }
+    return quantidade
+  }
   const delimitador = ([',', ';', '\t']).sort((a, b) => contar(b) - contar(a))[0]
   const linhas: string[][] = []
   let linha: string[] = []
@@ -239,6 +246,7 @@ function prepararLinhaCSV(cabecalhos: string[], valores: string[], linha: number
   if (bobina.peso_bruto <= 0) erros.push('Peso bruto inválido')
   if (bobina.peso_final <= 0) erros.push('Peso final inválido')
   if (bobina.peso_cilindro < 0 || bobina.peso_final <= bobina.peso_cilindro) erros.push('Peso do cilindro/peso final inválido')
+  if (bobina.perda_kg < 0 || bobina.kg_cola < 0 || bobina.pigmento_kg < 0) erros.push('Perda, cola e pigmento não podem ser negativos')
   if (bobina.metragem <= 0) erros.push('Metragem inválida')
   if (!bobina.fornecedor_filme) erros.push('Fornecedor do filme ausente')
   if (![16, 18, 20, 22, 26, 28].includes(bobina.vareta_g)) erros.push('Vareta deve ser 16, 18, 20, 22, 26 ou 28 g')
