@@ -615,6 +615,14 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
           pesoPorCodigo.set(codigo, Number(registro.peso_bruto))
         }
       }
+      // Procura o peso em todas as linhas do arquivo antes de validar cada uma,
+      // inclusive quando a linha com peso aparece depois da bobina sem peso.
+      for (const item of preparadas) {
+        if (!item.bobina) continue
+        const codigo = item.bobina.cod_bob.trim().toLocaleUpperCase('pt-BR')
+        const peso = Number(item.bobina.peso_bruto)
+        if (codigo && peso > 0 && !pesoPorCodigo.has(codigo)) pesoPorCodigo.set(codigo, peso)
+      }
       const revisadas: LinhaCSVPreparada[] = preparadas.map((item) => {
         if (!item.bobina) return item
         const id = item.bobina.numero_bobina.trim()
