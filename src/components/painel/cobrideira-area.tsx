@@ -1235,13 +1235,16 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                           id="cb-largura"
                           value={form.largura}
                           onChange={(e) =>
-                            setForm((atual) => ({
-                              ...atual,
-                              largura: e.target.value,
-                              pesoCilindro: pesoCilindroPadrao(e.target.value),
-                              vareta:
-                                varetaPadrao(e.target.value) || atual.vareta,
-                            }))
+                            setForm((atual) => {
+                              const proximo = {
+                                ...atual,
+                                largura: e.target.value,
+                                pesoCilindro: pesoCilindroPadrao(e.target.value),
+                                vareta: varetaPadrao(e.target.value) || atual.vareta,
+                              }
+                              salvarCamposReutilizaveis(proximo)
+                              return proximo
+                            })
                           }
                           options={LARGURAS}
                         />
