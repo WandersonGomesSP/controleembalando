@@ -1109,9 +1109,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-4 pt-4 sm:px-6">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
-                <PackagePlus className="size-5" />
-              </span>
+              <img src="/embalando-logo.svg" alt="Embalando Fitas Adesivas" className="h-12 w-16 shrink-0 object-contain sm:h-14 sm:w-20" />
               <div>
                 <h1 className="text-lg leading-tight font-semibold tracking-tight">
                   Cobrideira
@@ -1124,10 +1122,10 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             <button
               type="button"
               onClick={onChangeArea}
-              className="inline-flex min-h-10 items-center gap-2 rounded-full border-0 bg-[#e3262e] px-4 text-xs font-bold text-black shadow-sm transition-colors hover:bg-[#ff3b42] hover:text-black"
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-black bg-black px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-zinc-800 hover:text-white !bg-black !text-white !border-black"
             >
               <ArrowLeft className="size-4" />
-              Trocar setor
+              Trocar de setor
             </button>
           </div>
           <nav aria-label="Menus da Cobrideira" className="flex flex-wrap gap-2 pb-3">
