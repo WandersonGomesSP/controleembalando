@@ -21,6 +21,7 @@ import {
   TextInput,
 } from '@/components/painel/fields'
 import { supabase } from '@/lib/supabase'
+import { downloadCobrideiraLabel } from '@/lib/cobrideira-label'
 import { synchronizeCobrideiraBobina, updateCobrideiraBobina, moveCobrideiraBobinaToTrash, listCobrideiraBobinasTrash, restoreCobrideiraBobinaFromTrash, permanentlyDeleteCobrideiraBobina } from '@/lib/admin.functions'
 import type {
   CobrideiraBobinaInsert,
@@ -873,7 +874,8 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
         toast.success('Dados da bobina atualizados.')
       } else {
         setRegistros((atuais) => [resultado.data, ...atuais])
-        toast.success('Bobina cadastrada na Cobrideira.')
+        downloadCobrideiraLabel(resultado.data as CobrideiraBobinaRow)
+        toast.success('Bobina cadastrada. Etiqueta PDF baixada.')
       }
       setEditandoNumero(null)
       setForm(formularioInicial())
@@ -1486,6 +1488,8 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                                       {detalhes.map(([rotulo, valor]) => <div key={rotulo} className="min-w-0"><dt className="text-xs text-muted-foreground">{rotulo}</dt><dd className="break-words text-sm font-medium">{valor || '—'}</dd></div>)}
                                     </dl>
                                     <div className="mt-4 flex flex-wrap justify-end gap-2">
+                                      <button type="button" onClick={() => downloadCobrideiraLabel(registro)} className="rounded-full border border-border px-4 py-2 text-sm font-bold hover:bg-muted">Baixar etiqueta PDF</button>
+                                      <button type="button" onClick={() => downloadCobrideiraLabel(registro)} className="rounded-full border border-border px-4 py-2 text-sm font-bold hover:bg-muted">Gerar etiqueta atualizada</button>
                                       <button type="button" onClick={() => void sincronizarBobina(registro)} disabled={sincronizandoBobina !== null} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-bold hover:bg-muted disabled:opacity-50">
                                         <RefreshCw className={`size-4 ${sincronizandoBobina === registro.numero_bobina ? 'animate-spin' : ''}`} />
                                         {sincronizandoBobina === registro.numero_bobina ? 'Sincronizando...' : 'Sincronizar'}
@@ -1546,6 +1550,8 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                             <>
                               <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">{detalhes.map(([rotulo, valor]) => <div key={rotulo} className="min-w-0"><dt className="text-xs text-gray-500">{rotulo}</dt><dd className="break-words text-sm font-medium">{valor || '—'}</dd></div>)}</dl>
                               <div className="mt-4 flex flex-wrap justify-end gap-2">
+                                <button type="button" onClick={() => downloadCobrideiraLabel(registro)} className="rounded-full border border-gray-300 px-4 py-2 text-sm font-bold hover:bg-gray-50">Baixar etiqueta PDF</button>
+                                <button type="button" onClick={() => downloadCobrideiraLabel(registro)} className="rounded-full border border-gray-300 px-4 py-2 text-sm font-bold hover:bg-gray-50">Gerar etiqueta atualizada</button>
                                 <button type="button" onClick={() => void sincronizarBobina(registro)} disabled={sincronizandoBobina !== null} className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-4 py-2 text-sm font-bold hover:bg-gray-50 disabled:opacity-50">
                                   <RefreshCw className={`size-4 ${sincronizandoBobina === registro.numero_bobina ? 'animate-spin' : ''}`} />
                                   {sincronizandoBobina === registro.numero_bobina ? 'Sincronizando...' : 'Sincronizar'}
