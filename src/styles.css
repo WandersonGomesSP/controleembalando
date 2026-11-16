@@ -239,3 +239,11 @@ html body [data-sonner-toast] button {
 html body [data-sonner-toast] [data-icon] {
   color: #111827 !important;
 }
+
+
+/* Teste visual: superfície branca translúcida da Cobrideira. */
+.seu-container-branco {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
