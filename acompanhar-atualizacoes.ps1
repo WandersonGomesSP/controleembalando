@@ -1,35 +1,117 @@
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
-function Get-Head { return (git rev-parse HEAD).Trim() }
+function Invoke-Git {
+  param([string[]]$GitArgs)
+  $oldPreference = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  $output = & git @GitArgs 2>&1
+  $exitCode = $LASTEXITCODE
+  $ErrorActionPreference = $oldPreference
+  return [pscustomobject]@{
+    ExitCode = $exitCode
+    Text = (($output | ForEach-Object { "$_" }) -join [Environment]::NewLine).Trim()
+  }
+}
+
+function Get-Head {
+  $r = Invoke-Git @('rev-parse', 'HEAD')
+  if ($r.ExitCode -ne 0) { throw "Nao foi possivel ler o commit local: $($r.Text)" }
+  return $r.Text
+}
 
 function Start-DevServer {
   Write-Host ""
-  Write-Host "Iniciando o sistema em http://localhost:3000 ..." -ForegroundColor Green
+  Write-Host "Iniciando o sistema local..." -ForegroundColor Green
   $p = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npm run dev" -WorkingDirectory $PSScriptRoot -PassThru -NoNewWindow
   Start-Sleep -Seconds 8
   Write-Host "Servidor iniciado. O navegador nao sera aberto automaticamente." -ForegroundColor Gray
   return $p
 }
 
-$branch = (git branch --show-current).Trim()
-if ($branch -ne "desenvolvimento") {
-  Write-Host "Esta pasta precisa estar na branch desenvolvimento. Branch atual: $branch" -ForegroundColor Red
+function Update-Repository {
+  param([switch]$Announce)
+
+  $status = Invoke-Git @('status', '--porcelain')
+  if ($status.ExitCode -ne 0) {
+    Write-Host "Nao consegui verificar os arquivos locais: $($status.Text)" -ForegroundColor Red
+    return $false
+  }
+
+  $hasLocalChanges = -not [string]::IsNullOrWhiteSpace($status.Text)
+  $stashBefore = Invoke-Git @('rev-parse', '-q', '--verify', 'refs/stash')
+  $stashBeforeHash = if ($stashBefore.ExitCode -eq 0) { $stashBefore.Text } else { '' }
+  $stashCreated = $false
+
+  if ($hasLocalChanges) {
+    Write-Host ""
+    Write-Host "Foram encontradas alteracoes locais. Guardando-as temporariamente..." -ForegroundColor Yellow
+    $save = Invoke-Git @('stash', 'push', '--include-untracked', '-m', 'Auto-save antes da atualizacao do Controle Embalando')
+    if ($save.ExitCode -ne 0) {
+      Write-Host "Nao consegui guardar as alteracoes locais. Nada sera apagado." -ForegroundColor Red
+      Write-Host $save.Text
+      return $false
+    }
+    $stashAfter = Invoke-Git @('rev-parse', '-q', '--verify', 'refs/stash')
+    $stashAfterHash = if ($stashAfter.ExitCode -eq 0) { $stashAfter.Text } else { '' }
+    $stashCreated = ($stashAfterHash -ne '' -and $stashAfterHash -ne $stashBeforeHash)
+  }
+
+  Write-Host "Baixando a atualizacao do GitHub..." -ForegroundColor Cyan
+  $pull = Invoke-Git @('pull', '--ff-only', 'origin', 'desenvolvimento')
+  if ($pull.ExitCode -ne 0) {
+    Write-Host "O Git pull nao conseguiu concluir. Vou tentar devolver seus arquivos locais..." -ForegroundColor Red
+    if ($stashCreated) {
+      $restore = Invoke-Git @('stash', 'apply', '--index', 'stash@{0}')
+      if ($restore.ExitCode -eq 0) {
+        [void](Invoke-Git @('stash', 'drop', 'stash@{0}'))
+        Write-Host "Suas alteracoes locais foram restauradas." -ForegroundColor Green
+      } else {
+        Write-Host "As alteracoes continuam guardadas no stash do Git. Nao foram apagadas." -ForegroundColor Yellow
+        Write-Host $restore.Text
+      }
+    }
+    Write-Host $pull.Text
+    return $false
+  }
+
+  if ($stashCreated) {
+    Write-Host "Reaplicando suas alteracoes locais..." -ForegroundColor Cyan
+    $restore = Invoke-Git @('stash', 'apply', '--index', 'stash@{0}')
+    if ($restore.ExitCode -ne 0) {
+      Write-Host "A atualizacao foi baixada, mas houve conflito ao reaplicar arquivos locais." -ForegroundColor Red
+      Write-Host "Seu trabalho continua salvo no stash; nao foi descartado." -ForegroundColor Yellow
+      Write-Host $restore.Text
+      return $false
+    }
+    [void](Invoke-Git @('stash', 'drop', 'stash@{0}'))
+    Write-Host "Suas alteracoes locais foram reaplicadas com sucesso." -ForegroundColor Green
+  }
+
+  if ($Announce) {
+    Write-Host "Atualizacao concluida. O CMD sera reaberto automaticamente." -ForegroundColor Green
+  }
+  return $true
+}
+
+$branchResult = Invoke-Git @('branch', '--show-current')
+if ($branchResult.ExitCode -ne 0 -or $branchResult.Text -ne 'desenvolvimento') {
+  Write-Host "Esta pasta precisa estar na branch desenvolvimento. Branch atual: $($branchResult.Text)" -ForegroundColor Red
   Read-Host "Pressione Enter para sair"
   exit 1
 }
 
 Write-Host "Buscando atualizacoes do GitHub..." -ForegroundColor Cyan
-git fetch origin desenvolvimento
-if ($LASTEXITCODE -ne 0) {
+$fetch = Invoke-Git @('fetch', 'origin', 'desenvolvimento')
+if ($fetch.ExitCode -ne 0) {
   Write-Host "Nao foi possivel consultar o GitHub. Confira sua conexao." -ForegroundColor Red
+  Write-Host $fetch.Text
   Read-Host "Pressione Enter para sair"
   exit 1
 }
-git pull --ff-only origin desenvolvimento
-if ($LASTEXITCODE -ne 0) {
-  Write-Host "Nao foi possivel atualizar automaticamente. Verifique se ha alteracoes locais." -ForegroundColor Yellow
-  Read-Host "Pressione Enter para sair"
+
+if (-not (Update-Repository)) {
+  Read-Host "Nao foi possivel concluir a atualizacao automaticamente. Pressione Enter para sair"
   exit 1
 }
 
@@ -38,44 +120,36 @@ $lastHead = Get-Head
 try {
   while ($true) {
     Start-Sleep -Seconds 5
+
     if ($server.HasExited) {
       Write-Host "O servidor foi encerrado. Iniciando novamente..." -ForegroundColor Yellow
       $server = Start-DevServer
       continue
     }
-    # No Windows PowerShell 5.1, mensagens normais do Git em stderr podem virar erros.
-    # Mesclamos a saida e validamos o codigo de retorno real do Git.
-    $previousPreference = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    git fetch origin desenvolvimento 2>&1 | Out-Null
-    $fetchExitCode = $LASTEXITCODE
-    $ErrorActionPreference = $previousPreference
-    if ($fetchExitCode -ne 0) { continue }
-    $remoteHead = (git rev-parse origin/desenvolvimento).Trim()
-    if ($remoteHead -eq $lastHead) { continue }
-    $alteracoes = git status --porcelain
-    if ($alteracoes) {
-      Write-Host "Ha arquivos locais alterados. Nao vou sobrescreve-los; resolva-os para receber a atualizacao." -ForegroundColor Yellow
-      continue
-    }
+
+    $fetch = Invoke-Git @('fetch', 'origin', 'desenvolvimento')
+    if ($fetch.ExitCode -ne 0) { continue }
+
+    $remote = Invoke-Git @('rev-parse', 'origin/desenvolvimento')
+    if ($remote.ExitCode -ne 0 -or $remote.Text -eq $lastHead) { continue }
+
     Write-Host ""
     Write-Host "============================================" -ForegroundColor Yellow
     Write-Host "  NOVA ATUALIZACAO ENCONTRADA!" -ForegroundColor Yellow
-    Write-Host "  Baixando arquivos e reiniciando o sistema..." -ForegroundColor Green
     Write-Host "============================================" -ForegroundColor Yellow
     try { [Console]::Beep(1000, 250); [Console]::Beep(1400, 250) } catch { }
-    Write-Host "Nova versao encontrada. Atualizando e reiniciando..." -ForegroundColor Cyan
-    git pull --ff-only origin desenvolvimento
-    if ($LASTEXITCODE -ne 0) {
-      Write-Host "Falha ao atualizar. O servidor atual continua rodando." -ForegroundColor Red
-      continue
+
+    if (Update-Repository -Announce) {
+      # Codigo 10 pede ao BAT para abrir uma nova janela do CMD e encerrar esta.
+      exit 10
     }
-    & taskkill.exe /PID $server.Id /T /F 2>$null | Out-Null
-    Start-Sleep -Seconds 2
-    $server = Start-DevServer
-    $lastHead = Get-Head
+
+    # Evita repetir a mesma tentativa a cada cinco segundos.
+    $lastHead = $remote.Text
   }
 }
 finally {
-  if ($server -and -not $server.HasExited) { & taskkill.exe /PID $server.Id /T /F 2>$null | Out-Null }
+  if ($server -and -not $server.HasExited) {
+    & taskkill.exe /PID $server.Id /T /F 2>$null | Out-Null
+  }
 }
