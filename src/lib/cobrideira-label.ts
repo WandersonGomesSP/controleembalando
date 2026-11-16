@@ -50,8 +50,8 @@ function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
     { text: `COLA: ${bobina.fornecedor_cola || (Number(bobina.kg_cola) > 0 ? `${bobina.kg_cola} KG` : '—')}` },
     { text: `COR: ${bobina.cor_fundo || '—'}` },
     { text: pigmento ? `PIGMENTO: ${pigmento}${pesoPigmento}` : 'PIGMENTO:' },
-    { text: 'METRAGEM TOTAL ADESIVADO: ', value: String(bobina.metragem), size: 16 },
-    { text: 'PESO TOTAL ADESIVADO: ', value: `${formatarPeso(Number(bobina.peso_final))} KG`, size: 16 },
+    { text: 'METRAGEM TOTAL ADESIVADO: ', value: String(bobina.metragem), size: 13 },
+    { text: 'PESO TOTAL ADESIVADO: ', value: `${formatarPeso(Number(bobina.peso_final))} KG`, size: 13 },
     { text: `GRAMATURA DA BOBINA: ${bobina.vareta_g} G` },
     { text: 'VALIDADE DA BOBINA: 06 MESES' },
   ]
@@ -67,10 +67,14 @@ function formatarPeso(value: number) {
 function buildPdf(bobina: CobrideiraBobinaRow) {
   const commands: string[] = []
   const x = 0
-  let y = 344
-  const lineHeight = 17.2
+  const lines = labelLines(bobina)
+  const topBottomMargin = 9
+  let y = 360 - topBottomMargin
+  const lineHeight = lines.length > 1
+    ? (360 - topBottomMargin * 2) / (lines.length - 1)
+    : 0
 
-  for (const line of labelLines(bobina)) {
+  for (const line of lines) {
     const size = line.size ?? 13
     const font = line.bold ? 'F2' : 'F1'
     const prefixWidth = line.text.length * size * 0.535
