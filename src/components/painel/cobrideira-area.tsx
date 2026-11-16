@@ -10,6 +10,8 @@ import {
   RefreshCw,
   Trash2,
   RotateCcw,
+  FileUp,
+  CheckSquare,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -58,6 +60,162 @@ type FormularioBobina = {
 }
 
 type Secao = 'cadastro' | 'registros' | 'lixeira'
+
+type LinhaCSVPreparada = { linha: number; bobina: CobrideiraBobinaInsert | null; erro: string | null }
+
+function normalizarCabecalhoCSV(valor: string) {
+  return valor.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function analisarCSV(texto: string): string[][] {
+  const primeiraLinha = texto.replace(/^\\uFEFF/, '').split(/\\r?\\n/, 1)[0] ?? ''
+  const contar = (delimitador: string) => (primeiraLinha.match(new RegExp(delimitador === '\\t' ? '\\t' : delimitador === ';' ? ';' : ',', 'g')) ?? []).length
+  const delimitador = ([',', ';', '\\t'] as const).sort((a, b) => contar(b) - contar(a))[0]
+  const linhas: string[][] = []
+  let linha: string[] = []
+  let campo = ''
+  let aspas = false
+  for (let i = 0; i < texto.length; i++) {
+    const caractere = texto[i]
+    if (caractere === '"') {
+      if (aspas && texto[i + 1] === '"') { campo += '"'; i++ }
+      else aspas = !aspas
+    } else if (caractere === delimitador && !aspas) {
+      linha.push(campo.trim()); campo = ''
+    } else if ((caractere === '\\n' || caractere === '\\r') && !aspas) {
+      if (caractere === '\\r' && texto[i + 1] === '\\n') i++
+      linha.push(campo.trim()); campo = ''
+      if (linha.some((item) => item !== '')) linhas.push(linha)
+      linha = []
+    } else campo += caractere
+  }
+  linha.push(campo.trim())
+  if (linha.some((item) => item !== '')) linhas.push(linha)
+  return linhas
+}
+
+function numeroCSV(valor: string): number | null {
+  let limpo = valor.trim().replace(/[R$\\s]/g, '')
+  if (!limpo) return null
+  if (limpo.includes(',') && limpo.includes('.')) {
+    limpo = limpo.lastIndexOf(',') > limpo.lastIndexOf('.')
+      ? limpo.replace(/\\./g, '').replace(',', '.')
+      : limpo.replace(/,/g, '')
+  } else if (limpo.includes(',')) limpo = limpo.replace(',', '.')
+  const numeroConvertido = Number(limpo)
+  return Number.isFinite(numeroConvertido) ? numeroConvertido : null
+}
+
+function dataCSV(valor: string): string {
+  const v = valor.trim()
+  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(v)) return v
+  const br = v.match(/^(\\d{1,2})[/.\\-](\\d{1,2})[/.\\-](\\d{2,4})$/)
+  if (br) {
+    const ano = br[3].length === 2 ? `20${br[3]}` : br[3]
+    return `${ano}-${br[2].padStart(2, '0')}-${br[1].padStart(2, '0')}`
+  }
+  return ''
+}
+
+function prepararLinhaCSV(cabecalhos: string[], valores: string[], linha: number): LinhaCSVPreparada {
+  const aliases: Record<string, string[]> = {
+    numero_bobina: ['numerobobina', 'nobobina', 'bobina', 'idp', 'numero', 'nbob'],
+    cod_bob: ['codbob', 'codigobobina', 'codigoexterno', 'codigo'],
+    data: ['data', 'dataproducao', 'datacad', 'datacadastro'],
+    aba: ['aba', 'periodo', 'mes', 'guiadestino'],
+    material: ['material', 'filme', 'tipo'],
+    largura: ['largura', 'larguramm'],
+    micragem: ['micragem', 'micra', 'espessura'],
+    peso_bruto: ['pesobruto', 'bruto'],
+    peso_final: ['pesofinal', 'final'],
+    peso_cilindro: ['pesocilindro', 'cilindro'],
+    metragem: ['metragem', 'metros', 'metragemm'],
+    perda_kg: ['perda', 'perdakg'],
+    fornecedor_filme: ['fornecedorfilme', 'fornecedor'],
+    vareta_g: ['vareta', 'varetag', 'gramasvareta'],
+    kg_cola: ['kgcola', 'cola'],
+    lote_cola: ['lotecola', 'lote'],
+    codigo_interno: ['codigointerno', 'codinterno'],
+    fornecedor_cola: ['fornecedorcola'],
+    turno: ['turno'],
+    linha: ['linha', 'tipolinha'],
+    cor_fundo: ['corfundo', 'fundo'],
+    pigmento_kg: ['pigmento', 'pigmentokg'],
+    cor_mistura: ['cormistura'],
+    pigmento_mistura: ['pigmentomistura'],
+    cliente: ['cliente'],
+    cor_impressao: ['corimpressao', 'impressao'],
+    emenda: ['emenda'],
+    codigo_emenda: ['codigoemenda', 'codemenda'],
+  }
+  const cab = cabecalhos.map(normalizarCabecalhoCSV)
+  const obter = (campo: string) => {
+    const indice = cab.findIndex((h) => aliases[campo]?.includes(h))
+    return indice < 0 ? '' : String(valores[indice] ?? '').trim()
+  }
+  const texto = (campo: string, padrao = '') => obter(campo) || padrao
+  const numerico = (campo: string, padrao = 0) => numeroCSV(obter(campo)) ?? padrao
+  const larguraOriginal = obter('largura')
+  let largura = numeroCSV(larguraOriginal)
+  let micragem = numeroCSV(obter('micragem'))
+  if (larguraOriginal && micragem === null) {
+    const medida = larguraOriginal.match(/^(\\d+)[,.](\\d{1,2})$/)
+    if (medida) { largura = Number(medida[1]); micragem = Number(medida[2].padEnd(2, '0')) }
+  }
+  const data = dataCSV(obter('data'))
+  const numeroBobina = texto('numero_bobina')
+  const erros: string[] = []
+  if (!numeroBobina) erros.push('Número da bobina ausente')
+  if (!texto('cod_bob')) erros.push('Código da bobina ausente')
+  if (!data) erros.push('Data inválida ou ausente (use DD/MM/AAAA ou AAAA-MM-DD)')
+  if (!texto('aba')) erros.push('Aba/período ausente')
+  if (!texto('material')) erros.push('Material ausente')
+  if (largura === null || largura <= 0) erros.push('Largura inválida')
+  if (micragem === null || micragem <= 0) erros.push('Micragem ausente ou inválida')
+  if (numerico('peso_bruto') <= 0) erros.push('Peso bruto inválido')
+  if (numerico('peso_final') <= 0) erros.push('Peso final inválido')
+  if (numerico('peso_cilindro') < 0) erros.push('Peso do cilindro inválido')
+  if (numerico('metragem') <= 0) erros.push('Metragem inválida')
+  if (!texto('fornecedor_filme')) erros.push('Fornecedor do filme ausente')
+  if (numerico('vareta_g') <= 0) erros.push('Vareta inválida')
+  if (!texto('turno')) erros.push('Turno ausente')
+  if (!texto('linha')) erros.push('Linha ausente')
+  if (!texto('cor_fundo')) erros.push('Cor de fundo ausente')
+  const emendaTexto = normalizarCabecalhoCSV(texto('emenda'))
+  const bobina: CobrideiraBobinaInsert = {
+    numero_bobina: numeroBobina,
+    cod_bob: texto('cod_bob'),
+    data,
+    aba: texto('aba'),
+    material: texto('material'),
+    largura: Math.trunc(largura ?? 0),
+    micragem: Math.trunc(micragem ?? 20),
+    peso_bruto: numerico('peso_bruto'),
+    peso_final: numerico('peso_final'),
+    peso_cilindro: numerico('peso_cilindro'),
+    metragem: Math.trunc(numerico('metragem')),
+    perda_kg: numerico('perda_kg'),
+    fornecedor_filme: texto('fornecedor_filme'),
+    vareta_g: Math.trunc(numerico('vareta_g')),
+    kg_cola: numerico('kg_cola'),
+    lote_cola: texto('lote_cola'),
+    codigo_interno: texto('codigo_interno'),
+    fornecedor_cola: texto('fornecedor_cola'),
+    turno: texto('turno'),
+    linha: texto('linha'),
+    cor_fundo: texto('cor_fundo'),
+    pigmento_kg: numerico('pigmento_kg'),
+    cor_mistura: texto('cor_mistura'),
+    pigmento_mistura: texto('pigmento_mistura'),
+    cliente: texto('cliente'),
+    cor_impressao: texto('cor_impressao'),
+    emenda: ['sim', 's', '1', 'true', 'yes'].includes(emendaTexto),
+    codigo_emenda: texto('codigo_emenda'),
+  }
+  if (bobina.emenda && !bobina.codigo_emenda) erros.push('Código da emenda ausente')
+  if (bobina.peso_final <= bobina.peso_cilindro) erros.push('Peso final deve ser maior que o peso do cilindro')
+  return { linha, bobina: erros.length ? null : bobina, erro: erros.length ? erros.join('; ') : null }
+}
 
 const LARGURAS = [
   '980.20',
@@ -225,6 +383,11 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
   const [ordenacao, setOrdenacao] = React.useState<{ campo: keyof CobrideiraBobinaRow; asc: boolean }>({ campo: 'data', asc: false })
   const [modoVisualizacao, setModoVisualizacao] = React.useState<'lista' | 'cards'>('lista')
   const [registrosExpandidos, setRegistrosExpandidos] = React.useState<Set<string>>(() => new Set())
+  const [selecionadas, setSelecionadas] = React.useState<Set<string>>(() => new Set())
+  const [csvLinhas, setCsvLinhas] = React.useState<LinhaCSVPreparada[]>([])
+  const [csvNome, setCsvNome] = React.useState('')
+  const [importandoCSV, setImportandoCSV] = React.useState(false)
+  const [mostrarPreviaCSV, setMostrarPreviaCSV] = React.useState(false)
 
   function alternarExpansao(numeroBobina: string) {
     setRegistrosExpandidos((atuais) => {
@@ -359,6 +522,90 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
     } catch (error) {
       toast.error('Não foi possível mover para a lixeira', { description: erroMensagem(error), duration: 15000 })
     }
+  }
+
+  function alternarSelecao(numeroBobina: string) {
+    setSelecionadas((atuais) => {
+      const novas = new Set(atuais)
+      if (novas.has(numeroBobina)) novas.delete(numeroBobina)
+      else novas.add(numeroBobina)
+      return novas
+    })
+  }
+
+  function selecionarVisiveis(checked: boolean) {
+    setSelecionadas((atuais) => {
+      const novas = new Set(atuais)
+      registrosOrdenados.forEach((registro) => checked ? novas.add(registro.numero_bobina) : novas.delete(registro.numero_bobina))
+      return novas
+    })
+  }
+
+  async function moverSelecionadasParaLixeira() {
+    const numeros = [...selecionadas]
+    if (!numeros.length) return
+    if (!window.confirm(`Mover ${numeros.length} bobina(s) selecionada(s) para a lixeira?`)) return
+    let sucesso = 0
+    const falhas: string[] = []
+    for (const numeroBobina of numeros) {
+      try {
+        await moveCobrideiraBobinaToTrash({ data: { accessToken: await tokenAtual(), numeroBobina } })
+        sucesso++
+      } catch (error) { falhas.push(`${numeroBobina}: ${erroMensagem(error)}`) }
+    }
+    if (sucesso) setRegistros((atuais) => atuais.filter((item) => !numeros.includes(item.numero_bobina) || falhas.some((f) => f.startsWith(`${item.numero_bobina}:`))))
+    setSelecionadas(new Set())
+    if (falhas.length) toast.error(`${sucesso} movida(s); ${falhas.length} falha(s). ${falhas.slice(0, 3).join(' | ')}`, { duration: 20000 })
+    else toast.success(`${sucesso} bobina(s) movida(s) para a lixeira.`)
+  }
+
+  async function lerArquivoCSV(arquivo?: File) {
+    if (!arquivo) return
+    try {
+      const linhas = analisarCSV(await arquivo.text())
+      if (linhas.length < 2) throw new Error('O arquivo precisa ter cabeçalho e pelo menos uma linha de dados.')
+      const preparadas = linhas.slice(1).map((valores, indice) => prepararLinhaCSV(linhas[0], valores, indice + 2))
+      const ids = new Set<string>()
+      const revisadas = preparadas.map((item) => {
+        if (!item.bobina) return item
+        const id = item.bobina.numero_bobina
+        if (ids.has(id)) return { ...item, bobina: null, erro: 'Número de bobina repetido dentro do CSV' }
+        ids.add(id)
+        if (registros.some((registro) => registro.numero_bobina === id)) return { ...item, bobina: null, erro: 'Essa bobina já existe no banco' }
+        return item
+      })
+      setCsvLinhas(revisadas)
+      setCsvNome(arquivo.name)
+      setMostrarPreviaCSV(true)
+      const validas = revisadas.filter((item) => item.bobina).length
+      toast.success(`CSV lido: ${validas} válida(s), ${revisadas.length - validas} com pendência.`)
+    } catch (error) {
+      toast.error('Não foi possível ler o CSV', { description: erroMensagem(error), duration: 12000 })
+    }
+  }
+
+  async function importarCSVParaBanco() {
+    const validas = csvLinhas.flatMap((item) => item.bobina ? [item.bobina] : [])
+    if (!validas.length) return toast.error('Não há linhas válidas para importar.')
+    if (!window.confirm(`Importar ${validas.length} bobina(s) para o Supabase? Registros existentes não serão sobrescritos.`)) return
+    setImportandoCSV(true)
+    let inseridas = 0
+    try {
+      for (let inicio = 0; inicio < validas.length; inicio += 100) {
+        const lote = validas.slice(inicio, inicio + 100)
+        const { data, error } = await supabase.schema('cobrideira').from('bobinas').insert(lote).select('numero_bobina')
+        if (error) throw error
+        inseridas += data?.length ?? lote.length
+      }
+      toast.success(`${inseridas} bobina(s) importada(s) para o Supabase.`)
+      setMostrarPreviaCSV(false)
+      setCsvLinhas([])
+      setCsvNome('')
+      await carregarRegistros()
+    } catch (error) {
+      toast.error(`Importação interrompida após ${inseridas} registro(s).`, { description: erroMensagem(error), duration: 20000 })
+      await carregarRegistros()
+    } finally { setImportandoCSV(false) }
   }
 
   async function carregarLixeira() {
@@ -995,6 +1242,38 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                 </ul>
               </div>
             )}
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42]">
+                <FileUp className="size-4" /> Importar CSV
+                <input type="file" accept=".csv,text/csv,.txt" className="hidden" onChange={(e) => { void lerArquivoCSV(e.target.files?.[0]); e.currentTarget.value = '' }} />
+              </label>
+              {selecionadas.size > 0 && (
+                <>
+                  <span className="text-sm font-semibold">{selecionadas.size} selecionada(s)</span>
+                  <button type="button" onClick={() => void moverSelecionadasParaLixeira()} className="inline-flex h-10 items-center gap-2 rounded-full border border-red-300 px-4 text-sm font-bold text-red-700 hover:bg-red-50"><Trash2 className="size-4" /> Mover selecionadas para lixeira</button>
+                  <button type="button" onClick={() => setSelecionadas(new Set())} className="text-sm underline">Limpar seleção</button>
+                </>
+              )}
+            </div>
+            {mostrarPreviaCSV && (
+              <section className="mb-5 rounded-xl border border-border bg-white p-4 text-black">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div><h3 className="font-bold">Prévia da importação: {csvNome}</h3><p className="text-sm text-gray-600">{csvLinhas.filter((item) => item.bobina).length} válida(s) · {csvLinhas.filter((item) => item.erro).length} com erro</p></div>
+                  <button type="button" onClick={() => setMostrarPreviaCSV(false)} className="rounded-full border px-3 py-2 text-sm">Fechar</button>
+                </div>
+                <div className="max-h-72 overflow-auto rounded-lg border">
+                  <table className="w-full min-w-[42rem] text-left text-xs">
+                    <thead className="sticky top-0 bg-gray-100"><tr><th className="p-2">Linha CSV</th><th className="p-2">Bobina</th><th className="p-2">Data</th><th className="p-2">Largura</th><th className="p-2">Peso bruto</th><th className="p-2">Resultado</th></tr></thead>
+                    <tbody>{csvLinhas.map((item) => <tr key={item.linha} className="border-t"><td className="p-2">{item.linha}</td><td className="p-2 font-mono">{item.bobina?.numero_bobina ?? '—'}</td><td className="p-2">{item.bobina?.data ?? '—'}</td><td className="p-2">{item.bobina ? `${item.bobina.largura},${String(item.bobina.micragem).padStart(2, '0')}` : '—'}</td><td className="p-2">{item.bobina?.peso_bruto ?? '—'}</td><td className={`p-2 font-semibold ${item.erro ? 'text-red-700' : 'text-green-700'}`}>{item.erro ?? 'Pronta para importar'}</td></tr>)}</tbody>
+                  </table>
+                </div>
+                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                  <button type="button" onClick={() => { setMostrarPreviaCSV(false); setCsvLinhas([]) }} className="rounded-full border px-4 py-2 text-sm font-semibold">Cancelar</button>
+                  <button type="button" onClick={() => void importarCSVParaBanco()} disabled={importandoCSV || !csvLinhas.some((item) => item.bobina)} className="rounded-full bg-[#e3262e] px-4 py-2 text-sm font-bold text-black disabled:opacity-50">{importandoCSV ? 'Importando...' : `Importar ${csvLinhas.filter((item) => item.bobina).length} válidas`}</button>
+                </div>
+                <p className="mt-2 text-xs text-gray-500">Aceita CSV com separador vírgula, ponto e vírgula ou tabulação; reconhece decimal com vírgula ou ponto e datas brasileiras ou ISO. Linhas inválidas ficam de fora.</p>
+              </section>
+            )}
             <section className="mb-5 grid gap-3 rounded-xl border border-border bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
               <label className="grid gap-1 text-xs font-semibold text-black">
                 Data inicial
@@ -1071,7 +1350,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                     <table className="w-full min-w-[58rem] text-left text-sm">
                       <thead className="sticky top-0 bg-muted text-xs text-muted-foreground">
                         <tr>
-                          <th className="w-10 px-2 py-3" />
+                          <th className="w-10 px-2 py-3"><input type="checkbox" aria-label="Selecionar todas as bobinas visíveis" checked={registrosOrdenados.length > 0 && registrosOrdenados.every((r) => selecionadas.has(r.numero_bobina))} onChange={(e) => selecionarVisiveis(e.target.checked)} /></th>
                           <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'numero_bobina', asc: o.campo === 'numero_bobina' ? !o.asc : true }))}>Nº Bobina ↕</button></th>
                           <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'data', asc: o.campo === 'data' ? !o.asc : true }))}>Data ↕</button></th>
                           <th className="px-3 py-3"><button type="button" onClick={() => setOrdenacao(o => ({ campo: 'cod_bob', asc: o.campo === 'cod_bob' ? !o.asc : true }))}>Cód. bobina ↕</button></th>
@@ -1130,7 +1409,6 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                                         {sincronizandoBobina === registro.numero_bobina ? 'Sincronizando...' : 'Sincronizar'}
                                       </button>
                                       <button type="button" onClick={() => iniciarEdicao(registro)} className="rounded-full bg-[#e3262e] px-4 py-2 text-sm font-bold text-black hover:bg-[#ff3b42]">Editar dados</button>
-                                <button type="button" onClick={() => void moverParaLixeira(registro)} className="inline-flex items-center gap-2 rounded-full border border-red-300 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50"><Trash2 className="size-4" /> Lixeira</button>
                                       <button type="button" onClick={() => void moverParaLixeira(registro)} className="inline-flex items-center gap-2 rounded-full border border-red-300 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50"><Trash2 className="size-4" /> Mover para lixeira</button>
                                     </div>
                                   </td>
