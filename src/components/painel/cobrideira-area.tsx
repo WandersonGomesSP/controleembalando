@@ -1105,16 +1105,16 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-0 bg-transparent shadow-none">
-        <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-4 pt-4 sm:px-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <img src="/embalando-logo.svg" alt="Embalando Fitas Adesivas" className="h-12 w-16 shrink-0 object-contain sm:h-14 sm:w-20" />
-              <div>
-                <h1 className="text-lg leading-tight font-semibold tracking-tight">
+      <header className="sticky top-0 z-30 border-0 bg-white/95 shadow-sm backdrop-blur">
+        <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-3 pt-3 sm:px-6 sm:pt-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+              <img src="/embalando-logo.svg" alt="Embalando Fitas Adesivas" className="h-[4.5rem] w-[5.5rem] shrink-0 object-contain sm:h-24 sm:w-28" />
+              <div className="min-w-0">
+                <h1 className="text-xl leading-tight font-bold tracking-tight sm:text-2xl">
                   Cobrideira
                 </h1>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs leading-snug text-muted-foreground sm:text-sm">
                   Cadastro e controle de bobinas
                 </p>
               </div>
@@ -1122,18 +1122,18 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             <button
               type="button"
               onClick={onChangeArea}
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-black bg-black px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-zinc-800 hover:text-white !bg-black !text-white !border-black"
+              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-black bg-black px-2.5 text-[11px] font-bold text-white shadow-sm transition-colors hover:bg-zinc-800 sm:min-h-10 sm:gap-2 sm:px-4 sm:text-xs"
             >
               <ArrowLeft className="size-4" />
-              Trocar de setor
+              Trocar setor
             </button>
           </div>
-          <nav aria-label="Menus da Cobrideira" className="flex flex-wrap gap-2 pb-3">
+          <nav aria-label="Menus da Cobrideira" className="grid grid-cols-3 gap-2 pb-3 sm:flex sm:flex-wrap">
             <button
               type="button"
               aria-current={secao === 'cadastro' ? 'page' : undefined}
               onClick={() => setSecao('cadastro')}
-              className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'cadastro' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}
+              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'cadastro' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]'}`}
             >
               <PackagePlus className="size-4" />
               Cadastrar bobina
@@ -1142,15 +1142,15 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               type="button"
               aria-current={secao === 'registros' ? 'page' : undefined}
               onClick={() => setSecao('registros')}
-              className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'registros' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}
+              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'registros' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]'}`}
             >
               <ClipboardList className="size-4" />
               Bobinas registradas
             </button>
-            {false && isDeveloper && <button type="button" aria-current={secao === 'operadores' ? 'page' : undefined} onClick={() => { setSecao('operadores'); void carregarOperadores() }} className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'operadores' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}>
+            {false && isDeveloper && <button type="button" aria-current={secao === 'operadores' ? 'page' : undefined} onClick={() => { setSecao('operadores'); void carregarOperadores() }} className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'operadores' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]'}`}>
               <Users className="size-4" /> Operadores
             </button>}
-            <button type="button" aria-current={secao === 'lixeira' ? 'page' : undefined} onClick={() => { setSecao('lixeira'); void carregarLixeira() }} className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'lixeira' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}>
+            <button type="button" aria-current={secao === 'lixeira' ? 'page' : undefined} onClick={() => { setSecao('lixeira'); void carregarLixeira() }} className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight text-white whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'lixeira' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]'}`}>
               <Trash2 className="size-4" /> Lixeira
             </button>
           </nav>
