@@ -46,7 +46,7 @@ function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
     { text: `FORN. BOPP: ${bobina.fornecedor_filme}` },
     { text: `METRAGEM PRODUZIDA: ${bobina.metragem}` },
     { text: `EMENDA: ${bobina.emenda ? 'SIM' : 'NÃO'}` },
-    { text: `LOTE DOW: ${bobina.lote_cola || '—'} / CÓD: ${bobina.codigo_interno || '—'}` },
+    { text: `LOTE DOW: ${String(bobina.lote_cola || '—')} / CÓD: ${String(bobina.codigo_interno || '—')}` },
     { text: `COLA: ${bobina.fornecedor_cola || (Number(bobina.kg_cola) > 0 ? `${bobina.kg_cola} KG` : '—')}` },
     { text: `COR: ${bobina.cor_fundo || '—'}` },
     { text: pigmento ? `PIGMENTO: ${pigmento}${pesoPigmento}` : 'PIGMENTO:' },
@@ -79,8 +79,8 @@ function larguraTexto(texto: string, tamanho: number) {
 function buildPdf(bobina: CobrideiraBobinaRow) {
   const commands: string[] = []
   const lines = labelLines(bobina)
-  const horizontalPadding = 2
-  const maxWidth = 290 - horizontalPadding * 2
+  const horizontalPadding = 0.01
+  const maxWidth = 290 - horizontalPadding
   const prepared = lines.map((line) => {
     const requestedSize = line.size ?? 13
     const text = line.value !== undefined ? line.text + line.value : line.text
@@ -92,14 +92,14 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
     return { line, size, prefixWidth, valueWidth, width }
   })
 
-  // Usa a altura útil da etiqueta: primeira linha próxima do topo e validade
-  // próxima da margem inferior, sem desenhar fundo branco.
-  const topoTexto = 342
-  const baseTexto = 7
+  // Retoma o espaçamento compacto anterior, sem distribuir as linhas
+  // por toda a altura da etiqueta.
   const lineHeight = prepared.length > 1
-    ? (topoTexto - baseTexto) / (prepared.length - 1)
-    : 0
-  let y = topoTexto
+    ? Math.min(18, (360 - 18 - Math.max(...prepared.map((item) => item.size))) / (prepared.length - 1))
+    : 18
+  const verticalSpan = lineHeight * Math.max(0, prepared.length - 1)
+  const maiorFonte = Math.max(...prepared.map((item) => item.size), 13)
+  let y = (360 + verticalSpan - maiorFonte * 0.5) / 2
 
   for (const item of prepared) {
     const { line, size, prefixWidth, valueWidth, width } = item
@@ -117,6 +117,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
       } else commands.push('0 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
     }
+    commands.push(`0 G 0.55 w ${x} ${y - 2.5} m ${x + width} ${y - 2.5} l S`)
     y -= lineHeight
   }
 
