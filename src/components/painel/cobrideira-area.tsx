@@ -243,7 +243,6 @@ function prepararLinhaCSV(cabecalhos: string[], valores: string[], linha: number
   if (!bobina.material) erros.push('Material ausente')
   if (bobina.largura <= 0) erros.push('Largura inválida')
   if (bobina.micragem <= 0) erros.push('Micragem inválida')
-  if (bobina.peso_bruto <= 0) erros.push('Peso bruto inválido')
   if (bobina.peso_final <= 0) erros.push('Peso final inválido')
   if (bobina.peso_cilindro < 0 || bobina.peso_final <= bobina.peso_cilindro) erros.push('Peso do cilindro/peso final inválido')
   if (bobina.perda_kg < 0 || bobina.kg_cola < 0 || bobina.pigmento_kg < 0) erros.push('Perda, cola e pigmento não podem ser negativos')
@@ -606,19 +605,39 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       if (linhas.length < 2) throw new Error('O arquivo precisa ter cabeçalho e pelo menos uma linha de dados.')
       const preparadas = linhas.slice(1).map((valores, indice) => prepararLinhaCSV(linhas[0], valores, indice + 2))
       const ids = new Set<string>()
-      const revisadas = preparadas.map((item) => {
+      const pesoPorCodigo = new Map<string, number>()
+      for (const registro of registros) {
+        const codigo = registro.cod_bob.trim().toLocaleUpperCase('pt-BR')
+        if (codigo && Number(registro.peso_bruto) > 0 && !pesoPorCodigo.has(codigo)) {
+          pesoPorCodigo.set(codigo, Number(registro.peso_bruto))
+        }
+      }
+      const revisadas: LinhaCSVPreparada[] = preparadas.map((item) => {
         if (!item.bobina) return item
-        const id = item.bobina.numero_bobina
-        if (ids.has(id)) return { ...item, bobina: null, erro: 'Número de bobina repetido dentro do CSV' }
+        const id = item.bobina.numero_bobina.trim()
+        if (ids.has(id) || registros.some((registro) => registro.numero_bobina === id)) {
+          ids.add(id)
+          return { ...item, bobina: null, erro: null }
+        }
         ids.add(id)
-        if (registros.some((registro) => registro.numero_bobina === id)) return { ...item, bobina: null, erro: 'Essa bobina já existe no banco' }
-        return item
+        const codigo = item.bobina.cod_bob.trim().toLocaleUpperCase('pt-BR')
+        const pesoConhecido = codigo ? pesoPorCodigo.get(codigo) : undefined
+        const pesoInformado = Number(item.bobina.peso_bruto)
+        const pesoBruto = pesoConhecido && pesoConhecido > 0
+          ? pesoConhecido
+          : pesoInformado > 0 ? pesoInformado : undefined
+        if (codigo && pesoBruto && pesoBruto > 0) pesoPorCodigo.set(codigo, pesoBruto)
+        if (!pesoBruto || pesoBruto <= 0) {
+          return { ...item, bobina: null, erro: `Peso bruto não encontrado para o código ${item.bobina.cod_bob}` }
+        }
+        return { ...item, bobina: { ...item.bobina, peso_bruto: pesoBruto }, erro: null }
       })
       setCsvLinhas(revisadas)
       setCsvNome(arquivo.name)
       setMostrarPreviaCSV(true)
       const validas = revisadas.filter((item) => item.bobina).length
-      toast.success(`CSV lido: ${validas} válida(s), ${revisadas.length - validas} com pendência.`)
+      const pendencias = revisadas.filter((item) => item.erro).length
+      toast.success(`CSV lido: ${validas} nova(s) para importar, ${revisadas.length - validas - pendencias} já cadastrada(s), ${pendencias} pendência(s).`)
     } catch (error) {
       toast.error('Não foi possível ler o CSV', { description: erroMensagem(error), duration: 12000 })
     }
@@ -633,7 +652,9 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
     try {
       for (let inicio = 0; inicio < validas.length; inicio += 100) {
         const lote = validas.slice(inicio, inicio + 100)
-        const { data, error } = await supabase.schema('cobrideira').from('bobinas').insert(lote).select('numero_bobina')
+        const { data, error } = await supabase.schema('cobrideira').from('bobinas')
+          .upsert(lote, { onConflict: 'numero_bobina', ignoreDuplicates: true })
+          .select('numero_bobina')
         if (error) throw error
         inseridas += data?.length ?? lote.length
       }
@@ -730,7 +751,13 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
 
   async function salvar(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const bruto = numero(form.pesoBruto)
+    const codigoNormalizado = form.codBob.trim().toLocaleUpperCase('pt-BR')
+    const pesoBrutoConhecido = registros.find((registro) =>
+      registro.cod_bob.trim().toLocaleUpperCase('pt-BR') === codigoNormalizado &&
+      Number(registro.peso_bruto) > 0
+    )?.peso_bruto
+    const brutoInformado = numero(form.pesoBruto)
+    const bruto = pesoBrutoConhecido !== undefined ? Number(pesoBrutoConhecido) : brutoInformado
     const final = numero(form.pesoFinal)
     const cilindro = numero(form.pesoCilindro)
     const metragem = Number.parseInt(form.metragem, 10)
@@ -909,10 +936,6 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
       <main className="mx-auto grid max-w-[90rem] gap-6 px-4 py-6 sm:px-6 sm:py-8">
         {secao === 'cadastro' ? (
           <>
-            <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm leading-6 text-muted-foreground">
-              Cadastro salvo no schema isolado{' '}
-              <span className="font-mono text-foreground">cobrideira</span>.
-            </div>
             <Panel
               title={editandoNumero ? `Editar bobina · ${editandoNumero}` : 'Cadastro de produção · nova bobina'}
               description="Preencha os dados da bobina. O peso líquido é calculado pelo peso final menos o peso do cilindro."
@@ -998,7 +1021,6 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                         label="Peso bruto (kg)"
                         value={form.pesoBruto}
                         onChange={(value) => atualizar('pesoBruto', value)}
-                        required
                       />
                       <CampoDecimal
                         id="cb-peso-final"
@@ -1295,8 +1317,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
               {selecionadas.size > 0 && (
                 <>
                   <span className="text-sm font-semibold">{selecionadas.size} selecionada(s)</span>
-                  <button type="button" onClick={() => void moverSelecionadasParaLixeira()} className="inline-flex h-10 items-center gap-2 rounded-full border border-red-300 px-4 text-sm font-bold text-red-700 hover:bg-red-50"><Trash2 className="size-4" /> Mover selecionadas para lixeira</button>
-                  <button type="button" onClick={() => setSelecionadas(new Set())} className="text-sm underline">Limpar seleção</button>
+                  <button type="button" onClick={() => void moverSelecionadasParaLixeira()} className="inline-flex h-10 items-center gap-2 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42]"><Trash2 className="size-4" /> Mover selecionadas para lixeira</button>
                 </>
               )}
             </div>
@@ -1309,7 +1330,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                 <div className="max-h-72 overflow-auto rounded-lg border">
                   <table className="w-full min-w-[42rem] text-left text-xs">
                     <thead className="sticky top-0 bg-gray-100"><tr><th className="p-2">Linha CSV</th><th className="p-2">Bobina</th><th className="p-2">Data</th><th className="p-2">Largura</th><th className="p-2">Peso bruto</th><th className="p-2">Resultado</th></tr></thead>
-                    <tbody>{csvLinhas.map((item) => <tr key={item.linha} className="border-t"><td className="p-2">{item.linha}</td><td className="p-2 font-mono">{item.bobina?.numero_bobina ?? '—'}</td><td className="p-2">{item.bobina?.data ?? '—'}</td><td className="p-2">{item.bobina ? `${item.bobina.largura},${String(item.bobina.micragem).padStart(2, '0')}` : '—'}</td><td className="p-2">{item.bobina?.peso_bruto ?? '—'}</td><td className={`p-2 font-semibold ${item.erro ? 'text-red-700' : 'text-green-700'}`}>{item.erro ?? 'Pronta para importar'}</td></tr>)}</tbody>
+                    <tbody>{csvLinhas.map((item) => <tr key={item.linha} className="border-t"><td className="p-2">{item.linha}</td><td className="p-2 font-mono">{item.bobina?.numero_bobina ?? '—'}</td><td className="p-2">{item.bobina?.data ?? '—'}</td><td className="p-2">{item.bobina ? `${item.bobina.largura},${String(item.bobina.micragem).padStart(2, '0')}` : '—'}</td><td className="p-2">{item.bobina?.peso_bruto ?? '—'}</td><td className={`p-2 font-semibold ${item.erro ? 'text-red-700' : 'text-green-700'}`}>{item.erro ?? (item.bobina ? 'Pronta para importar' : 'Já cadastrada — sem alterações')}</td></tr>)}</tbody>
                   </table>
                 </div>
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
@@ -1457,7 +1478,6 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                                         {sincronizandoBobina === registro.numero_bobina ? 'Sincronizando...' : 'Sincronizar'}
                                       </button>
                                       <button type="button" onClick={() => iniciarEdicao(registro)} className="rounded-full bg-[#e3262e] px-4 py-2 text-sm font-bold text-black hover:bg-[#ff3b42]">Editar dados</button>
-                                      <button type="button" onClick={() => void moverParaLixeira(registro)} className="inline-flex items-center gap-2 rounded-full border border-red-300 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50"><Trash2 className="size-4" /> Mover para lixeira</button>
                                     </div>
                                   </td>
                                 </tr>
