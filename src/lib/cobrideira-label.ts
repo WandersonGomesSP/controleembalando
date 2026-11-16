@@ -1,6 +1,6 @@
 import type { CobrideiraBobinaRow } from '@/lib/database.types'
 
-type LabelLine = { text: string; size?: number; bold?: boolean; highlight?: boolean }
+type LabelLine = { text: string; size?: number; bold?: boolean; highlight?: boolean; value?: string }
 
 function pdfTextHex(value: string) {
   const bytes = Array.from(value, (character) => {
@@ -50,12 +50,14 @@ function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
     { text: `COLA: ${bobina.fornecedor_cola || (Number(bobina.kg_cola) > 0 ? `${bobina.kg_cola} KG` : '—')}` },
     { text: `COR: ${bobina.cor_fundo || '—'}` },
     { text: pigmento ? `PIGMENTO: ${pigmento}${pesoPigmento}` : 'PIGMENTO:' },
-    { text: `METRAGEM TOTAL ADESIVADO: ${bobina.metragem}`, highlight: true, bold: true },
-    { text: `PESO TOTAL ADESIVADO: ${formatarPeso(Number(bobina.peso_final))} KG`, highlight: true, bold: true },
+    { text: 'METRAGEM TOTAL ADESIVADO: ', value: String(bobina.metragem), size: 16 },
+    { text: 'PESO TOTAL ADESIVADO: ', value: `${formatarPeso(Number(bobina.peso_final))} KG`, size: 16 },
     { text: `GRAMATURA DA BOBINA: ${bobina.vareta_g} G` },
     { text: 'VALIDADE DA BOBINA: 06 MESES' },
   ]
-  return linhas.flatMap((linha) => quebrarTexto(linha.text, linha.size ? 28 : 37).map((text) => ({ ...linha, text })))
+  return linhas.flatMap((linha) => linha.value !== undefined
+    ? [linha]
+    : quebrarTexto(linha.text, linha.size ? 35 : 52).map((text) => ({ ...linha, text })))
 }
 
 function formatarPeso(value: number) {
@@ -64,21 +66,27 @@ function formatarPeso(value: number) {
 
 function buildPdf(bobina: CobrideiraBobinaRow) {
   const commands: string[] = []
-  const x = 21
-  let y = 303
+  const x = 0
+  let y = 346
   const lineHeight = 17.2
 
   for (const line of labelLines(bobina)) {
     const size = line.size ?? 13
     const font = line.bold ? 'F2' : 'F1'
-    const width = Math.min(248, line.text.length * size * 0.535)
-    if (line.highlight) {
-      commands.push(`0 g ${x - 1} ${y - 3} ${width + 4} 18 re f`)
-      commands.push('1 g')
-    } else {
+    const prefixWidth = line.text.length * size * 0.535
+    const valueWidth = (line.value?.length ?? 0) * size * 0.535
+    const width = Math.min(290, prefixWidth + valueWidth)
+    if (line.value !== undefined) {
       commands.push('0 g')
+      commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
+      commands.push(`0 g ${x + prefixWidth - 1} ${y - 3} ${valueWidth + 4} 18 re f`)
+      commands.push('1 g')
+      commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x + prefixWidth} ${y} Tm <${pdfTextHex(line.value)}> Tj ET`)
+    } else {
+      commands.push(line.highlight ? '1 g' : '0 g')
+      if (line.highlight) commands.push(`0 g ${x} ${y - 3} ${width + 4} 18 re f`, '1 g')
+      commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
     }
-    commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
     commands.push(`0 G 0.55 w ${x} ${y - 2.5} m ${x + width} ${y - 2.5} l S`)
     y -= lineHeight
   }
