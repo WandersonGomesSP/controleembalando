@@ -404,7 +404,7 @@ function CampoDecimal({
   )
 }
 
-export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
+export function CobrideiraArea({ onChangeArea, isDeveloper }: { onChangeArea: () => void; isDeveloper: boolean }) {
   const [secao, setSecao] = React.useState<Secao>('cadastro')
   const [form, setForm] = React.useState(formularioInicial)
   const [registros, setRegistros] = React.useState<CobrideiraBobinaRow[]>([])
@@ -998,9 +998,9 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
               <ClipboardList className="size-4" />
               Bobinas registradas
             </button>
-            <button type="button" aria-current={secao === 'operadores' ? 'page' : undefined} onClick={() => { setSecao('operadores'); void carregarOperadores() }} className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'operadores' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}>
+            {isDeveloper && <button type="button" aria-current={secao === 'operadores' ? 'page' : undefined} onClick={() => { setSecao('operadores'); void carregarOperadores() }} className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'operadores' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}>
               <Users className="size-4" /> Operadores
-            </button>
+            </button>}
             <button type="button" aria-current={secao === 'lixeira' ? 'page' : undefined} onClick={() => { setSecao('lixeira'); void carregarLixeira() }} className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'lixeira' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}>
               <Trash2 className="size-4" /> Lixeira
             </button>
@@ -1628,7 +1628,7 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
               </div>
             )}
           </Panel>
-        ) : secao === 'operadores' ? (
+        ) : secao === 'operadores' && isDeveloper ? (
           <Panel title="Operadores da Cobrideira" description="Cadastre os operadores e defina em qual turno cada um trabalha.">
             <form onSubmit={adicionarOperador} className="mb-5 grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-[1fr_180px_auto]">
               <Field label="Nome do operador" htmlFor="cb-novo-operador">
