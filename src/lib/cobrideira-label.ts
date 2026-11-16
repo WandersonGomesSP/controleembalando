@@ -64,53 +64,82 @@ function formatarPeso(value: number) {
   return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
 }
 
+function larguraTexto(texto: string, tamanho: number) {
+  // Estimativa conservadora da largura Helvetica para manter cada linha dentro da etiqueta.
+  return Array.from(texto).reduce((total, caractere) => {
+    const fator = caractere === ' ' ? 0.278
+      : 'ilI.,:;!|'.includes(caractere) ? 0.278
+      : 'MW@%'.includes(caractere) ? 0.82
+      : 'frt()[]'.includes(caractere) ? 0.35
+      : 0.56
+    return total + fator * tamanho
+  }, 0)
+}
+
 function buildPdf(bobina: CobrideiraBobinaRow) {
   const commands: string[] = []
-  const x = 0
   const lines = labelLines(bobina)
-  let y = 350
-  const lineHeight = 18
+  const horizontalPadding = 2
+  const maxWidth = 290 - horizontalPadding * 2
+  const prepared = lines.map((line) => {
+    const requestedSize = line.size ?? 13
+    const text = line.value !== undefined ? line.text + line.value : line.text
+    const textWidth = larguraTexto(text, requestedSize)
+    const size = textWidth > maxWidth ? requestedSize * maxWidth / textWidth : requestedSize
+    const prefixWidth = line.value !== undefined ? larguraTexto(line.text, size) : 0
+    const valueWidth = line.value !== undefined ? larguraTexto(line.value, size) : 0
+    const width = line.value !== undefined ? prefixWidth + valueWidth : larguraTexto(line.text, size)
+    return { line, size, prefixWidth, valueWidth, width }
+  })
 
-  for (const line of lines) {
-    const size = line.size ?? 13
+  // Mantém o espaçamento de leitura e centraliza o conjunto para que as
+  // margens superior e inferior da impressão fiquem iguais.
+  const lineHeight = prepared.length > 1
+    ? Math.min(18, (360 - 18 - Math.max(...prepared.map((item) => item.size))) / (prepared.length - 1))
+    : 18
+  const verticalSpan = lineHeight * Math.max(0, prepared.length - 1)
+  const maiorFonte = Math.max(...prepared.map((item) => item.size), 13)
+  let y = (360 + verticalSpan - maiorFonte * 0.5) / 2
+
+  for (const item of prepared) {
+    const { line, size, prefixWidth, valueWidth, width } = item
+    const x = Math.max(horizontalPadding, (290 - width) / 2)
     const font = line.bold ? 'F2' : 'F1'
-    const prefixWidth = line.text.length * size * 0.535
-    const valueWidth = (line.value?.length ?? 0) * size * 0.535
-    const width = Math.min(290, prefixWidth + valueWidth)
     if (line.value !== undefined) {
       commands.push('0 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
-      commands.push(`0 g ${x + prefixWidth - 1} ${y - 3} ${valueWidth + 4} 18 re f`)
+      commands.push(`0 g ${x + prefixWidth - 1} ${y - 3} ${valueWidth + 3} 18 re f`)
       commands.push('1 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x + prefixWidth} ${y} Tm <${pdfTextHex(line.value)}> Tj ET`)
     } else {
-      commands.push(line.highlight ? '1 g' : '0 g')
-      if (line.highlight) commands.push(`0 g ${x} ${y - 3} ${width + 4} 18 re f`, '1 g')
+      if (line.highlight) {
+        commands.push(`0 g ${x - 1} ${y - 3} ${width + 2} 18 re f`, '1 g')
+      } else commands.push('0 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
     }
     commands.push(`0 G 0.55 w ${x} ${y - 2.5} m ${x + width} ${y - 2.5} l S`)
     y -= lineHeight
   }
 
-  const stream = commands.join('\n')
+  const stream = commands.join('\\n')
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 290 360] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
-    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    `<< /Length ${stream.length} >>\\nstream\\n${stream}\\nendstream`,
   ]
-  let pdf = '%PDF-1.4\n'
+  let pdf = '%PDF-1.4\\n'
   const offsets = [0]
   for (let index = 0; index < objects.length; index++) {
     offsets.push(pdf.length)
-    pdf += `${index + 1} 0 obj\n${objects[index]}\nendobj\n`
+    pdf += `${index + 1} 0 obj\\n${objects[index]}\\nendobj\\n`
   }
   const xrefOffset = pdf.length
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
-  for (const offset of offsets.slice(1)) pdf += `${String(offset).padStart(10, '0')} 00000 n \n`
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
+  pdf += `xref\\n0 ${objects.length + 1}\\n0000000000 65535 f \\n`
+  for (const offset of offsets.slice(1)) pdf += `${String(offset).padStart(10, '0')} 00000 n \\n`
+  pdf += `trailer\\n<< /Size ${objects.length + 1} /Root 1 0 R >>\\nstartxref\\n${xrefOffset}\\n%%EOF`
   return new Blob([new Uint8Array(Array.from(pdf, (character) => character.charCodeAt(0)))], { type: 'application/pdf' })
 }
 
