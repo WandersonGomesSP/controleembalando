@@ -28,7 +28,7 @@ code {
   --popover: #ffffff;
   --popover-foreground: #111827;
   --primary: #e3262e;
-  --primary-foreground: #000000;
+  --primary-foreground: #ffffff;
   --secondary: #e9edff;
   --secondary-foreground: #000000;
   --muted: #eef1fb;
@@ -52,7 +52,7 @@ code {
   --sidebar: #ffffff;
   --sidebar-foreground: #111827;
   --sidebar-primary: #df292b;
-  --sidebar-primary-foreground: #000000;
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #e8edff;
   --sidebar-accent-foreground: #172f78;
   --sidebar-border: #dce2ef;
@@ -141,11 +141,11 @@ code {
   body:has(input[name='email']) main > div :is(h1,h2,h3,p,label,span) { color: #ffffff !important; opacity: 1 !important; }
   body:has(input[name='email']) main > div input { background: #666666 !important; color: #ffffff !important; border-color: #9ca3af !important; }
   body:has(input[name='email']) main > div input::placeholder { color: #ffffff !important; opacity: 1 !important; }
-  body:has(input[name='email']) main > div button { background: #e3262e !important; color: #000000 !important; border-color: #e3262e !important; opacity: 1 !important; }
+  body:has(input[name='email']) main > div button { background: #e3262e !important; color: #ffffff !important; border-color: #e3262e !important; opacity: 1 !important; }
   body:has(button[aria-label='Sair da conta']) main { color: #000000 !important; }
   body:has(button[aria-label='Sair da conta']) main > div { background: #666666 !important; color: #ffffff !important; border-color: #d1d5db !important; }
   body:has(button[aria-label='Sair da conta']) main > div :is(h1,h2,h3,p,span) { color: #ffffff !important; opacity: 1 !important; }
-  body:has(button[aria-label='Sair da conta']) main > div button { background: #e3262e !important; color: #000000 !important; }
+  body:has(button[aria-label='Sair da conta']) main > div button { background: #e3262e !important; color: #ffffff !important; }
 
   input[type='date']::-webkit-calendar-picker-indicator {
     filter: invert(0.35);
@@ -176,15 +176,15 @@ code {
   body, body * { opacity: 1; }
   p, label, small, span, th, td, h1, h2, h3, h4 { color: #000000; }
   input, textarea, select { background-color: #666666 !important; color: #ffffff !important; }
-  button:not([disabled]) { color: #000000; }
-  button[class*="bg-primary"], button[class*="bg-[#e3262e"]], [role="tab"][data-state="active"] { background-color: #e3262e !important; color: #000000 !important; }
+  button:not([disabled]) { color: #ffffff; }
+  button[class*="bg-primary"], button[class*="bg-[#e3262e"]], button[class*="bg-destructive"], [role="tab"][data-state="active"] { background-color: #e3262e !important; color: #ffffff !important; }
   [class*="bg-primary/"], [class*="bg-background/"] { background-color: #666666 !important; color: #ffffff !important; }
   [class*="text-muted-foreground"], [class*="text-foreground/"] { color: #111111 !important; }
 }
 
 @layer base {
-  button:not([disabled]) { border-radius: 9999px; background-color: #e3262e; color: #000000; border-color: #e3262e; }
-  button:not([disabled]):hover { background-color: #f0444b; color: #000000; }
+  button:not([disabled]) { border-radius: 9999px; background-color: #e3262e; color: #ffffff; border-color: #e3262e; }
+  button:not([disabled]):hover { background-color: #f0444b; color: #ffffff; }
   button:disabled { color: #111111 !important; opacity: 1 !important; }
   [role="tab"], [role="menuitem"], [role="option"] { color: #000000 !important; }
 }
@@ -238,4 +238,16 @@ html body [data-sonner-toast] button {
 }
 html body [data-sonner-toast] [data-icon] {
   color: #111827 !important;
+}
+
+
+/* Botoes vermelhos: texto e icones sempre brancos, inclusive quando ha classes text-black. */
+@layer base {
+  button[class*="bg-[#e3262e]"],
+  button[class*="bg-primary"],
+  button[class*="bg-destructive"],
+  body:has(input[name='email']) main > div button,
+  body:has(button[aria-label='Sair da conta']) main > div button {
+    color: #ffffff !important;
+  }
 }
