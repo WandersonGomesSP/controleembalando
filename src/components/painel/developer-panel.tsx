@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Plus, RefreshCw, Save, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { toast } from 'sonner'
+import { supabase } from '@/lib/supabase'
 import {
   createManagedUser,
   confirmGoogleSheetsPermissions,
@@ -79,6 +80,11 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
   const [syncingSheets, setSyncingSheets] = React.useState(false)
   const [dataInicioBobinas, setDataInicioBobinas] = React.useState('')
   const [dataFimBobinas, setDataFimBobinas] = React.useState('')
+  const [setorConfiguracao, setSetorConfiguracao] = React.useState<'geral' | 'cobrideira'>('geral')
+  const [operadoresCobrideira, setOperadoresCobrideira] = React.useState<{ nome: string; turno: '1º TURNO' | '2º TURNO' }[]>([])
+  const [nomeOperadorCobrideira, setNomeOperadorCobrideira] = React.useState('')
+  const [turnoOperadorCobrideira, setTurnoOperadorCobrideira] = React.useState<'1º TURNO' | '2º TURNO'>('1º TURNO')
+  const [carregandoOperadoresCobrideira, setCarregandoOperadoresCobrideira] = React.useState(false)
 
   async function reload() {
     setLoading(true)
@@ -115,6 +121,61 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
       active = false
     }
   }, [])
+
+  async function carregarOperadoresCobrideira() {
+    setCarregandoOperadoresCobrideira(true)
+    try {
+      const { data, error } = await supabase.schema('cobrideira').from('operadores').select('nome, turno').order('nome')
+      if (error) throw error
+      setOperadoresCobrideira((data ?? []) as { nome: string; turno: '1º TURNO' | '2º TURNO' }[])
+    } catch {
+      toast.error('Não foi possível carregar os operadores da Cobrideira.')
+    } finally {
+      setCarregandoOperadoresCobrideira(false)
+    }
+  }
+
+  async function salvarOperadorCobrideira(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const nome = nomeOperadorCobrideira.trim().toLocaleUpperCase('pt-BR')
+    if (!nome) return
+    try {
+      const { error } = await supabase.schema('cobrideira').from('operadores').insert({ nome, turno: turnoOperadorCobrideira })
+      if (error) throw error
+      setNomeOperadorCobrideira('')
+      toast.success(`Operador ${nome} cadastrado na Cobrideira.`)
+      await carregarOperadoresCobrideira()
+    } catch {
+      toast.error('Não foi possível cadastrar. Verifique se esse nome já existe.')
+    }
+  }
+
+  async function atualizarTurnoOperadorCobrideira(nome: string, turno: '1º TURNO' | '2º TURNO') {
+    try {
+      const { error } = await supabase.schema('cobrideira').from('operadores').update({ turno }).eq('nome', nome)
+      if (error) throw error
+      setOperadoresCobrideira((atuais) => atuais.map((item) => item.nome === nome ? { ...item, turno } : item))
+      toast.success(`Turno de ${nome} atualizado.`)
+    } catch {
+      toast.error('Não foi possível atualizar o turno.')
+    }
+  }
+
+  async function excluirOperadorCobrideira(nome: string) {
+    if (!window.confirm(`Remover ${nome} da lista de operadores da Cobrideira?`)) return
+    try {
+      const { error } = await supabase.schema('cobrideira').from('operadores').delete().eq('nome', nome)
+      if (error) throw error
+      setOperadoresCobrideira((atuais) => atuais.filter((item) => item.nome !== nome))
+      toast.success(`Operador ${nome} removido.`)
+    } catch {
+      toast.error('Não foi possível remover o operador.')
+    }
+  }
+
+  React.useEffect(() => {
+    if (setorConfiguracao === 'cobrideira') void carregarOperadoresCobrideira()
+  }, [setorConfiguracao])
 
   async function submitNewUser(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -333,6 +394,40 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
       </header>
 
       {message && <p role="alert" className="text-sm text-destructive-foreground">{message}</p>}
+      <Panel title="Setor de configuração" description="Escolha o setor para abrir as configurações específicas.">
+        <label className="grid max-w-sm gap-1.5 text-sm font-medium">
+          <span>Setor</span>
+          <select value={setorConfiguracao} onChange={(event) => setSetorConfiguracao(event.target.value as 'geral' | 'cobrideira')} className="h-10 rounded-md border border-border bg-background px-3">
+            <option value="geral">Configurações gerais</option>
+            <option value="cobrideira">Cobrideira</option>
+          </select>
+        </label>
+      </Panel>
+      {setorConfiguracao === 'cobrideira' && (
+        <Panel title="Cobrideira · Operadores e turnos" description="Cadastre os nomes que aparecerão no formulário da bobina e defina o turno de cada operador.">
+          <form onSubmit={salvarOperadorCobrideira} className="mb-4 grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_180px_auto]">
+            <label className="grid gap-1 text-sm"><span>Nome do operador</span><input value={nomeOperadorCobrideira} onChange={(event) => setNomeOperadorCobrideira(event.target.value)} maxLength={120} required className="h-10 rounded-md border border-border bg-background px-3" placeholder="Ex.: JOSÉ" /></label>
+            <label className="grid gap-1 text-sm"><span>Turno</span><select value={turnoOperadorCobrideira} onChange={(event) => setTurnoOperadorCobrideira(event.target.value as '1º TURNO' | '2º TURNO')} className="h-10 rounded-md border border-border bg-background px-3"><option value="1º TURNO">1º TURNO</option><option value="2º TURNO">2º TURNO</option></select></label>
+            <button type="submit" className="self-end inline-flex h-10 items-center justify-center gap-2 rounded-md bg-foreground px-4 text-sm font-semibold text-background"><Plus className="size-4" /> Adicionar</button>
+          </form>
+          {carregandoOperadoresCobrideira ? <p className="py-4 text-sm text-muted-foreground">Carregando operadores...</p> : (
+            <div className="grid gap-2">
+              {operadoresCobrideira.map((operador) => (
+                <div key={operador.nome} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3">
+                  <strong>{operador.nome}</strong>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor={`dev-cob-turno-${operador.nome}`} className="text-xs text-muted-foreground">Turno</label>
+                    <select id={`dev-cob-turno-${operador.nome}`} value={operador.turno} onChange={(event) => void atualizarTurnoOperadorCobrideira(operador.nome, event.target.value as '1º TURNO' | '2º TURNO')} className="h-9 rounded-md border border-border bg-background px-2 text-sm"><option value="1º TURNO">1º TURNO</option><option value="2º TURNO">2º TURNO</option></select>
+                    <button type="button" onClick={() => void excluirOperadorCobrideira(operador.nome)} aria-label={`Remover operador ${operador.nome}`} className="rounded-md p-2 text-destructive hover:bg-destructive/10"><Trash2 className="size-4" /></button>
+                  </div>
+                </div>
+              ))}
+              {operadoresCobrideira.length === 0 && <p className="py-4 text-sm text-muted-foreground">Nenhum operador cadastrado.</p>}
+            </div>
+          )}
+        </Panel>
+      )}
+
       {loading && <p className="text-sm text-muted-foreground">Carregando configurações...</p>}
 
       {!loading && data && (
