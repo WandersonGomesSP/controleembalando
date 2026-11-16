@@ -80,7 +80,7 @@ function Painel({ onChangeArea }: { onChangeArea: () => void }) {
                     Tubeteira
                   </h1>
                   <p className="text-xs text-muted-foreground">
-                    Tubeteira · Produção e estoque
+                    Produção e estoque
                   </p>
                 </div>
               </div>
