@@ -354,7 +354,7 @@ export function AccessGate({
   }
 
   if (activeUser && access && area === 'cobrideira' && areasPermitidas.some((entry) => entry.id === area)) {
-    return <>{children(() => setArea(null), area, isDeveloper)}</>
+    return <>{children(returnToAreas, area, isDeveloper)}</>
   }
 
   if (activeUser && access && area && areasPermitidas.some((entry) => entry.id === area)) {
