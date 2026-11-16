@@ -109,7 +109,8 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
     : 18
   const verticalSpan = lineHeight * Math.max(0, prepared.length - 1)
   const maiorFonte = Math.max(...prepared.map((item) => item.size), 13)
-  let y = (360 + verticalSpan - maiorFonte * 0.5) / 2
+  // Ancora a última linha próximo à borda inferior para evitar faixa branca após a validade.
+  let y = verticalSpan + 6
 
   for (const item of prepared) {
     const { line, size, prefixWidth, valueWidth, width } = item
