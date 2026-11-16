@@ -618,6 +618,20 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   }, [])
 
   React.useEffect(() => {
+    const ids = Array.from(new Set(registros.map((registro) => registro.created_by).filter(Boolean)))
+    if (ids.length === 0) return
+    let ativa = true
+    void supabase.from('stock_operation_logs').select('ator_id, ator_email').in('ator_id', ids).not('ator_email', 'is', null)
+      .then(({ data, error }) => {
+        if (!ativa || error || !data) return
+        const mapa: Record<string, string> = {}
+        for (const item of data) if (item.ator_id && item.ator_email) mapa[item.ator_id] = item.ator_email
+        setEmailsCriadores((atual) => ({ ...atual, ...mapa }))
+      })
+    return () => { ativa = false }
+  }, [registros])
+
+  React.useEffect(() => {
     let ativa = true
     consultarRegistros()
       .then((data) => {
@@ -1556,7 +1570,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                     return (
                       <label key={campo} className="grid gap-1 text-xs font-semibold">
                         {label}
-                        <select value={filtrosColunas[campo] ?? ''} onChange={(event) => setFiltrosColunas((atuais) => ({ ...atuais, [campo]: event.target.value })); setPaginaRegistros(0)} className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-2 text-sm font-normal text-black">
+                        <select value={filtrosColunas[campo] ?? ''} onChange={(event) => { setFiltrosColunas((atuais) => ({ ...atuais, [campo]: event.target.value })); setPaginaRegistros(0) }} className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-2 text-sm font-normal text-black">
                           <option value="">Todos</option>
                           {opcoes.map((opcao) => <option key={opcao} value={opcao}>{campo === 'data' ? formatarData(opcao) : opcao}</option>)}
                         </select>
@@ -1694,7 +1708,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {registrosOrdenados.map((registro) => {
+                    {registrosPagina.map((registro) => {
                       const expandido = registrosExpandidos.has(registro.numero_bobina)
                       const detalhes: [string, string | number][] = [
                         ['Cód. bobina', registro.cod_bob], ['Data', formatarData(registro.data)],
