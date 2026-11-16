@@ -23,9 +23,9 @@ import { CobrideiraArea } from '@/components/painel/cobrideira-area'
 export const Route = createFileRoute('/')({
   component: () => (
     <AccessGate>
-      {(onChangeArea, area) =>
+      {(onChangeArea, area, isDeveloper) =>
         area === 'cobrideira' ? (
-          <CobrideiraArea onChangeArea={onChangeArea} />
+          <CobrideiraArea onChangeArea={onChangeArea} isDeveloper={isDeveloper} />
         ) : (
           <Painel onChangeArea={onChangeArea} />
         )
