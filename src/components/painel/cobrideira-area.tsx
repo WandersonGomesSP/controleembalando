@@ -409,6 +409,9 @@ function CampoDecimal({
 export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChangeArea: () => void; isDeveloper?: boolean }) {
   const [secao, setSecao] = React.useState<Secao>('cadastro')
   const [form, setForm] = React.useState(formularioInicial)
+  React.useEffect(() => {
+    setForm((atual) => ({ ...atual, ...lerCamposReutilizaveis() }))
+  }, [])
   const [registros, setRegistros] = React.useState<CobrideiraBobinaRow[]>([])
   const [operadores, setOperadores] = React.useState<OperadorCobrideira[]>([])
   const [novoOperador, setNovoOperador] = React.useState('')
@@ -943,7 +946,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         toast.success('Bobina cadastrada. Etiqueta PDF baixada.')
       }
       setEditandoNumero(null)
-      setForm(formularioInicial())
+      setForm({ ...formularioInicial(), ...lerCamposReutilizaveis() })
       setSecao('registros')
     } catch (error: unknown) {
       console.error('[COBRIDEIRA] Erro real ao ' + (editandoNumero ? 'editar' : 'cadastrar') + ' bobina', {
