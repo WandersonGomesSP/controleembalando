@@ -67,7 +67,7 @@ function formatarPeso(value: number) {
 function buildPdf(bobina: CobrideiraBobinaRow) {
   const commands: string[] = []
   const x = 0
-  let y = 346
+  let y = 344
   const lineHeight = 17.2
 
   for (const line of labelLines(bobina)) {
