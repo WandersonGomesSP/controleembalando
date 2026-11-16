@@ -108,7 +108,11 @@ function numeroCSV(valor: string): number | null {
 
 function dataCSV(valor: string): string {
   const v = valor.trim()
-  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    const [ano, mes, dia] = v.split('-').map(Number)
+    const data = new Date(Date.UTC(ano, mes - 1, dia))
+    return data.getUTCFullYear() === ano && data.getUTCMonth() === mes - 1 && data.getUTCDate() === dia ? v : ''
+  }
   const br = v.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/)
   if (br) {
     const ano = br[3].length === 2 ? `20${br[3]}` : br[3]
