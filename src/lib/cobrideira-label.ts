@@ -57,7 +57,7 @@ function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
   ]
   return linhas.flatMap((linha) => linha.value !== undefined
     ? [linha]
-    : quebrarTexto(linha.text, linha.size ? 35 : 52).map((text) => ({ ...linha, text })))
+    : quebrarTexto(linha.text, linha.size ? 33 : 41).map((text) => ({ ...linha, text })))
 }
 
 function formatarPeso(value: number) {
