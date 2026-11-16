@@ -11,7 +11,7 @@ function pdfTextHex(value: string) {
 }
 
 function quebrarTexto(texto: string, maxCaracteres = 37) {
-  const palavras = texto.split(/\\s+/)
+  const palavras = texto.split(/\s+/)
   const linhas: string[] = []
   let atual = ''
   for (const palavra of palavras) {
@@ -31,7 +31,7 @@ function quebrarTexto(texto: string, maxCaracteres = 37) {
 }
 
 function labelLines(bobina: CobrideiraBobinaRow): LabelLine[] {
-  const turno = String(bobina.turno ?? '').replace(/\\s*TURNO\\s*/i, '').trim()
+  const turno = String(bobina.turno ?? '').replace(/\s*TURNO\s*/i, '').trim()
   const pigmento = [bobina.cor_mistura, bobina.pigmento_mistura].filter(Boolean).join(' / ')
   const pesoPigmento = Number(bobina.pigmento_kg) > 0
     ? ` / PESO: ${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(Number(bobina.pigmento_kg))}`
