@@ -481,29 +481,22 @@ export const moveCobrideiraBobinaToTrash = createServerFn({ method: 'POST' })
       .schema('cobrideira').from('bobinas').select('*')
       .eq('numero_bobina', data.numeroBobina).maybeSingle()
     if (readError || !bobina) throw new Error('Bobina não encontrada no cadastro ativo.')
-    const { data: arquivada, error: trashReadError } = await client.schema('cobrideira')
-      .from('bobinas_lixeira').select('numero_bobina')
-      .eq('numero_bobina', data.numeroBobina).maybeSingle()
-    if (trashReadError) throw new Error('Não foi possível verificar a lixeira antes da movimentação.')
-
-    let novoArquivo = false
-    if (!arquivada) {
-      const { error: archiveError } = await client.schema('cobrideira')
-        .from('bobinas_lixeira')
-        .insert({ numero_bobina: data.numeroBobina, dados: bobina, excluida_por: user.id })
-      if (archiveError && archiveError.code !== '23505') {
-        throw new Error(`Não foi possível mover a bobina para a lixeira: ${archiveError.message}`)
-      }
-      novoArquivo = !archiveError
-    }
+    // Upsert substitui uma cópia antiga da mesma bobina na lixeira pelo estado ativo atual.
+    // Isso evita a chave duplicada e garante que a versão mais recente seja a arquivada.
+    const { error: archiveError } = await client.schema('cobrideira')
+      .from('bobinas_lixeira')
+      .upsert({
+        numero_bobina: data.numeroBobina,
+        dados: bobina,
+        excluida_por: user.id,
+        excluida_em: new Date().toISOString(),
+      }, { onConflict: 'numero_bobina' })
+    if (archiveError) throw new Error(`Não foi possível atualizar a bobina na lixeira: ${archiveError.message}`)
 
     const { error: deleteError, count } = await client.schema('cobrideira').from('bobinas')
       .delete({ count: 'exact' }).eq('numero_bobina', data.numeroBobina)
     if (deleteError || count === 0) {
-      if (novoArquivo) {
-        await client.schema('cobrideira').from('bobinas_lixeira').delete().eq('numero_bobina', data.numeroBobina)
-      }
-      throw new Error(`Não foi possível concluir a movimentação da bobina: ${deleteError?.message ?? 'o registro ativo não foi removido'}`)
+      throw new Error(`A cópia foi atualizada na lixeira, mas o cadastro ativo não foi removido: ${deleteError?.message ?? 'o registro ativo não foi removido'}`)
     }
     return { success: true }
   })
