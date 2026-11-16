@@ -274,20 +274,45 @@ const FORNECEDORES_FILME = ['INNOVA', 'TITAN', 'JHP']
 const VARETAS = ['16', '18', '20', '22', '26', '28']
 const LINHAS = ['Padrão', 'Personalizada', 'Impressa Linha']
 
-type CampoFiltro = 'numero_bobina' | 'data' | 'cod_bob' | 'fornecedor_filme' | 'largura' | 'peso_liquido' | 'metragem'
+type CampoFiltro = keyof CobrideiraBobinaRow | 'largura_completa'
 const CAMPOS_FILTRO: { campo: CampoFiltro; label: string }[] = [
   { campo: 'numero_bobina', label: 'Nº Bobina' },
-  { campo: 'data', label: 'Data' },
+  { campo: 'data', label: 'Data de produção' },
   { campo: 'cod_bob', label: 'Código da bobina' },
-  { campo: 'fornecedor_filme', label: 'Fornecedor' },
+  { campo: 'operador', label: 'Operador' },
+  { campo: 'aba', label: 'Aba / período' },
+  { campo: 'material', label: 'Material' },
+  { campo: 'largura_completa', label: 'Largura completa' },
   { campo: 'largura', label: 'Largura' },
+  { campo: 'micragem', label: 'Micragem' },
+  { campo: 'peso_bruto', label: 'Peso bruto' },
+  { campo: 'peso_final', label: 'Peso final' },
+  { campo: 'peso_cilindro', label: 'Peso do cilindro' },
   { campo: 'peso_liquido', label: 'Peso líquido' },
   { campo: 'metragem', label: 'Metragem' },
+  { campo: 'perda_kg', label: 'Perda (kg)' },
+  { campo: 'fornecedor_filme', label: 'Fornecedor do filme' },
+  { campo: 'vareta_g', label: 'Vareta (g)' },
+  { campo: 'kg_cola', label: 'Cola (kg)' },
+  { campo: 'lote_cola', label: 'Lote da cola' },
+  { campo: 'codigo_interno', label: 'Código interno da cola' },
+  { campo: 'fornecedor_cola', label: 'Fornecedor da cola' },
+  { campo: 'turno', label: 'Turno' },
+  { campo: 'linha', label: 'Linha' },
+  { campo: 'cor_fundo', label: 'Cor de fundo' },
+  { campo: 'pigmento_kg', label: 'Pigmento (kg)' },
+  { campo: 'cor_mistura', label: 'Cor da mistura' },
+  { campo: 'pigmento_mistura', label: 'Pigmento da mistura' },
+  { campo: 'cliente', label: 'Cliente' },
+  { campo: 'cor_impressao', label: 'Cor de impressão' },
+  { campo: 'emenda', label: 'Emenda' },
+  { campo: 'codigo_emenda', label: 'Código da emenda' },
+  { campo: 'created_by', label: 'Cadastrado por' },
+  { campo: 'created_at', label: 'Data de cadastro' },
 ]
 
 function valorFiltro(registro: CobrideiraBobinaRow, campo: CampoFiltro) {
-  if (campo === 'largura') return `${registro.largura}.${String(registro.micragem).padStart(2, '0')}`
-  if (campo === 'peso_liquido') return String(registro.peso_liquido)
+  if (campo === 'largura_completa') return `${registro.largura}.${String(registro.micragem).padStart(2, '0')}`
   return String(registro[campo] ?? '')
 }
 
