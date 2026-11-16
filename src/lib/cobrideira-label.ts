@@ -79,7 +79,7 @@ function larguraTexto(texto: string, tamanho: number) {
 function buildPdf(bobina: CobrideiraBobinaRow) {
   const commands: string[] = []
   const lines = labelLines(bobina)
-  const horizontalPadding = 8.5
+  const horizontalPadding = 9.92
   const maxWidth = 290 - horizontalPadding
   const prepared = lines.map((line) => {
     const requestedSize = line.size ?? 13
@@ -108,15 +108,15 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
     if (line.value !== undefined) {
       commands.push('0 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
-      const folga = size * 0.278 * 3
-      commands.push(`0 g ${x + prefixWidth - folga} ${y - 3} ${valueWidth + folga * 2} 18 re f`)
+      const folgaDireita = size * 0.278
+      commands.push(`0 g ${x + prefixWidth} ${y - 3} ${valueWidth + folgaDireita} 18 re f`)
       commands.push('1 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x + prefixWidth} ${y} Tm <${pdfTextHex(line.value)}> Tj ET`)
       commands.push('0 g')
     } else {
       if (line.highlight) {
-        const folga = size * 0.278 * 3
-        commands.push(`0 g ${x - folga} ${y - 3} ${width + folga * 2} 18 re f`, '1 g')
+        const folgaDireita = size * 0.278 * 10
+        commands.push(`0 g ${x} ${y - 3} ${width + folgaDireita} 18 re f`, '1 g')
       } else commands.push('0 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
       if (line.highlight) commands.push('0 g')
