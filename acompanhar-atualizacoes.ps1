@@ -37,7 +37,7 @@ $server = Start-DevServer
 $lastHead = Get-Head
 try {
   while ($true) {
-    Start-Sleep -Seconds 45
+    Start-Sleep -Seconds 5
     if ($server.HasExited) {
       Write-Host "O servidor foi encerrado. Iniciando novamente..." -ForegroundColor Yellow
       $server = Start-DevServer
