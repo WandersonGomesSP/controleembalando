@@ -432,6 +432,8 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
 
       {!loading && data && (
         <>
+          {setorConfiguracao === 'geral' && (
+            <>
           <Panel
             title="Sincronização com Google Sheets"
             description="Atualização automática de segunda a sexta-feira às 06h (horário de São Paulo)."
@@ -684,6 +686,8 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
               </table>
             </div>
           </Panel>
+            </>
+          )}
         </>
       )}
     </div>
