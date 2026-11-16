@@ -366,13 +366,11 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
         const codigoBruto = codeColumn < 0 ? '' : String(alignedRow[codeColumn] ?? '').trim().toLocaleUpperCase('pt-BR')
         if (codigoBruto && grossColumn >= 0) {
           if (codigosComPesoNaPlanilha.has(codigoBruto)) {
+            // O peso bruto já foi registrado em outra bobina/guia.
             alignedRow[grossColumn] = ''
-          } else {
-            const pesoConhecido = pesoBrutoPorCodigo.get(codigoBruto)
-            if (pesoConhecido !== undefined) {
-              alignedRow[grossColumn] = pesoConhecido
-              codigosComPesoNaPlanilha.add(codigoBruto)
-            }
+          } else if (Number(alignedRow[grossColumn]) > 0) {
+            // Preserva o peso da primeira bobina deste código; as próximas ficam vazias.
+            codigosComPesoNaPlanilha.add(codigoBruto)
           }
         }
         lastUsedRow += 1
