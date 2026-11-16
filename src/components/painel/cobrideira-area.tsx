@@ -166,51 +166,60 @@ function prepararLinhaCSV(cabecalhos: string[], valores: string[], linha: number
   let largura = numeroCSV(larguraOriginal)
   let micragem = numeroCSV(obter('micragem'))
   if (larguraOriginal && micragem === null) {
-    const medida = larguraOriginal.match(/^(\\d+)[,.](\\d{1,2})$/)
-    if (medida) { largura = Number(medida[1]); micragem = Number(medida[2].padEnd(2, '0')) }
+    const milhar = larguraOriginal.match(/^(\d{1,3})\.(\d{3}),(\d{1,2})$/)
+    const medida = larguraOriginal.match(/^(\d+)[,.](\d{1,2})$/)
+    if (milhar) {
+      largura = Number(milhar[1] + milhar[2])
+      micragem = Number(milhar[3].padEnd(2, '0'))
+    } else if (medida) {
+      largura = Number(medida[1])
+      micragem = Number(medida[2].padEnd(2, '0'))
+    }
   }
+  micragem ??= 20
   const data = dataCSV(obter('data'))
+  const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  const abaAutomatica = data ? meses[Number(data.slice(5, 7)) - 1] + '/' + data.slice(2, 4) : ''
   const numeroBobina = texto('numero_bobina')
-  const erros: string[] = []
-  if (!numeroBobina) erros.push('Número da bobina ausente')
-  if (!texto('cod_bob')) erros.push('Código da bobina ausente')
-  if (!data) erros.push('Data inválida ou ausente (use DD/MM/AAAA ou AAAA-MM-DD)')
-  if (!texto('aba')) erros.push('Aba/período ausente')
-  if (!texto('material')) erros.push('Material ausente')
-  if (largura === null || largura <= 0) erros.push('Largura inválida')
-  if (micragem === null || micragem <= 0) erros.push('Micragem ausente ou inválida')
-  if (numerico('peso_bruto') <= 0) erros.push('Peso bruto inválido')
-  if (numerico('peso_final') <= 0) erros.push('Peso final inválido')
-  if (numerico('peso_cilindro') < 0) erros.push('Peso do cilindro inválido')
-  if (numerico('metragem') <= 0) erros.push('Metragem inválida')
-  if (!texto('fornecedor_filme')) erros.push('Fornecedor do filme ausente')
-  if (numerico('vareta_g') <= 0) erros.push('Vareta inválida')
-  if (!texto('turno')) erros.push('Turno ausente')
-  if (!texto('linha')) erros.push('Linha ausente')
-  if (!texto('cor_fundo')) erros.push('Cor de fundo ausente')
+  const larguraInteira = Math.trunc(largura ?? 0)
+  const cilindroPadrao = larguraInteira >= 1260 ? 5 : larguraInteira >= 1100 ? 4.8 : larguraInteira > 0 ? 3 : 0
+  const micragemInteira = Math.trunc(micragem)
+  const varetaPadrao = micragemInteira === 25 ? 22 : micragemInteira === 28 ? 28 : 18
+  const vareta = Math.trunc(numerico('vareta_g', varetaPadrao))
+  const turnoOriginal = texto('turno', '1º TURNO')
+  const turnoNormalizado = normalizarCabecalhoCSV(turnoOriginal)
+  const turno = ['2', 'segundo', 'segundoturno'].some((v) => turnoNormalizado.includes(v)) ? '2º TURNO'
+    : ['1', 'primeiro', 'primeiroturno'].some((v) => turnoNormalizado.includes(v)) ? '1º TURNO'
+    : turnoOriginal
+  const linhaOriginal = texto('linha', 'Padrão')
+  const linhaNormalizada = normalizarCabecalhoCSV(linhaOriginal)
+  const linhaValor = linhaNormalizada === 'padrao' ? 'Padrão'
+    : linhaNormalizada === 'personalizada' ? 'Personalizada'
+    : linhaNormalizada === 'impressalinha' ? 'Impressa Linha'
+    : linhaOriginal
   const emendaTexto = normalizarCabecalhoCSV(texto('emenda'))
   const bobina: CobrideiraBobinaInsert = {
     numero_bobina: numeroBobina,
     cod_bob: texto('cod_bob'),
     data,
-    aba: texto('aba'),
-    material: texto('material'),
-    largura: Math.trunc(largura ?? 0),
-    micragem: Math.trunc(micragem ?? 20),
+    aba: texto('aba', abaAutomatica),
+    material: texto('material', 'BOPP'),
+    largura: larguraInteira,
+    micragem: micragemInteira,
     peso_bruto: numerico('peso_bruto'),
     peso_final: numerico('peso_final'),
-    peso_cilindro: numerico('peso_cilindro'),
+    peso_cilindro: numerico('peso_cilindro', cilindroPadrao),
     metragem: Math.trunc(numerico('metragem')),
     perda_kg: numerico('perda_kg'),
-    fornecedor_filme: texto('fornecedor_filme'),
-    vareta_g: Math.trunc(numerico('vareta_g')),
+    fornecedor_filme: texto('fornecedor_filme', 'INNOVA'),
+    vareta_g: vareta,
     kg_cola: numerico('kg_cola'),
     lote_cola: texto('lote_cola'),
     codigo_interno: texto('codigo_interno'),
     fornecedor_cola: texto('fornecedor_cola'),
-    turno: texto('turno'),
-    linha: texto('linha'),
-    cor_fundo: texto('cor_fundo'),
+    turno,
+    linha: linhaValor,
+    cor_fundo: texto('cor_fundo', 'CRISTAL'),
     pigmento_kg: numerico('pigmento_kg'),
     cor_mistura: texto('cor_mistura'),
     pigmento_mistura: texto('pigmento_mistura'),
@@ -219,8 +228,24 @@ function prepararLinhaCSV(cabecalhos: string[], valores: string[], linha: number
     emenda: ['sim', 's', '1', 'true', 'yes'].includes(emendaTexto),
     codigo_emenda: texto('codigo_emenda'),
   }
+  const erros: string[] = []
+  if (!bobina.numero_bobina) erros.push('Número da bobina ausente')
+  if (!bobina.cod_bob) erros.push('Código da bobina ausente')
+  if (!bobina.data) erros.push('Data inválida ou ausente (use DD/MM/AAAA ou AAAA-MM-DD)')
+  if (!bobina.aba) erros.push('Aba/período ausente e não foi possível derivá-lo da data')
+  if (!bobina.material) erros.push('Material ausente')
+  if (bobina.largura <= 0) erros.push('Largura inválida')
+  if (bobina.micragem <= 0) erros.push('Micragem inválida')
+  if (bobina.peso_bruto <= 0) erros.push('Peso bruto inválido')
+  if (bobina.peso_final <= 0) erros.push('Peso final inválido')
+  if (bobina.peso_cilindro < 0 || bobina.peso_final <= bobina.peso_cilindro) erros.push('Peso do cilindro/peso final inválido')
+  if (bobina.metragem <= 0) erros.push('Metragem inválida')
+  if (!bobina.fornecedor_filme) erros.push('Fornecedor do filme ausente')
+  if (![16, 18, 20, 22, 26, 28].includes(bobina.vareta_g)) erros.push('Vareta deve ser 16, 18, 20, 22, 26 ou 28 g')
+  if (!['1º TURNO', '2º TURNO'].includes(bobina.turno)) erros.push('Turno deve ser 1º TURNO ou 2º TURNO')
+  if (!['Padrão', 'Personalizada', 'Impressa Linha'].includes(bobina.linha)) erros.push('Linha deve ser Padrão, Personalizada ou Impressa Linha')
+  if (!bobina.cor_fundo) erros.push('Cor de fundo ausente')
   if (bobina.emenda && !bobina.codigo_emenda) erros.push('Código da emenda ausente')
-  if (bobina.peso_final <= bobina.peso_cilindro) erros.push('Peso final deve ser maior que o peso do cilindro')
   return { linha, bobina: erros.length ? null : bobina, erro: erros.length ? erros.join('; ') : null }
 }
 
