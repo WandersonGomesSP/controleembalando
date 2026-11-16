@@ -1237,6 +1237,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                           value={form.turno}
                           onChange={(e) => atualizar('turno', e.target.value)}
                           options={['1º TURNO', '2º TURNO']}
+                          disabled
                         />
                       </Field>
                       <Field label="Linha" htmlFor="cb-linha">
