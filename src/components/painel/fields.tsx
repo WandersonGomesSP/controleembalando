@@ -29,8 +29,25 @@ export function Field({
   )
 }
 
-export function TextInput({ className, autoComplete = 'off', ...props }: React.ComponentProps<'input'>) {
-  return <input autoComplete={autoComplete} className={cn(fieldClass, className)} {...props} />
+export function TextInput({
+  className,
+  autoComplete = 'off',
+  onPointerDown,
+  ...props
+}: React.ComponentProps<'input'>) {
+  return (
+    <input
+      autoComplete={autoComplete}
+      className={cn(fieldClass, 'relative z-10 pointer-events-auto touch-manipulation', className)}
+      onPointerDown={(event) => {
+        onPointerDown?.(event)
+        if (!event.defaultPrevented && !event.currentTarget.disabled && !event.currentTarget.readOnly) {
+          event.currentTarget.focus({ preventScroll: true })
+        }
+      }}
+      {...props}
+    />
+  )
 }
 
 export function SelectInput({
