@@ -189,20 +189,30 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
     allRows('stock_operation_logs', (start, end) =>
       client.from('stock_operation_logs').select('*').order('id', { ascending: false }).range(start, end),
     ),
-    allRows('cobrideira.bobinas', (start, end) => {
-      let query = client.schema('cobrideira').from('bobinas').select('*')
-      if (numeroBobina) query = query.eq('numero_bobina', numeroBobina)
-      if (dataInicio) {
-        query = query.gte('created_at', new Date(`${dataInicio}T00:00:00-03:00`).toISOString())
-      }
-      if (dataFim) {
-        const exclusiveEnd = new Date(`${dataFim}T00:00:00-03:00`)
-        exclusiveEnd.setUTCDate(exclusiveEnd.getUTCDate() + 1)
-        query = query.lt('created_at', exclusiveEnd.toISOString())
-      }
-      return query.order('created_at').order('numero_bobina').range(start, end)
-    }),
+    allRows('cobrideira.bobinas', (start, end) =>
+      client.schema('cobrideira').from('bobinas').select('*')
+        .order('created_at').order('numero_bobina').range(start, end),
+    ),
   ])
+  // Carrega todas as bobinas para identificar a matéria-prima única por código,
+  // mas mantém o filtro solicitado para decidir quais registros serão sincronizados.
+  const bobinasTodas = bobinas
+  const inicioFiltro = dataInicio ? new Date(`${dataInicio}T00:00:00-03:00`).getTime() : null
+  const fimFiltro = dataFim ? new Date(`${dataFim}T00:00:00-03:00`) : null
+  if (fimFiltro) fimFiltro.setUTCDate(fimFiltro.getUTCDate() + 1)
+  const bobinasSelecionadas = bobinasTodas.filter((row) => {
+    if (numeroBobina) return row.numero_bobina === numeroBobina
+    const criadoEm = new Date(row.created_at).getTime()
+    return (inicioFiltro === null || criadoEm >= inicioFiltro) &&
+      (fimFiltro === null || criadoEm < fimFiltro.getTime())
+  })
+  const primeiraBobinaPorCodigo = new Map<string, string>()
+  for (const row of bobinasTodas) {
+    const codigo = String(row.cod_bob ?? '').trim().toLocaleUpperCase('pt-BR')
+    if (codigo && Number(row.peso_bruto) > 0 && !primeiraBobinaPorCodigo.has(codigo)) {
+      primeiraBobinaPorCodigo.set(codigo, row.numero_bobina)
+    }
+  }
 
   const rollRows: (string | number)[][] = [[
     'Tipo', 'Código', 'Medida / categoria', 'Peso líquido (kg)', 'Validade',
@@ -272,10 +282,14 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
     'PESO DO CILINDRO (KG)', 'PESO FINAL BOB. (KG)', 'PESO LÍQ. (KG)',
   ]
   const bobinaRows: (string | number)[][] = [bobinaHeaders]
-  for (const row of bobinas) {
+  for (const row of bobinasSelecionadas) {
+    const codigo = String(row.cod_bob ?? '').trim().toLocaleUpperCase('pt-BR')
+    const pesoBrutoUnico = !codigo || primeiraBobinaPorCodigo.get(codigo) === row.numero_bobina
+      ? Number(row.peso_bruto)
+      : ''
     bobinaRows.push([
       dataBR(row.data), row.numero_bobina, row.material, Number(row.largura), Number(row.micragem),
-      Number(row.peso_bruto), '', Number(row.perda_kg), row.fornecedor_filme,
+      pesoBrutoUnico, '', Number(row.perda_kg), row.fornecedor_filme,
       row.cod_bob, Number(row.vareta_g), Number(row.kg_cola), row.lote_cola,
       row.fornecedor_cola, row.codigo_interno, row.linha, row.cor_fundo,
       Number(row.pigmento_kg), row.cor_mistura, row.pigmento_mistura,
@@ -286,8 +300,8 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
   }
 
   const bobinaSheets = new Map<string, (string | number)[][]>()
-  for (let index = 0; index < bobinas.length; index += 1) {
-    const periodo = String(bobinas[index].aba ?? '').trim() || 'Sem período'
+  for (let index = 0; index < bobinasSelecionadas.length; index += 1) {
+    const periodo = String(bobinasSelecionadas[index].aba ?? '').trim() || 'Sem período'
     // Preserva a barra no nome da guia (ex.: Nov/26). O Google Sheets permite "/".
     // Normaliza somente caracteres que não são aceitos em títulos de guias.
     const title = periodo.replace(/[:?*\[\]\\]/g, '-').slice(0, 100) || 'Sem período'
