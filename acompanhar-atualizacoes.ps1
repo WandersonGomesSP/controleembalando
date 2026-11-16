@@ -8,7 +8,7 @@ function Start-DevServer {
   Write-Host "Iniciando o sistema em http://localhost:3000 ..." -ForegroundColor Green
   $p = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npm run dev" -WorkingDirectory $PSScriptRoot -PassThru -NoNewWindow
   Start-Sleep -Seconds 8
-  Start-Process "http://localhost:3000"
+  Write-Host "Servidor iniciado. O navegador nao sera aberto automaticamente." -ForegroundColor Gray
   return $p
 }
 
