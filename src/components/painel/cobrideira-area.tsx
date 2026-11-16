@@ -1056,7 +1056,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               title={editandoNumero ? `Editar bobina · ${editandoNumero}` : 'Cadastro de produção · nova bobina'}
               description="Preencha os dados da bobina. O peso líquido é calculado pelo peso final menos o peso do cilindro."
             >
-              <form onSubmit={salvar} className="grid gap-6">
+              <form onSubmit={salvar} autoComplete="off" className="grid gap-6">
                 <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <Field label="Número da bobina" htmlFor="cb-numero-bobina">
                     <TextInput
