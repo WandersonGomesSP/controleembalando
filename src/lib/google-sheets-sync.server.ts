@@ -207,10 +207,12 @@ async function loadSheetData(client: ReturnType<typeof createClient<Database>>, 
       (fimFiltro === null || criadoEm < fimFiltro.getTime())
   })
   const primeiraBobinaPorCodigo = new Map<string, string>()
+  const pesoBrutoPorCodigo = new Map<string, number>()
   for (const row of bobinasTodas) {
     const codigo = String(row.cod_bob ?? '').trim().toLocaleUpperCase('pt-BR')
-    if (codigo && Number(row.peso_bruto) > 0 && !primeiraBobinaPorCodigo.has(codigo)) {
-      primeiraBobinaPorCodigo.set(codigo, row.numero_bobina)
+    if (codigo && Number(row.peso_bruto) > 0) {
+      if (!primeiraBobinaPorCodigo.has(codigo)) primeiraBobinaPorCodigo.set(codigo, row.numero_bobina)
+      if (!pesoBrutoPorCodigo.has(codigo)) pesoBrutoPorCodigo.set(codigo, Number(row.peso_bruto))
     }
   }
 
@@ -425,6 +427,34 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
   const newlyCreatedTitles = new Set(missingSheets.map((request) =>
     (request as { addSheet: { properties: { title: string } } }).addSheet.properties.title
   ))
+  // Lê as guias mensais existentes para impedir que o peso da mesma bobina crua
+  // seja repetido em outra guia quando a sincronização for feita em etapas.
+  const existingRowsByTitle = new Map<string, (string | number)[][]>()
+  const codigosComPesoNaPlanilha = new Set<string>()
+  const normalizeHeader = (value: unknown) => String(value ?? '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, '').trim()
+  const titlesToCheck = refreshedMetadata.sheets
+    .map((entry) => entry.properties.title)
+    .filter((title) => bobinaSheetTitles.has(title) || /^[A-Za-zÀ-ÿ]{3}\/\d{2}$/.test(title))
+  for (const title of titlesToCheck) {
+    const readRange = `'${title.replace(/'/g, "''")}'!A:AZ`
+    const existing = await googleRequest<{ values?: (string | number)[][] }>(
+      `${spreadsheetUrl}/values/${encodeURIComponent(readRange)}`,
+      token,
+    )
+    const rows = existing.values ?? []
+    existingRowsByTitle.set(title, rows)
+    if (!rows.length) continue
+    const headers = rows[0].map(normalizeHeader)
+    const codeColumn = headers.indexOf(normalizeHeader('COD. BOBINA'))
+    const grossColumn = headers.indexOf(normalizeHeader('PESO BRUTO BOB.'))
+    if (codeColumn < 0 || grossColumn < 0) continue
+    for (const row of rows.slice(1)) {
+      const codigo = String(row[codeColumn] ?? '').trim().toLocaleUpperCase('pt-BR')
+      if (codigo && Number(row[grossColumn]) > 0) codigosComPesoNaPlanilha.add(codigo)
+    }
+  }
   const bobinaTemplate = refreshedMetadata.sheets.find((entry) =>
     /^[A-Za-zÀ-ÿ]{3}\/\d{2}$/.test(entry.properties.title) &&
     !newlyCreatedTitles.has(entry.properties.title)
@@ -445,12 +475,7 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
     // Bobinas: nunca limpar/regravar a guia. Acrescentar apenas números ainda ausentes,
     // respeitando a ordem real dos cabeçalhos já existentes.
     if (bobinaSheetTitles.has(sheet.title)) {
-      const readRange = `'${escapedTitle}'!A:AZ`
-      const existing = await googleRequest<{ values?: (string | number)[][] }>(
-        `${spreadsheetUrl}/values/${encodeURIComponent(readRange)}`,
-        token,
-      )
-      let existingRows = existing.values ?? []
+      let existingRows = existingRowsByTitle.get(sheet.title) ?? []
       if (!existingRows.length) {
         // Guia recém-criada: inicializa somente o cabeçalho antes de acrescentar os registros.
         const headerRange = `'${escapedTitle}'!A1:${columnLetter(sheet.rows[0].length)}1`
@@ -477,9 +502,6 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
           })
         }
       }
-      const normalizeHeader = (value: unknown) => String(value ?? '')
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, '').trim()
       const headers = existingRows[0].map(normalizeHeader)
       const numberColumn = headers.indexOf(normalizeHeader('N° BOB.'))
       if (numberColumn < 0) {
@@ -506,6 +528,20 @@ export async function syncGoogleSheets(dataInicio?: string, dataFim?: string, nu
           const sourceIndex = sourceHeaders.indexOf(header)
           return sourceIndex < 0 ? '' : sourceRow[sourceIndex] ?? ''
         })
+        const codeColumn = headers.indexOf(normalizeHeader('COD. BOBINA'))
+        const grossColumn = headers.indexOf(normalizeHeader('PESO BRUTO BOB.'))
+        const codigoBruto = codeColumn < 0 ? '' : String(alignedRow[codeColumn] ?? '').trim().toLocaleUpperCase('pt-BR')
+        if (codigoBruto && grossColumn >= 0) {
+          if (codigosComPesoNaPlanilha.has(codigoBruto)) {
+            alignedRow[grossColumn] = ''
+          } else {
+            const pesoConhecido = pesoBrutoPorCodigo.get(codigoBruto)
+            if (pesoConhecido !== undefined) {
+              alignedRow[grossColumn] = pesoConhecido
+              codigosComPesoNaPlanilha.add(codigoBruto)
+            }
+          }
+        }
         lastUsedRow += 1
         const targetRange = `'${escapedTitle}'!A${lastUsedRow}:${columnLetter(Math.max(1, headers.length))}${lastUsedRow}`
         // Antes de escrever, copia somente a formatação da linha imediatamente anterior.
