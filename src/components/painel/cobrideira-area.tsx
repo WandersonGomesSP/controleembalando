@@ -1128,7 +1128,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               Trocar setor
             </button>
           </div>
-          <nav aria-label="Menus da Cobrideira" className="grid grid-cols-3 gap-2 pb-3 sm:flex sm:flex-wrap">
+          <nav aria-label="Menus da Cobrideira" className="grid grid-cols-3 gap-2 pb-0 sm:flex sm:flex-wrap">
             <button
               type="button"
               aria-current={secao === 'cadastro' ? 'page' : undefined}
