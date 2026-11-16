@@ -66,6 +66,12 @@ type OperadorCobrideira = { nome: string; turno: '1º TURNO' | '2º TURNO' }
 
 type LinhaCSVPreparada = { linha: number; bobina: CobrideiraBobinaInsert | null; erro: string | null }
 
+function normalizarNumeroBobina(valor: string) {
+  const numero = valor.trim()
+  // Os códigos de seis dígitos usam zero à esquerda para formar o prefixo de dois dígitos.
+  return /^\d{6}$/.test(numero) ? numero.padStart(7, '0') : numero
+}
+
 function normalizarCabecalhoCSV(valor: string) {
   return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
 }
@@ -191,7 +197,7 @@ function prepararLinhaCSV(cabecalhos: string[], valores: string[], linha: number
   const data = dataCSV(obter('data'))
   const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
   const abaAutomatica = data ? meses[Number(data.slice(5, 7)) - 1] + '/' + data.slice(2, 4) : ''
-  const numeroBobina = texto('numero_bobina')
+  const numeroBobina = normalizarNumeroBobina(texto('numero_bobina'))
   const larguraInteira = Math.trunc(largura ?? 0)
   const cilindroPadrao = larguraInteira >= 1260 ? 5 : larguraInteira >= 1100 ? 4.8 : larguraInteira > 0 ? 3 : 0
   const micragemInteira = Math.trunc(micragem)
@@ -933,6 +939,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
 
   async function salvar(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const numeroBobinaNormalizado = normalizarNumeroBobina(form.numeroBobina)
     const codigoNormalizado = form.codBob.trim().toLocaleUpperCase('pt-BR')
     const pesoBrutoConhecido = [...registros]
       .filter((registro) =>
@@ -986,7 +993,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     setSalvando(true)
     try {
       const insercao: CobrideiraBobinaInsert = {
-        numero_bobina: form.numeroBobina,
+        numero_bobina: numeroBobinaNormalizado,
         operador: form.operador,
         cod_bob: form.codBob.trim(),
         data: form.data,
@@ -1122,7 +1129,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-[90rem] gap-6 px-4 py-6 sm:px-6 sm:py-8">
+      <main className="seu-container-branco mx-auto grid max-w-[90rem] gap-6 rounded-2xl px-4 py-6 sm:px-6 sm:py-8">
         {secao === 'cadastro' ? (
           <>
             <Panel
@@ -1140,6 +1147,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       autoComplete="off"
                       spellCheck={false}
                       onChange={(e) => atualizar('numeroBobina', e.target.value)}
+                      onBlur={(e) => atualizar('numeroBobina', normalizarNumeroBobina(e.target.value))}
                       required
                       maxLength={80}
                       readOnly={Boolean(editandoNumero)}
