@@ -147,6 +147,7 @@ export function AccessGate({
   children: (
     onChangeArea: () => void,
     area: 'tubeteira' | 'cobrideira',
+    isDeveloper: boolean,
   ) => React.ReactNode
 }) {
   const [screen, setScreen] = React.useState<Screen>('login')
@@ -334,7 +335,7 @@ export function AccessGate({
   }
 
   if (activeUser && access && area === 'tubeteira' && areasPermitidas.some((entry) => entry.id === area)) {
-    return <>{children(() => setArea(null), area)}</>
+    return <>{children(() => setArea(null), area, isDeveloper)}</>
   }
 
   if (activeUser && access && area === 'cobrideira' && areasPermitidas.some((entry) => entry.id === area)) {
