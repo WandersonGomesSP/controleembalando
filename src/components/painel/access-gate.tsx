@@ -226,6 +226,14 @@ export function AccessGate({
         if (!ativo) return
         const current = data?.[0]
         setAccess(error || !current ? null : (current as UserAccess))
+        if (!error && current) {
+          try {
+            const savedArea = localStorage.getItem('controleembalando-selected-area') as AreaId | null
+            const allowed = AREAS.some((entry) => entry.id === savedArea) &&
+              (current.role === 'DEVELOPER' || current.role === 'ADMIN' || current.area === savedArea)
+            if (savedArea && allowed) setArea(savedArea)
+          } catch { /* armazenamento local indisponível */ }
+        }
         if (error || !current) {
           setLoginError('Esta conta ainda não recebeu uma permissão de acesso.')
         }
@@ -306,11 +314,18 @@ export function AccessGate({
     setAccess(null)
     setAccessLoaded(true)
     setArea(null)
+    try { localStorage.removeItem('controleembalando-selected-area') } catch { /* armazenamento local indisponível */ }
     setScreen('login')
   }
 
   function chooseArea(nextArea: AreaId) {
     setArea(nextArea)
+    try { localStorage.setItem('controleembalando-selected-area', nextArea) } catch { /* armazenamento local indisponível */ }
+  }
+
+  function returnToAreas() {
+    setArea(null)
+    try { localStorage.removeItem('controleembalando-selected-area') } catch { /* armazenamento local indisponível */ }
   }
 
   if (screen === 'development' && activeUser && isDeveloper) {
@@ -335,7 +350,7 @@ export function AccessGate({
   }
 
   if (activeUser && access && area === 'tubeteira' && areasPermitidas.some((entry) => entry.id === area)) {
-    return <>{children(() => setArea(null), area, isDeveloper)}</>
+    return <>{children(returnToAreas, area, isDeveloper)}</>
   }
 
   if (activeUser && access && area === 'cobrideira' && areasPermitidas.some((entry) => entry.id === area)) {
@@ -348,7 +363,7 @@ export function AccessGate({
       <main className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-5 py-12 sm:px-8">
         <AccessButton
           type="button"
-          onClick={() => setArea(null)}
+          onClick={returnToAreas}
           className="mb-8 w-fit bg-secondary text-secondary-foreground hover:bg-accent"
         >
           <ArrowLeft className="size-4" /> Voltar às áreas
