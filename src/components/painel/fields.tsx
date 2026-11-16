@@ -33,12 +33,15 @@ export function TextInput({
   className,
   autoComplete = 'off',
   onPointerDown,
+  highlightValid = false,
   ...props
-}: React.ComponentProps<'input'>) {
+}: React.ComponentProps<'input'> & { highlightValid?: boolean }) {
+  const valorAtual = typeof props.value === 'string' ? props.value : typeof props.defaultValue === 'string' ? props.defaultValue : ''
+  const valorValido = highlightValid && valorAtual.trim().length > 0
   return (
     <input
       autoComplete={autoComplete}
-      className={cn(fieldClass, 'relative z-10 pointer-events-auto touch-manipulation', className)}
+      className={cn(fieldClass, 'relative z-10 pointer-events-auto touch-manipulation', valorValido && '!bg-emerald-50 !border-emerald-200', className)}
       onPointerDown={(event) => {
         onPointerDown?.(event)
         if (!event.defaultPrevented && !event.currentTarget.disabled && !event.currentTarget.readOnly) {
@@ -54,14 +57,19 @@ export function SelectInput({
   className,
   placeholder,
   options,
+  highlightValid = false,
   ...props
 }: React.ComponentProps<'select'> & {
   placeholder?: string
   options: (string | { value: string; label: string })[]
+  highlightValid?: boolean
 }) {
+  const valorAtual = typeof props.value === 'string' ? props.value : typeof props.defaultValue === 'string' ? props.defaultValue : ''
+  const opcoesValidas = options.map((option) => typeof option === 'string' ? option : option.value)
+  const valorValido = highlightValid && valorAtual.trim().length > 0 && opcoesValidas.includes(valorAtual)
   return (
     <div className="relative">
-      <select className={cn(fieldClass, 'cursor-pointer appearance-none pr-9', className)} {...props}>
+      <select className={cn(fieldClass, 'cursor-pointer appearance-none pr-9', valorValido && '!bg-emerald-50 !border-emerald-200', className)} {...props}>
         {placeholder && <option value="" disabled>{placeholder}</option>}
         {options.map((o) => (
           <option key={typeof o === 'string' ? o : o.value} value={typeof o === 'string' ? o : o.value}>
