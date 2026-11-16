@@ -93,7 +93,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const prepared = lines.map((line) => {
     const requestedSize = line.size ?? 13
     const text = line.value !== undefined ? line.text + line.value : line.text
-    const deslocamentoValor = line.value !== undefined ? requestedSize * 0.278 * 15 : 0
+    const deslocamentoValor = line.value !== undefined ? requestedSize * 0.278 * 5 : 0
     const textWidth = larguraTexto(text, requestedSize) + deslocamentoValor
     const size = textWidth > maxWidth ? requestedSize * maxWidth / textWidth : requestedSize
     const prefixWidth = line.value !== undefined ? larguraTexto(line.text, size) : 0
@@ -118,7 +118,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
     if (line.value !== undefined) {
       commands.push('0 g')
       commands.push(`BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm <${pdfTextHex(line.text)}> Tj ET`)
-      const deslocamentoValor = size * 0.278 * 15
+      const deslocamentoValor = size * 0.278 * 5
       const folgaDireita = size * 0.278 * 3
       const inicioValor = x + prefixWidth + deslocamentoValor
       commands.push(`0 g ${inicioValor} ${y - 3} ${valueWidth + folgaDireita} 18 re f`)
