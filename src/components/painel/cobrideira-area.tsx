@@ -32,6 +32,7 @@ import type {
 
 type FormularioBobina = {
   numeroBobina: string
+  operador: string
   codBob: string
   data: string
   aba: string
@@ -288,6 +289,7 @@ function abaMesAtual() {
 function formularioInicial(): FormularioBobina {
   return {
     numeroBobina: '',
+    operador: 'JOSÉ',
     codBob: '',
     data: dataLocalHoje(),
     aba: abaMesAtual(),
@@ -508,6 +510,10 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     }
     return todos
   }
+
+  React.useEffect(() => {
+    void carregarOperadores()
+  }, [])
 
   React.useEffect(() => {
     let ativa = true
@@ -782,6 +788,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   function iniciarEdicao(registro: CobrideiraBobinaRow) {
     setForm({
       numeroBobina: registro.numero_bobina,
+      operador: registro.operador ?? '',
       codBob: registro.cod_bob ?? '',
       data: registro.data,
       aba: registro.aba ?? '',
@@ -873,7 +880,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     setSalvando(true)
     try {
       const insercao: CobrideiraBobinaInsert = {
-        numero_bobina: form.numeroBobina.trim(),
+        numero_bobina: form.numeroBobina,
+        operador: form.operador,
         cod_bob: form.codBob.trim(),
         data: form.data,
         aba: form.aba.trim(),
@@ -998,7 +1006,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               <ClipboardList className="size-4" />
               Bobinas registradas
             </button>
-            {isDeveloper && <button type="button" aria-current={secao === 'operadores' ? 'page' : undefined} onClick={() => { setSecao('operadores'); void carregarOperadores() }} className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'operadores' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}>
+            {false && isDeveloper && <button type="button" aria-current={secao === 'operadores' ? 'page' : undefined} onClick={() => { setSecao('operadores'); void carregarOperadores() }} className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'operadores' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}>
               <Users className="size-4" /> Operadores
             </button>}
             <button type="button" aria-current={secao === 'lixeira' ? 'page' : undefined} onClick={() => { setSecao('lixeira'); void carregarLixeira() }} className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium ${secao === 'lixeira' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#e3262e] text-black hover:bg-[#ff3b42]'}`}>
@@ -1021,9 +1029,11 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                     <TextInput
                       id="cb-numero-bobina"
                       value={form.numeroBobina}
-                      onChange={(e) =>
-                        atualizar('numeroBobina', e.target.value.trim())
-                      }
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      spellCheck={false}
+                      onChange={(e) => atualizar('numeroBobina', e.target.value)}
                       required
                       maxLength={80}
                       readOnly={Boolean(editandoNumero)}
@@ -1207,6 +1217,18 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                             )
                           }
                           maxLength={100}
+                        />
+                      </Field>
+                      <Field label="Operador" htmlFor="cb-operador">
+                        <SelectInput
+                          id="cb-operador"
+                          value={form.operador}
+                          onChange={(e) => {
+                            const selecionado = operadores.find((item) => item.nome === e.target.value)
+                            atualizar('operador', e.target.value)
+                            if (selecionado) atualizar('turno', selecionado.turno)
+                          }}
+                          options={operadores.map((item) => ({ value: item.nome, label: item.nome }))}
                         />
                       </Field>
                       <Field label="Turno" htmlFor="cb-turno">
