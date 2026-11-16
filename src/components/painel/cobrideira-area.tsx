@@ -1384,9 +1384,12 @@ export function CobrideiraArea({ onChangeArea }: { onChangeArea: () => void }) {
                             <React.Fragment key={registro.numero_bobina}>
                               <tr className="border-b border-border/70">
                                 <td className="px-2 py-3">
-                                  <button type="button" onClick={() => alternarExpansao(registro.numero_bobina)} aria-label={expandido ? 'Recolher detalhes' : 'Expandir detalhes'} aria-expanded={expandido} className="grid size-8 place-items-center rounded-md hover:bg-muted">
+                                  <div className="flex items-center gap-2">
+                                    <input type="checkbox" aria-label={`Selecionar bobina ${registro.numero_bobina}`} checked={selecionadas.has(registro.numero_bobina)} onChange={() => alternarSelecao(registro.numero_bobina)} />
+                                    <button type="button" onClick={() => alternarExpansao(registro.numero_bobina)} aria-label={expandido ? 'Recolher detalhes' : 'Expandir detalhes'} aria-expanded={expandido} className="grid size-8 place-items-center rounded-md hover:bg-muted">
                                     {expandido ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                                  </button>
+                                    </button>
+                                  </div>
                                 </td>
                                 <td className="px-3 py-3 font-mono">{registro.numero_bobina}</td>
                                 <td className="px-3 py-3">{formatarData(registro.data)}</td>
