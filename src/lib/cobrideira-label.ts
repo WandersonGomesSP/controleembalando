@@ -110,6 +110,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const verticalSpan = lineHeight * Math.max(0, prepared.length - 1)
   const maiorFonte = Math.max(...prepared.map((item) => item.size), 13)
   // Ancora a última linha próximo à borda inferior para evitar faixa branca após a validade.
+  const pageHeight = verticalSpan + 21
   let y = verticalSpan + 6
 
   for (const item of prepared) {
@@ -142,7 +143,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 290 360] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 290 ${pageHeight}] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
     `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
