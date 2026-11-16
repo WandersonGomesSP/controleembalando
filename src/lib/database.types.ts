@@ -304,7 +304,7 @@ export type Database = {
   cobrideira: {
     Tables: {
       bobinas: Table<CobrideiraBobinaRow, CobrideiraBobinaInsert>
-      bobinas_lixeira: Table<CobrideiraBobinaLixeiraRow, Omit<CobrideiraBobinaLixeiraRow, 'excluida_em'>>
+      bobinas_lixeira: Table<CobrideiraBobinaLixeiraRow, Omit<CobrideiraBobinaLixeiraRow, 'excluida_em'>>\n      operadores: Table<{ nome: string; turno: '1º TURNO' | '2º TURNO' }>
     }
     Views: Record<string, never>
     Functions: Record<string, never>
