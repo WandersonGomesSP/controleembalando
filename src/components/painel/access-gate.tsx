@@ -50,9 +50,9 @@ const AREAS: {
   {
     id: 'rebobinadeira',
     name: 'Rebobinadeira',
-    description: 'Controle da operação de rebobinamento',
+    description: 'Indicadores e controle da operação de rebobinamento',
     icon: Boxes,
-    available: false,
+    available: true,
   },
   {
     id: 'cartonagem',
