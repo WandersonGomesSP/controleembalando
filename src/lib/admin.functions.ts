@@ -1186,18 +1186,29 @@ export const importCurrentStockCsv = createServerFn({ method: 'POST' })
       const categorias = [...new Set(data.registros.filter((r) => r.codigo && lote.includes(r.codigo)).map((r) => r.categoria))]
       for (const categoria of categorias) {
         const { data: encontrados, error } = await estoque.from('bobinas_estoque')
-          .select('categoria,codigo,cliente').eq('categoria', categoria).in('codigo', lote)
+          .select('*').eq('categoria', categoria).in('codigo', lote)
         if (error) throw new Error(`Não foi possível conferir os códigos existentes: ${error.message}`)
         existentes.push(...(encontrados ?? []))
       }
     }
-    const clientes = new Map(existentes.map((r) => [`${r.categoria}|${r.codigo}`, r.cliente]))
-    const registros = data.registros.map((r) => ({
-      ...r,
-      cliente: r.cliente ?? clientes.get(`${r.categoria}|${r.codigo}`) ?? null,
-      data_entrada: r.data_entrada || null,
-      origem_arquivo: 'Importação CSV unificado',
-    }))
+    const existentesPorCodigo = new Map(existentes.map((r) => [`${r.categoria}|${r.codigo}`, r]))
+    const registros = data.registros.map((r) => {
+      const anterior = existentesPorCodigo.get(`${r.categoria}|${r.codigo}`)
+      return {
+        ...anterior,
+        ...r,
+        data_entrada: r.data_entrada ?? anterior?.data_entrada ?? null,
+        fornecedor: r.fornecedor ?? anterior?.fornecedor ?? null,
+        medida: r.medida ?? anterior?.medida ?? null,
+        peso_kg: r.peso_kg ?? anterior?.peso_kg ?? null,
+        metragem_m: r.metragem_m ?? anterior?.metragem_m ?? null,
+        cor: r.cor ?? anterior?.cor ?? null,
+        cliente: r.cliente ?? anterior?.cliente ?? null,
+        linha: r.linha ?? anterior?.linha ?? null,
+        observacoes: r.observacoes ?? anterior?.observacoes ?? null,
+        origem_arquivo: 'Importação CSV unificado',
+      }
+    })
     const { data: gravados, error } = await estoque.from('bobinas_estoque')
       .upsert(registros, { onConflict: 'categoria,codigo' }).select('id')
     if (error) throw new Error(`Não foi possível importar o CSV: ${error.message}`)
