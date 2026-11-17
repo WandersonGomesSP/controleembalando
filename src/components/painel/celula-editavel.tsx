@@ -24,7 +24,7 @@ export function CelulaEditavel({
     <td
       title={error}
       tabIndex={selected ? 0 : -1}
-      onClick={(event) => { onSelect(); event.currentTarget.focus() }}
+      onClick={(event) => { if ((event.target as HTMLElement).tagName === 'INPUT') return; onSelect(); event.currentTarget.focus() }}
       onDoubleClick={() => onStartEdit()}
       onKeyDown={(event) => {
         if (!editing && selected && event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
