@@ -35,6 +35,7 @@ export function EstoqueMinimoCobrideira({ isDeveloper }: { isDeveloper: boolean 
 function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Props & { embedded?: boolean }) {
   const [registros, setRegistros] = React.useState<RebobinadeiraEstoqueMinimoRow[]>([])
   const [leadTimes, setLeadTimes] = React.useState<Record<string, string>>({})
+  const [ajustes, setAjustes] = React.useState<Record<string, number>>({})
   const [busca, setBusca] = React.useState('')
   const [carregando, setCarregando] = React.useState(true)
   const [atualizando, setAtualizando] = React.useState(false)
@@ -68,6 +69,9 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
     } else {
       setRegistros((data ?? []) as RebobinadeiraEstoqueMinimoRow[])
       setLeadTimes({})
+      const { data: ajustesData, error: ajustesError } = await supabase.schema('rebobinadeira').from('produtos_jumbo').select('codigo, ajuste_estoque_percentual').eq('ativo', true)
+      if (ajustesError) throw ajustesError
+      setAjustes(Object.fromEntries((ajustesData ?? []).map((produto) => [produto.codigo, Number(produto.ajuste_estoque_percentual ?? 0)])))
     }
     setCarregando(false)
     setAtualizando(false)
@@ -100,6 +104,22 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
     setSalvando(null)
   }
 
+
+  async function salvarAjuste(codigo: string, valor: string) {
+    const percentual = Number(valor)
+    if (!Number.isFinite(percentual) || percentual < 0 || percentual > 300) {
+      toast.error('O aumento deve ficar entre 0% e 300%.')
+      return
+    }
+    setAjustes((estado) => ({ ...estado, [codigo]: percentual }))
+    const { error } = await supabase.schema('rebobinadeira').from('produtos_jumbo').update({ ajuste_estoque_percentual: percentual }).eq('codigo', codigo)
+    if (error) {
+      toast.error('Não foi possível salvar o aumento do estoque mínimo.', { description: error.message })
+      await carregar(true)
+    } else {
+      toast.success('Aumento do estoque mínimo salvo.')
+    }
+  }
 
   async function importarArquivo() {
     if (!arquivo) {
@@ -143,9 +163,10 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
       .some((valor) => valor?.toLocaleLowerCase('pt-BR').includes(termo))
   })
 
-  const totalJumbos = filtrados.reduce((total, item) => total + Number(item.estoque_minimo_jumbos || 0), 0)
-  const totalKg = filtrados.reduce((total, item) => total + Number(item.estoque_minimo_kg || 0), 0)
-  const totalMetros = filtrados.reduce((total, item) => total + Number(item.estoque_minimo_m || 0), 0)
+  const multiplicador = (item: RebobinadeiraEstoqueMinimoRow) => 1 + (ajustes[item.codigo] ?? 0) / 100
+  const totalJumbos = filtrados.reduce((total, item) => total + Math.ceil(Number(item.estoque_minimo_jumbos || 0) * multiplicador(item)), 0)
+  const totalKg = filtrados.reduce((total, item) => total + Number(item.estoque_minimo_kg || 0) * multiplicador(item), 0)
+  const totalMetros = filtrados.reduce((total, item) => total + Number(item.estoque_minimo_m || 0) * multiplicador(item), 0)
 
   return (
     <div className="min-h-screen bg-background">
@@ -313,6 +334,7 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
                     <th className="px-4 py-3 font-semibold">Produto</th>
                     <th className="px-4 py-3 font-semibold">Consumo médio kg/mês</th>
                     <th className="px-4 py-3 font-semibold">Lead time</th>
+                    {isDeveloper && <th className="px-4 py-3 font-semibold">Aumento do mínimo</th>}
                     <th className="px-4 py-3 font-semibold">Mínimo kg</th>
                     <th className="px-4 py-3 font-semibold">Mínimo (jumbos)</th>
                     <th className="px-4 py-3 font-semibold">Consumo semanal m</th>
@@ -337,16 +359,17 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
                             ? 'Lead time não definido'
                             : item.peso_medio_jumbo_kg <= 0
                               ? 'Aguardando histórico'
-                              : `${formatar(item.estoque_minimo_kg, true)} kg`}
+                              : `${formatar(item.estoque_minimo_kg * multiplicador(item), true)} kg`}
                         </td>
-                        <td className="px-4 py-3 tabular-nums font-semibold">{formatar(item.estoque_minimo_jumbos)} un.</td>
+                        <td className="px-4 py-3 tabular-nums font-semibold">{formatar(Math.ceil(item.estoque_minimo_jumbos * multiplicador(item)))} un.</td>
                         <td className="px-4 py-3 tabular-nums">{formatar(item.consumo_semanal_m, true)} m</td>
                         <td className="px-4 py-3 tabular-nums font-semibold">
                           {item.metragem_media_jumbo_m <= 0
                             ? 'Aguardando histórico'
-                            : `${formatar(item.estoque_minimo_m)} m`}
+                            : `${formatar(item.estoque_minimo_m * multiplicador(item))} m`}
                         </td>
                         {isDeveloper && (
+                          <>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <div className="relative">
@@ -372,6 +395,12 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
                               </button>
                             </div>
                           </td>
+                          <td className="px-4 py-3">
+                            <select aria-label={`Aumento do estoque mínimo de ${item.descricao}`} value={String(ajustes[item.codigo] ?? 0)} onChange={(event) => void salvarAjuste(item.codigo, event.target.value)} className="h-9 min-w-24 rounded-md border border-input bg-background px-2 text-sm">
+                              {[0, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 300].map((percentual) => <option key={percentual} value={percentual}>{percentual}%</option>)}
+                            </select>
+                          </td>
+                          </>
                         )}
                       </tr>
                     )
@@ -383,7 +412,7 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
         </section>
 
         <p className="text-xs leading-5 text-muted-foreground">
-          Peso: consumo dos últimos 90 dias ÷ 3 meses ÷ 22 dias úteis, multiplicado pelo lead time do produto; a quantidade de jumbos é arredondada para cima e respeita o piso mínimo. Metragem: soma móvel dos jumbos consumidos ÷ 13 semanas × 1,5. A metragem usada é a do jumbo que entrou na Rebobinadeira; refilo e perdas ficam fora do consumo.
+          Peso: consumo dos últimos 90 dias ÷ 3 meses ÷ 22 dias úteis, multiplicado pelo lead time do produto; a quantidade de jumbos é arredondada para cima e respeita o piso mínimo. Metragem: soma móvel dos jumbos consumidos ÷ 13 semanas × 1,5. A metragem usada é a metragem única efetivamente produzida/consumida (metragem_unica_m), sem duplicar bobinas; refilo e perdas ficam fora do consumo. O aumento percentual é aplicado sobre os mínimos calculados por produto.
         </p>
       </main>
     </div>
