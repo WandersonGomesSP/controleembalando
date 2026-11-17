@@ -188,10 +188,10 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
     })),
     {
       categoria: 'KRAFT LISA',
-      quantidade: resumos.filter((r) => /^KRAFT LISA\\b/i.test(r.medida_produto)).reduce((s, r) => s + numero(r.quantidade_jumbos), 0),
+      quantidade: resumos.filter((r) => /^KRAFT LISA\b/i.test(r.medida_produto)).reduce((s, r) => s + numero(r.quantidade_jumbos), 0),
       unidade: 'jumbos' as const,
-      kg: resumos.filter((r) => /^KRAFT LISA\\b/i.test(r.medida_produto)).reduce((s, r) => s + numero(r.peso_estoque_kg), 0),
-      metros: resumos.filter((r) => /^KRAFT LISA\\b/i.test(r.medida_produto)).reduce((s, r) => s + numero(r.metragem_disponivel_m), 0),
+      kg: resumos.filter((r) => /^KRAFT LISA\b/i.test(r.medida_produto)).reduce((s, r) => s + numero(r.peso_estoque_kg), 0),
+      metros: resumos.filter((r) => /^KRAFT LISA\b/i.test(r.medida_produto)).reduce((s, r) => s + numero(r.metragem_disponivel_m), 0),
     },
   ]
   const totalResumoKg = resumos.reduce((s, r) => s + numero(r.peso_estoque_kg), 0)
