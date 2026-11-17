@@ -28,7 +28,11 @@ function formatar(valor: number | null | undefined, casas = false) {
   return (casas ? numero : inteiro).format(Number(valor))
 }
 
-export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) { return <EstoqueMinimoView onChangeArea={onChangeArea} isDeveloper={isDeveloper} /> }\n\nexport function EstoqueMinimoCobrideira({ isDeveloper }: { isDeveloper: boolean }) { return <EstoqueMinimoView isDeveloper={isDeveloper} embedded /> }\n\nfunction EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Props & { embedded?: boolean }) {
+export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) { return <EstoqueMinimoView onChangeArea={onChangeArea} isDeveloper={isDeveloper} /> }
+
+export function EstoqueMinimoCobrideira({ isDeveloper }: { isDeveloper: boolean }) { return <EstoqueMinimoView onChangeArea={() => {}} isDeveloper={isDeveloper} embedded /> }
+
+function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Props & { embedded?: boolean }) {
   const [registros, setRegistros] = React.useState<RebobinadeiraEstoqueMinimoRow[]>([])
   const [leadTimes, setLeadTimes] = React.useState<Record<string, string>>({})
   const [busca, setBusca] = React.useState('')
