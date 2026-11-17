@@ -126,6 +126,22 @@ async function requireAdminOrDeveloper(accessToken: string) {
   return { client, user: data.user }
 }
 
+async function requireCobrideiraEditor(accessToken: string) {
+  const client = createAdminClient()
+  const { data, error } = await client.auth.getUser(accessToken)
+  if (error || !data.user?.email) throw new Error('Sessão inválida.')
+  const [roleResult, developerResult] = await Promise.all([
+    client.from('user_roles').select('role, area').eq('user_id', data.user.id).maybeSingle(),
+    client.from('developer_accounts').select('email').eq('email', data.user.email.toLowerCase()).maybeSingle(),
+  ])
+  if (roleResult.error || developerResult.error) throw new Error('Não foi possível validar a permissão para editar bobinas.')
+  const permitido = Boolean(developerResult.data)
+    || roleResult.data?.role === 'ADMIN'
+    || (roleResult.data?.role === 'OPERATOR' && roleResult.data.area === 'cobrideira')
+  if (!permitido) throw new Error('Você não tem permissão para editar bobinas da Cobrideira.')
+  return { client, user: data.user }
+}
+
 async function loadAdminSummarySnapshot(
   client: ReturnType<typeof createAdminClient>,
   entidade: 'Rolo de insumo' | 'Produção de tubos' | 'Lote de tubetes',
@@ -424,6 +440,57 @@ export const synchronizeGoogleSheetsNow = createServerFn({ method: 'POST' })
     await requireDeveloper(data.accessToken)
     if (data.dataFim < data.dataInicio) throw new Error('A data final não pode ser anterior à data inicial.')
     return syncGoogleSheets(data.dataInicio, data.dataFim)
+  })
+
+
+export const updateCobrideiraBobinaCell = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({
+    numeroOriginal: z.string().trim().min(1).max(80),
+    campo: z.enum([
+      'numero_bobina', 'cod_bob', 'data', 'fornecedor_filme', 'largura',
+      'peso_bruto', 'peso_final', 'metragem', 'material', 'perda_kg',
+      'vareta_g', 'kg_cola', 'lote_cola', 'codigo_interno', 'fornecedor_cola',
+      'linha', 'cor_fundo', 'pigmento_kg', 'cor_mistura', 'pigmento_mistura',
+      'cliente', 'cor_impressao',
+    ]),
+    valor: z.union([z.string(), z.number()]),
+    updatedAt: z.string().datetime(),
+  }))
+  .handler(async ({ data }) => {
+    const { client, user } = await requireCobrideiraEditor(data.accessToken)
+    const camposNumericos = ['largura', 'peso_bruto', 'peso_final', 'metragem', 'perda_kg', 'vareta_g', 'kg_cola', 'pigmento_kg']
+    if (camposNumericos.includes(data.campo)) {
+      if (typeof data.valor !== 'number' || !Number.isFinite(data.valor) || data.valor <= 0) {
+        throw new Error('Informe um número positivo para este campo.')
+      }
+      if (Math.round(data.valor * 100) !== data.valor * 100) throw new Error('Use no máximo duas casas decimais.')
+    } else if (typeof data.valor !== 'string') {
+      throw new Error('Valor inválido para este campo.')
+    }
+    if (['numero_bobina', 'cod_bob', 'fornecedor_filme'].includes(data.campo) && !String(data.valor).trim()) {
+      throw new Error('Este campo não pode ficar vazio.')
+    }
+    if (data.campo === 'data' && !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(data.valor))) {
+      throw new Error('Informe uma data válida.')
+    }
+    const patch = {
+      [data.campo]: data.campo === 'numero_bobina' || data.campo === 'cod_bob' || data.campo === 'fornecedor_filme'
+        ? String(data.valor).trim()
+        : data.valor,
+      updated_at: new Date().toISOString(),
+      updated_by: user.id,
+    }
+    const { data: updated, error } = await client.schema('cobrideira')
+      .from('bobinas')
+      .update(patch as never)
+      .eq('numero_bobina', data.numeroOriginal)
+      .eq('updated_at', data.updatedAt)
+      .select('*')
+      .maybeSingle()
+    if (error?.code === '23505') throw new Error('Já existe outra bobina com esse número.')
+    if (error) throw new Error(`Não foi possível atualizar a bobina: ${error.message}`)
+    if (!updated) throw new Error('Conflito: esta bobina foi alterada por outra pessoa. Atualize a lista e tente novamente.')
+    return updated
   })
 
 export const updateCobrideiraBobina = createServerFn({ method: 'POST' })
