@@ -16,15 +16,15 @@ export function CelulaEditavel({
   onCancel: () => void
   onMove: (direction: 'next' | 'down') => void
 }) {
+  const inputRef = React.useRef<HTMLInputElement>(null)
   const [draft, setDraft] = React.useState(value)
   React.useEffect(() => { if (!editing) setDraft(value) }, [value, editing])
   React.useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
-  const inputRef = React.useRef<HTMLInputElement>(null)
   return (
     <td
       title={error}
       tabIndex={selected ? 0 : -1}
-      onClick={onSelect}
+      onClick={(event) => { onSelect(); event.currentTarget.focus() }}
       onDoubleClick={() => onStartEdit()}
       className={`relative min-w-32 border border-[#E2E8F0] bg-white px-2 py-2 text-sm text-[#1E293B] ${numeric ? 'text-right [font-variant-numeric:tabular-nums]' : 'text-left'} ${mono ? 'font-mono' : ''} ${selected ? 'outline outline-2 -outline-offset-2 outline-[#B91C1C]' : ''} ${error ? 'bg-red-50' : ''}`}
     >
