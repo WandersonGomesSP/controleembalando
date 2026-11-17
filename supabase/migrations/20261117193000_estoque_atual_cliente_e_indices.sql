@@ -65,6 +65,16 @@ create table if not exists estoque_atual.resumo_estoque_produtos (
   categoria text not null default 'BOPP'
 );
 
+create table if not exists estoque_atual.bobinas_estoque_lixeira (
+  id uuid primary key default gen_random_uuid(),
+  bobina_id uuid not null,
+  categoria text not null,
+  codigo text,
+  dados jsonb not null,
+  excluida_por uuid,
+  excluida_em timestamptz not null default now()
+);
+
 alter table estoque_atual.bobinas_estoque
   add column if not exists cliente text;
 
@@ -75,3 +85,6 @@ create unique index if not exists bobinas_estoque_categoria_codigo_uidx
 create unique index if not exists bobinas_utilizadas_codigo_uidx
   on estoque_atual.bobinas_utilizadas (codigo)
   where codigo is not null and btrim(codigo) <> '';
+
+create unique index if not exists bobinas_estoque_lixeira_categoria_codigo_uidx
+  on estoque_atual.bobinas_estoque_lixeira (categoria, codigo);
