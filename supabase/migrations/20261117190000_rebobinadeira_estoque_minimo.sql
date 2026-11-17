@@ -266,11 +266,11 @@ SELECT
   ROUND(consumo_mensal_kg, 2) AS consumo_mensal_kg,
   ROUND(consumo_diario_kg, 2) AS consumo_diario_kg,
   ROUND(COALESCE(consumo_diario_kg * lead_time_dias, 0), 2) AS estoque_minimo_calculado_kg,
-  ROUND(peso_medio_jumbo_kg, 2) AS peso_medio_jumbo_kg,
+  CASE WHEN peso_medio_jumbo_kg > 0 THEN CEIL(peso_medio_jumbo_kg) ELSE 0 END AS peso_medio_jumbo_kg,
   jumbos_consumidos,
   GREATEST(piso_minimo_jumbos,
     CASE WHEN peso_medio_jumbo_kg > 0 AND lead_time_dias IS NOT NULL
-      THEN CEIL((consumo_diario_kg * lead_time_dias) / peso_medio_jumbo_kg)::integer
+      THEN CEIL((consumo_diario_kg * lead_time_dias) / CEIL(peso_medio_jumbo_kg))::integer
       ELSE piso_minimo_jumbos END
   ) AS estoque_minimo_jumbos,
   ROUND(consumo_semanal_m, 2) AS consumo_semanal_m,
