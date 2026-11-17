@@ -31,7 +31,7 @@ export function CelulaEditavel({
           event.preventDefault(); setDraft(event.key); onStartEdit(event.key)
         }
       }}
-      className={`relative min-w-32 border border-[#E2E8F0] bg-white px-2 py-2 text-sm text-[#1E293B] ${numeric ? 'text-right [font-variant-numeric:tabular-nums]' : 'text-left'} ${mono ? 'font-mono' : ''} ${selected ? 'outline outline-2 -outline-offset-2 outline-[#B91C1C]' : ''} ${error ? 'bg-red-50' : ''}`}
+      className={`relative min-w-32 border border-[#E2E8F0] bg-white px-2 py-2 text-sm text-[#1E293B] ${numeric ? 'text-right [font-variant-numeric:tabular-nums]' : 'text-left'} ${mono ? 'font-mono' : ''} ${selected ? 'outline outline-2 -outline-offset-2 outline-[#B91C1C]' : ''} ${error ? 'border-[#B91C1C]' : ''}`}
     >
       {editing ? (
         <input ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)}
