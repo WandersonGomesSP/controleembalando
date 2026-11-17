@@ -354,6 +354,11 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
                         </td>
                         <td className="px-4 py-3 tabular-nums">{formatar(item.consumo_mensal_kg, true)}</td>
                         <td className="px-4 py-3 tabular-nums">{item.lead_time_dias == null ? 'Não definido' : `${item.lead_time_dias} dias`}</td>
+                        {isDeveloper && <td className="px-4 py-3">
+                            <select aria-label={`Aumento do estoque mínimo de ${item.descricao}`} value={String(ajustes[item.codigo] ?? 0)} onChange={(event) => void salvarAjuste(item.codigo, event.target.value)} className="h-9 min-w-24 rounded-md border border-input bg-background px-2 text-sm">
+                              {[0, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 300].map((percentual) => <option key={percentual} value={percentual}>{percentual}%</option>)}
+                            </select>
+                          </td>}
                         <td className="px-4 py-3 tabular-nums font-medium">
                           {item.lead_time_dias == null
                             ? 'Lead time não definido'
@@ -395,11 +400,7 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
                               </button>
                             </div>
                           </td>
-                          <td className="px-4 py-3">
-                            <select aria-label={`Aumento do estoque mínimo de ${item.descricao}`} value={String(ajustes[item.codigo] ?? 0)} onChange={(event) => void salvarAjuste(item.codigo, event.target.value)} className="h-9 min-w-24 rounded-md border border-input bg-background px-2 text-sm">
-                              {[0, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 300].map((percentual) => <option key={percentual} value={percentual}>{percentual}%</option>)}
-                            </select>
-                          </td>
+                          
                           </>
                         )}
                       </tr>
