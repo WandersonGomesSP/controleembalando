@@ -1214,13 +1214,67 @@ export const updateCurrentStockRecord = createServerFn({ method: 'POST' })
     return updated
   })
 
-export const deleteCurrentStockRecord = createServerFn({ method: 'POST' })
+export const listCurrentStockTrash = createServerFn({ method: 'POST' })
+  .validator(tokenInput)
+  .handler(async ({ data }) => {
+    const { client } = await requireDeveloper(data.accessToken)
+    const estoque = (client as any).schema('estoque_atual')
+    const { data: registros, error } = await estoque.from('bobinas_estoque_lixeira')
+      .select('*').order('excluida_em', { ascending: false })
+    if (error) throw new Error(`Não foi possível carregar a lixeira do estoque: ${error.message}`)
+    return registros ?? []
+  })
+
+export const moveCurrentStockToTrash = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({ id: z.uuid() }))
   .handler(async ({ data }) => {
-    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const { client, user } = await requireDeveloper(data.accessToken)
     const estoque = (client as any).schema('estoque_atual')
-    const { error, count } = await estoque.from('bobinas_estoque').delete({ count: 'exact' }).eq('id', data.id)
-    if (error) throw new Error(`Não foi possível excluir a bobina do estoque atual: ${error.message}`)
-    if (count === 0) throw new Error('A bobina já não está no Estoque Atual.')
+    const { data: bobina, error: readError } = await estoque.from('bobinas_estoque')
+      .select('*').eq('id', data.id).maybeSingle()
+    if (readError || !bobina) throw new Error('Bobina não encontrada no Estoque Atual.')
+    if (!bobina.codigo) throw new Error('A bobina precisa ter um código para ser arquivada na lixeira.')
+    const { error: archiveError } = await estoque.from('bobinas_estoque_lixeira').upsert({
+      bobina_id: bobina.id,
+      categoria: bobina.categoria,
+      codigo: bobina.codigo,
+      dados: bobina,
+      excluida_por: user.id,
+      excluida_em: new Date().toISOString(),
+    }, { onConflict: 'categoria,codigo' })
+    if (archiveError) throw new Error(`Não foi possível arquivar a bobina: ${archiveError.message}`)
+    const { error: deleteError, count } = await estoque.from('bobinas_estoque')
+      .delete({ count: 'exact' }).eq('id', data.id)
+    if (deleteError || count === 0) {
+      throw new Error(`A cópia foi guardada na lixeira, mas a bobina ativa não foi removida: ${deleteError?.message ?? 'registro não removido'}`)
+    }
+    return { success: true }
+  })
+
+export const restoreCurrentStockRecord = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ id: z.uuid() }))
+  .handler(async ({ data }) => {
+    const { client } = await requireDeveloper(data.accessToken)
+    const estoque = (client as any).schema('estoque_atual')
+    const { data: arquivada, error: readError } = await estoque.from('bobinas_estoque_lixeira')
+      .select('*').eq('id', data.id).maybeSingle()
+    if (readError || !arquivada) throw new Error('Bobina não encontrada na lixeira do estoque.')
+    const { error: restoreError } = await estoque.from('bobinas_estoque').insert(arquivada.dados)
+    if (restoreError?.code === '23505') throw new Error('Já existe uma bobina ativa com esse código. Confira o estoque antes de restaurar.')
+    if (restoreError) throw new Error(`Não foi possível restaurar a bobina: ${restoreError.message}`)
+    const { error: removeError } = await estoque.from('bobinas_estoque_lixeira').delete().eq('id', data.id)
+    if (removeError) throw new Error(`Bobina restaurada, mas não foi possível removê-la da lixeira: ${removeError.message}`)
+    return { success: true }
+  })
+
+export const permanentlyDeleteCurrentStockTrashRecord = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ id: z.uuid() }))
+  .handler(async ({ data }) => {
+    const { client } = await requireDeveloper(data.accessToken)
+    const estoque = (client as any).schema('estoque_atual')
+    const { error, count } = await estoque.from('bobinas_estoque_lixeira')
+      .delete({ count: 'exact' }).eq('id', data.id)
+    if (error) throw new Error(`Não foi possível excluir definitivamente a bobina: ${error.message}`)
+    if (count === 0) throw new Error('A bobina não está mais na lixeira.')
     return { success: true }
   })
