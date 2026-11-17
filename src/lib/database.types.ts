@@ -182,6 +182,7 @@ export type RebobinadeiraProdutoRow = {
   largura_jumbo_mm: number | null
   tipo_produto: string
   lead_time_dias: number | null
+  ajuste_estoque_percentual: number
   piso_minimo_jumbos: number
   ativo: boolean
   criado_em: string
