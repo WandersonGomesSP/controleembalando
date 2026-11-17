@@ -369,3 +369,22 @@ button:not([disabled]):active,
     transition: none;
   }
 }
+
+
+/* Menus suspensos e listas de opções seguem a mesma cor pedra. */
+[data-slot='dropdown-menu-content'],
+[data-slot='dropdown-menu-sub-content'],
+[data-slot='context-menu-content'],
+[data-slot='popover-content'],
+[data-slot='select-content'] {
+  background-color: #57534E !important;
+  color: #ffffff !important;
+  border-color: #78716c !important;
+}
+[data-slot='dropdown-menu-content'] *,
+[data-slot='dropdown-menu-sub-content'] *,
+[data-slot='context-menu-content'] *,
+[data-slot='popover-content'] *,
+[data-slot='select-content'] * {
+  color: #ffffff !important;
+}
