@@ -333,3 +333,39 @@ html body [data-sonner-toast] [data-icon] {
   color: var(--navy);
   font-family: var(--font-mono-ui), monospace;
 }
+
+
+/* Identidade visual: fundo pedra quente e estados de interação consistentes. */
+:root {
+  --background: #57534E;
+}
+html, body {
+  min-height: 100%;
+  background-color: #57534E;
+}
+header.sticky,
+nav[aria-label],
+body:has(input[name='email']) main > div aside {
+  background-color: #57534E !important;
+}
+button:not([disabled]),
+[role="button"],
+label.cursor-pointer {
+  transition: filter 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+button:not([disabled]):hover,
+[role="button"]:hover,
+label.cursor-pointer:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 16%);
+}
+button:not([disabled]):active,
+[role="button"]:active {
+  transform: translateY(0) scale(0.98);
+}
+@media (prefers-reduced-motion: reduce) {
+  button:not([disabled]), [role="button"], label.cursor-pointer {
+    transition: none;
+  }
+}
