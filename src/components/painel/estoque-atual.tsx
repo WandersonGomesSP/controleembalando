@@ -171,7 +171,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
         for (let inicio = 0; ; inicio += 1000) {
           const { data: linhas, error: linhasError } = await supabase.schema('rebobinadeira')
             .from('bobinas').select('produto_codigo, numero_bobina, metragem_unica_m')
-            .gte('data', desde).range(inicio, inicio + 999)
+            .gte('data', desde).order('id', { ascending: true }).range(inicio, inicio + 999)
           if (linhasError) throw linhasError
           for (const linha of linhas ?? []) {
             const descricao = descricaoPorCodigo.get(linha.produto_codigo ?? '')
