@@ -35,6 +35,7 @@ const vazio: FormEstoque = { categoria: 'BOPP', data_entrada: new Date().toISOSt
 const numero = (v: number | null | undefined) => Number(v ?? 0)
 const fmt = (v: number | null | undefined, casas = 0) => numero(v).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
 const categorias: Categoria[] = ['BOPP', 'CREPE', 'KRAFT', 'DUPLA FACE']
+const fmtMedida = (v: number | null | undefined) => v == null ? '—' : Number(v).toFixed(2)
 
 function normalizarCabecalho(valor: string) {
   return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
@@ -177,12 +178,22 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
 
   const totalKg = bobinas.reduce((s, b) => s + numero(b.peso_kg), 0)
   const totalM = bobinas.reduce((s, b) => s + numero(b.metragem_m), 0)
-  const porCategoria = categorias.map((c) => ({
-    categoria: c,
-    quantidade: bobinas.filter((b) => b.categoria === c).length,
-    kg: bobinas.filter((b) => b.categoria === c).reduce((s, b) => s + numero(b.peso_kg), 0),
-    metros: bobinas.filter((b) => b.categoria === c).reduce((s, b) => s + numero(b.metragem_m), 0),
-  }))
+  const porCategoria = [
+    ...categorias.map((c) => ({
+      categoria: c,
+      quantidade: bobinas.filter((b) => b.categoria === c).length,
+      unidade: 'bobinas' as const,
+      kg: bobinas.filter((b) => b.categoria === c).reduce((s, b) => s + numero(b.peso_kg), 0),
+      metros: bobinas.filter((b) => b.categoria === c).reduce((s, b) => s + numero(b.metragem_m), 0),
+    })),
+    {
+      categoria: 'KRAFT LISA',
+      quantidade: resumos.filter((r) => /^KRAFT LISA\\b/i.test(r.medida_produto)).reduce((s, r) => s + numero(r.quantidade_jumbos), 0),
+      unidade: 'jumbos' as const,
+      kg: resumos.filter((r) => /^KRAFT LISA\\b/i.test(r.medida_produto)).reduce((s, r) => s + numero(r.peso_estoque_kg), 0),
+      metros: resumos.filter((r) => /^KRAFT LISA\\b/i.test(r.medida_produto)).reduce((s, r) => s + numero(r.metragem_disponivel_m), 0),
+    },
+  ]
   const totalResumoKg = resumos.reduce((s, r) => s + numero(r.peso_estoque_kg), 0)
   const totalResumoM = resumos.reduce((s, r) => s + numero(r.metragem_disponivel_m), 0)
   const diferencaKg = totalResumoKg - totalKg
@@ -340,20 +351,53 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
           <h3 className="font-bold text-slate-900">Estoque por categoria</h3>
           <div className="mt-3 grid gap-3">
             {porCategoria.map((p) => <div key={p.categoria}>
-              <div className="flex justify-between gap-2 text-sm"><span className="font-semibold text-slate-700">{p.categoria}</span><span className="text-slate-500">{p.quantidade} bobinas · {fmt(p.kg, 1)} kg</span></div>
+              <div className="flex justify-between gap-2 text-sm"><span className="font-semibold text-slate-700">{p.categoria}</span><span className="text-slate-500">{p.quantidade} {p.unidade} · {fmt(p.kg, 1)} kg</span></div>
               <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#78716c]" style={{ width: `${Math.min(100, totalKg ? p.kg / totalKg * 100 : 0)}%` }}/></div>
               <div className="mt-1 text-xs text-slate-500">{fmt(p.metros)} m</div>
             </div>)}
           </div>
         </section>
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="font-bold text-slate-900">Resumo por produto · planilha de referência</h3>
-          <div className="mt-3 max-h-64 space-y-3 overflow-auto">
-            {resumos.map((r) => <div key={r.id}>
-              <div className="flex justify-between gap-2 text-sm"><span className="font-medium text-slate-700">{r.medida_produto}</span><span className="text-slate-500">{fmt(r.peso_estoque_kg, 1)} kg</span></div>
-              <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#78716c]" style={{ width: `${Math.min(100, numero(r.peso_estoque_kg) / maxKg * 100)}%` }}/></div>
-              <div className="mt-1 flex justify-between gap-2 text-xs text-slate-500"><span>{fmt(r.metragem_disponivel_m)} m · {r.quantidade_jumbos ?? 0} jumbos</span><span>{r.status_origem ?? 'Sem status'}</span></div>
-            </div>)}
+        <section className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white">
+          <div className="border-b border-[#E2E8F0] bg-[#F1F5F9] px-5 py-4">
+            <h3 className="text-base font-bold text-[#0B1F4D]">Resumo por produto · planilha de referência</h3>
+            <p className="mt-1 text-xs text-[#64748B]">Estoque mínimo e folga calculados em jumbos</p>
+          </div>
+          <div className="max-h-[520px] overflow-auto">
+            {resumos.map((r, indice) => {
+              const status = (r.status_origem ?? '').toUpperCase()
+              const statusClass = status === 'OK'
+                ? 'bg-[#15803D]'
+                : status === 'ATENÇÃO'
+                  ? 'bg-[#EA580C]'
+                  : status === 'PRODUZIR' || status === 'COMPRAR'
+                    ? 'bg-[#B91C1C]'
+                    : 'bg-slate-500'
+              const folga = Number.parseInt(r.folga_estoque ?? '0', 10) || 0
+              const folgaLabel = folga > 0 ? `+${folga} ${folga === 1 ? 'jumbo' : 'jumbos'}` : folga < 0 ? `${folga} ${folga === -1 ? 'jumbo' : 'jumbos'}` : '0 jumbo'
+              const folgaClass = folga > 0 ? 'text-[#15803D]' : folga < 0 ? 'text-[#B91C1C]' : 'text-[#64748B]'
+              return (
+                <div key={r.id} className={`grid grid-cols-1 gap-4 border-b border-[#E2E8F0] px-5 py-4 last:border-b-0 md:grid-cols-[minmax(0,1fr)_240px] ${indice % 2 === 1 ? 'bg-[#F8FAFC]' : 'bg-white'}`}>
+                  <div className="min-w-0">
+                    <div className="text-base font-bold text-[#0B1F4D]">{r.medida_produto}</div>
+                    <div className="my-2 h-2 overflow-hidden rounded-full bg-[#E2E8F0]">
+                      <div className="h-full rounded-full bg-[#0B1F4D]" style={{ width: `${Math.min(100, numero(r.peso_estoque_kg) / maxKg * 100)}%` }} />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1 text-sm">
+                      <span className="font-bold text-[#0B1F4D]">{fmt(r.peso_estoque_kg, 1)} kg</span>
+                      <span className="text-[#64748B]">{fmt(r.metragem_disponivel_m)} m · {r.quantidade_jumbos ?? 0} jumbos</span>
+                    </div>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <span className={`inline-block rounded-full px-3.5 py-1.5 text-xs font-bold text-white ${statusClass}`}>{r.status_origem ?? 'SEM STATUS'}</span>
+                    <div className="mt-2 space-y-1 text-[13px] leading-[1.7] text-[#64748B]">
+                      <div>Mínimo: <strong className="font-semibold text-[#1E293B]">{r.estoque_minimo_jumbos ?? '—'} jumbos</strong></div>
+                      <div>Metragem: <strong className="font-semibold text-[#1E293B]">{fmt(r.metragem_disponivel_m)} m</strong></div>
+                      <div className={`mt-1 text-sm font-bold ${folgaClass}`}>{folgaLabel}</div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </section>
       </div>
@@ -372,7 +416,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
               <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="p-2">Entrada</th><th className="p-2">Categoria / medida</th><th className="p-2">Código</th><th className="p-2">Fornecedor</th><th className="p-2 text-right">Peso</th><th className="p-2 text-right">Metros</th><th className="p-2 text-right">Ações</th></tr></thead>
               <tbody>{filtradas.map((b) => <tr key={b.id} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="p-2 text-slate-600">{b.data_entrada ? new Date(`${b.data_entrada}T12:00:00`).toLocaleDateString('pt-BR') : '—'}</td>
-                <td className="p-2"><div className="font-semibold text-slate-800">{b.categoria}</div><div className="text-xs text-slate-500">{b.medida ?? '—'}</div></td>
+                <td className="p-2"><div className="font-semibold text-slate-800">{b.categoria}</div><div className="text-xs text-slate-500">{fmtMedida(b.medida)}</div></td>
                 <td className="p-2 font-medium text-slate-800">{b.codigo ?? '—'}{b.cor || b.cliente ? <div className="text-xs text-slate-500">{b.cor ?? ''}{b.cliente ? ` · Cliente: ${b.cliente}` : ''} {b.linha ? `· ${b.linha}` : ''}</div> : null}</td>
                 <td className="p-2 text-slate-600">{b.fornecedor ?? '—'}</td><td className="p-2 text-right tabular-nums">{fmt(b.peso_kg, 1)} kg</td><td className="p-2 text-right tabular-nums">{fmt(b.metragem_m)} m</td>
                 <td className="p-2"><div className="flex justify-end gap-1"><button type="button" title="Editar" onClick={() => abrirEdicao(b)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100"><Pencil className="size-4"/></button>{isDeveloper && <button type="button" title="Mover para lixeira" onClick={() => void excluir(b)} className="rounded-md p-2 text-red-600 hover:bg-red-50"><Trash2 className="size-4"/></button>}</div></td>
@@ -386,7 +430,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
               <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="p-2">Excluída em</th><th className="p-2">Categoria / medida</th><th className="p-2">Código / cliente</th><th className="p-2">Fornecedor</th><th className="p-2 text-right">Peso</th><th className="p-2 text-right">Metros</th><th className="p-2 text-right">Ações</th></tr></thead>
               <tbody>{lixeira.map((item) => <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="p-2 text-slate-600">{new Date(item.excluida_em).toLocaleString('pt-BR')}</td>
-                <td className="p-2"><div className="font-semibold text-slate-800">{item.dados.categoria}</div><div className="text-xs text-slate-500">{item.dados.medida ?? '—'}</div></td>
+                <td className="p-2"><div className="font-semibold text-slate-800">{item.dados.categoria}</div><div className="text-xs text-slate-500">{fmtMedida(item.dados.medida)}</div></td>
                 <td className="p-2 font-medium text-slate-800">{item.codigo ?? '—'}{item.dados.cliente ? <div className="text-xs text-slate-500">Cliente: {item.dados.cliente}</div> : null}</td>
                 <td className="p-2 text-slate-600">{item.dados.fornecedor ?? '—'}</td><td className="p-2 text-right tabular-nums">{fmt(item.dados.peso_kg, 1)} kg</td><td className="p-2 text-right tabular-nums">{fmt(item.dados.metragem_m)} m</td>
                 <td className="p-2"><div className="flex justify-end gap-1"><button type="button" onClick={() => void restaurar(item)} className="rounded-md px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">Restaurar</button><button type="button" title="Excluir definitivamente" onClick={() => void excluirDefinitivamente(item)} className="rounded-md p-2 text-red-600 hover:bg-red-50"><Trash2 className="size-4"/></button></div></td>
