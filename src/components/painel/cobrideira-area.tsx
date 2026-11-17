@@ -1091,7 +1091,10 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
       salvarCamposReutilizaveis(form)
       setEditandoNumero(null)
       setNumeroBobinaManual(false)
-      setForm({ ...formularioInicial(), ...lerCamposReutilizaveis() })
+      setForm(() => {
+        const proximo = { ...formularioInicial(), ...lerCamposReutilizaveis() }
+        return { ...proximo, pesoCilindro: pesoCilindroPadrao(proximo.largura) }
+      })
       setSecao('cadastro')
     } catch (error: unknown) {
       console.error('[COBRIDEIRA] Erro real ao ' + (editandoNumero ? 'editar' : 'cadastrar') + ' bobina', {
