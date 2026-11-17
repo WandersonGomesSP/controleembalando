@@ -111,17 +111,13 @@ function AccessField({
 
   return (
     <div className="grid gap-1.5 text-xs font-medium text-muted-foreground">
-      {onLabelClick ? (
-        <button
-          type="button"
-          onClick={onLabelClick}
-          className="w-fit rounded-sm text-left hover:text-foreground focus-visible:outline-none focus-visible:underline"
-        >
-          {label}
-        </button>
-      ) : (
-        <label htmlFor={inputId}>{label}</label>
-      )}
+      <label
+        htmlFor={inputId}
+        onClick={onLabelClick}
+        className="w-fit cursor-pointer text-left text-black hover:underline focus-visible:outline-none focus-visible:underline"
+      >
+        {label}
+      </label>
       <input
         id={inputId}
         aria-label={onLabelClick ? label : undefined}
@@ -196,7 +192,7 @@ export function AccessGate({
       })
       .catch(() => {
         if (ativo) {
-          setLoginError('Não foi possível conectar ao Supabase Auth.')
+          setLoginError('Não foi possível conectar ao sistema de acesso.')
         }
       })
 
@@ -386,22 +382,8 @@ export function AccessGate({
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl items-center px-5 py-10 sm:px-8">
       <div className="grid w-full overflow-hidden rounded-lg border border-border bg-card lg:grid-cols-[minmax(18rem,0.85fr)_minmax(26rem,1.15fr)]">
-        <aside className="flex min-h-64 flex-col justify-between border-b border-border bg-white p-7 sm:p-9 lg:min-h-[36rem] lg:border-r lg:border-b-0">
-          <div>
-            <span className="grid size-10 place-items-center rounded-md border border-border text-muted-foreground">
-              <Cylinder className="size-6" />
-            </span>
-            <p className="mt-8 text-xs tracking-wide text-black uppercase">
-              Controle de fábrica
-            </p>
-            <p className="mt-3 max-w-sm text-sm leading-6 text-black">
-              Produção e estoque organizados para cada etapa da operação.
-            </p>
-          </div>
-          <div className="mt-10 flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="size-1.5 rounded-full bg-success" />
-            Ambiente de operação
-          </div>
+        <aside className="flex min-h-64 items-center justify-center border-b border-border bg-[#57534E] p-7 sm:p-9 lg:min-h-[36rem] lg:border-r lg:border-b-0">
+          <img src="/embalando-logo.svg" alt="Logo Embalando" className="h-auto w-full max-w-xs object-contain" />
         </aside>
 
         <section className="flex flex-col justify-center p-6 sm:p-10 lg:p-12">
@@ -410,7 +392,7 @@ export function AccessGate({
               <p className="text-xs tracking-wide text-primary uppercase">Acesso ao sistema</p>
               <h2 className="mt-3 text-2xl font-semibold">Entrar</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Entre com a conta cadastrada no Supabase Auth.
+                Entre com sua conta de acesso.
               </p>
 
               <form onSubmit={submitLogin} className="mt-7 grid gap-4">
@@ -473,7 +455,7 @@ export function AccessGate({
                       type="button"
                       onClick={() => entry.available && chooseArea(entry.id)}
                       disabled={!entry.available}
-                      className="group grid min-h-36 grid-cols-[2rem_1fr] items-start gap-3 rounded-xl border-2 border-[#e3262e] bg-[#666666] px-5 py-5 text-left text-white shadow-md transition-colors enabled:hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-100"
+                      className="group grid min-h-36 grid-cols-[2rem_1fr] items-start gap-3 rounded-xl border-2 border-[#d6d3d1] bg-[#57534E] px-5 py-5 text-left text-white shadow-md transition-all enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-100"
                     >
                       <span className="grid size-8 place-items-center rounded-full bg-[#e3262e] font-mono text-xs font-bold text-black">
                         0{AREAS.indexOf(entry) + 1}
