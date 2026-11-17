@@ -1159,3 +1159,67 @@ export const deleteInsumoReference = createServerFn({ method: 'POST' })
     if (error) throw new Error('Não foi possível remover a referência de insumo.')
     return { success: true }
   })
+
+const currentStockRecordSchema = z.object({
+  categoria: z.enum(['BOPP', 'CREPE', 'KRAFT', 'DUPLA FACE']),
+  data_entrada: z.union([isoDate, z.literal('')]).nullable(),
+  fornecedor: z.string().max(160).nullable(),
+  medida: z.number().positive().nullable(),
+  peso_kg: z.number().min(0).nullable(),
+  metragem_m: z.number().min(0).nullable(),
+  codigo: z.string().trim().min(1).max(120).nullable(),
+  cor: z.string().max(80).nullable(),
+  linha: z.string().max(80).nullable(),
+  observacoes: z.string().max(1000).nullable(),
+}).strict()
+
+export const listCurrentStock = createServerFn({ method: 'POST' })
+  .validator(tokenInput)
+  .handler(async ({ data }) => {
+    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const estoque = client.schema('estoque_atual') as any
+    const [bobinasResult, resumosResult] = await Promise.all([
+      estoque.from('bobinas_estoque').select('*').order('data_entrada', { ascending: false }).order('codigo'),
+      estoque.from('resumo_estoque_produtos').select('*').order('categoria').order('medida_produto'),
+    ])
+    if (bobinasResult.error) throw new Error(`Não foi possível carregar as bobinas do estoque: ${bobinasResult.error.message}`)
+    if (resumosResult.error) throw new Error(`Não foi possível carregar o resumo do estoque: ${resumosResult.error.message}`)
+    return { bobinas: bobinasResult.data ?? [], resumos: resumosResult.data ?? [] }
+  })
+
+export const createCurrentStockRecord = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ registro: currentStockRecordSchema }))
+  .handler(async ({ data }) => {
+    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const estoque = client.schema('estoque_atual') as any
+    const registro = { ...data.registro, data_entrada: data.registro.data_entrada || null, origem_arquivo: 'Cadastro manual no site' }
+    const { data: created, error } = await estoque.from('bobinas_estoque').insert(registro).select('*').single()
+    if (error?.code === '23505') throw new Error('Já existe uma bobina com esse código. Confira o cadastro.')
+    if (error) throw new Error(`Não foi possível adicionar a bobina: ${error.message}`)
+    return created
+  })
+
+export const updateCurrentStockRecord = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ id: z.uuid(), registro: currentStockRecordSchema }))
+  .handler(async ({ data }) => {
+    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const estoque = client.schema('estoque_atual') as any
+    const { data: updated, error } = await estoque.from('bobinas_estoque')
+      .update({ ...data.registro, data_entrada: data.registro.data_entrada || null })
+      .eq('id', data.id).select('*').maybeSingle()
+    if (error?.code === '23505') throw new Error('Já existe outra bobina com esse código.')
+    if (error) throw new Error(`Não foi possível atualizar a bobina: ${error.message}`)
+    if (!updated) throw new Error('A bobina não foi encontrada. Atualize a tela e tente novamente.')
+    return updated
+  })
+
+export const deleteCurrentStockRecord = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ id: z.uuid() }))
+  .handler(async ({ data }) => {
+    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const estoque = client.schema('estoque_atual') as any
+    const { error, count } = await estoque.from('bobinas_estoque').delete({ count: 'exact' }).eq('id', data.id)
+    if (error) throw new Error(`Não foi possível excluir a bobina do estoque atual: ${error.message}`)
+    if (count === 0) throw new Error('A bobina já não está no Estoque Atual.')
+    return { success: true }
+  })
