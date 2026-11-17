@@ -1713,7 +1713,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   <p className="text-sm text-muted-foreground">{registrosFiltrados.length} registro(s) encontrado(s)</p>
                 </div>
                 
-                  {modo === 'lista' ? (
+                  <div className={modo === 'lista' ? 'block' : 'hidden'}>
                   <ModoLista>
                   <div className="scroll-area overflow-x-auto">
                     <table className="cobrideira-registros-table w-full min-w-[58rem] text-left text-sm">
@@ -1828,7 +1828,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                     </table>
                   </div>
                   </ModoLista>
-                  ) : (
+                  </div>
+                  <div className={modo === 'planilha' ? 'block' : 'hidden'}>
                     <ModoPlanilha
                       registros={registrosPagina}
                       todosRegistros={registros}
@@ -1836,7 +1837,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       onAlternarSelecao={alternarSelecao}
                       onSalvarCelula={salvarCelulaPlanilha}
                     />
-                  )}
+                  </div>
               </div>
             )}
           </Panel>
