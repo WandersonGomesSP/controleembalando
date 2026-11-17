@@ -1831,6 +1831,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   ) : (
                     <ModoPlanilha
                       registros={registrosPagina}
+                      todosRegistros={registros}
                       selecionadas={selecionadas}
                       onAlternarSelecao={alternarSelecao}
                       onSalvarCelula={salvarCelulaPlanilha}
