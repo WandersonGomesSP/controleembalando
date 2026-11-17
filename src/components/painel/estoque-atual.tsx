@@ -98,9 +98,9 @@ function lerCsv(texto: string, nomeArquivo: string) {
     const valorData = bruta.trim()
     if (!valorData) return null
     const brasileira = valorData.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
-    if (brasileira) return \`\${brasileira[3]}-\${brasileira[2]}-\${brasileira[1]}\`
+    if (brasileira) return `${brasileira[3]}-${brasileira[2]}-${brasileira[1]}`
     const iso = valorData.match(/^(\d{4})-(\d{2})-(\d{2})/)
-    if (iso) return \`\${iso[1]}-\${iso[2]}-\${iso[3]}\`
+    if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`
     const serial = Number(valorData)
     if (Number.isFinite(serial) && serial > 20000 && serial < 80000) {
       const data = new Date(Date.UTC(1899, 11, 30) + serial * 86400000)
@@ -117,7 +117,7 @@ function lerCsv(texto: string, nomeArquivo: string) {
       : categoriaDoArquivo
     const codigo = valor(colunas, 'codigo', 'codigo_bobina', 'codigo_da_bobina', 'cod_bob', 'cod_bobina', 'numero_bobina', 'numero_da_bobina', 'numero', 'id_bobina', 'identificacao')
     if (!colunas.some((v) => v.trim()) || !codigo) return null
-    if (!categoria) throw new Error(\`\${nomeArquivo}: informe a categoria em cada linha ou use BOPP, CREPE, KRAFT ou DUPLA_FACE no nome do arquivo (linha \${indiceLinha + 2}).\`)
+    if (!categoria) throw new Error(`${nomeArquivo}: informe a categoria em cada linha ou use BOPP, CREPE, KRAFT ou DUPLA_FACE no nome do arquivo (linha ${indiceLinha + 2}).`)
     const medida = converterNumero(valor(colunas, 'medida', 'medidas', 'largura', 'largura_bobina', 'largura_bobina_texto', 'medida_texto', 'especificacao', 'medida_produto'))
     const peso = converterNumero(valor(colunas, 'peso_kg', 'peso', 'peso_bobina', 'peso_bobina_kg', 'peso_bobina_texto', 'peso_atual', 'kg'))
     const metragem = converterNumero(valor(colunas, 'metragem_m', 'metragem', 'metros', 'metragem_disponivel_m', 'metragem_bobina_texto', 'comprimento', 'metragem_unica'))
@@ -241,7 +241,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
         const registros = lerCsv(await arquivo.text(), arquivo.name)
         if (registros.length) arquivosLidos++
         for (const registro of registros) {
-          const chave = \`\${registro.categoria}|\${registro.codigo}\`
+          const chave = `${registro.categoria}|${registro.codigo}`
           const anterior = consolidados.get(chave)
           consolidados.set(chave, anterior ? {
             ...anterior,
@@ -262,7 +262,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
         const resultado = await importCurrentStockCsv({ data: { accessToken, registros: lote } })
         totalImportado += resultado.importados
       }
-      toast.success(\`\${totalImportado} bobinas consolidadas/importadas de \${arquivosLidos} arquivo(s). Códigos repetidos foram reunidos.\`)
+      toast.success(`${totalImportado} bobinas consolidadas/importadas de ${arquivosLidos} arquivo(s). Códigos repetidos foram reunidos.`)
       await carregar()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível importar os CSVs.')
