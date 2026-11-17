@@ -12,6 +12,7 @@ import {
   RotateCcw,
   FileUp,
   Users,
+  ChartNoAxesCombined,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -22,6 +23,7 @@ import {
   TextInput,
 } from '@/components/painel/fields'
 import { supabase } from '@/lib/supabase'
+import { EstoqueMinimoCobrideira } from '@/components/painel/rebobinadeira-area'
 import { downloadCobrideiraLabel } from '@/lib/cobrideira-label'
 import { synchronizeCobrideiraBobina, updateCobrideiraBobina, moveCobrideiraBobinaToTrash, listCobrideiraBobinasTrash, restoreCobrideiraBobinaFromTrash, permanentlyDeleteCobrideiraBobina } from '@/lib/admin.functions'
 import type {
@@ -61,7 +63,7 @@ type FormularioBobina = {
   codigoEmenda: string
 }
 
-type Secao = 'cadastro' | 'registros' | 'operadores' | 'lixeira'
+type Secao = 'cadastro' | 'registros' | 'operadores' | 'lixeira' | 'estoque-minimo'
 type OperadorCobrideira = { nome: string; turno: '1º TURNO' | '2º TURNO' }
 
 type LinhaCSVPreparada = { linha: number; bobina: CobrideiraBobinaInsert | null; erro: string | null }
@@ -1170,6 +1172,15 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             </button>
             <button
               type="button"
+              aria-current={secao === 'estoque-minimo' ? 'page' : undefined}
+              onClick={() => setSecao('estoque-minimo')}
+              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'estoque-minimo' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
+            >
+              <ChartNoAxesCombined className="size-4" />
+              Indicadores
+            </button>
+            <button
+              type="button"
               aria-current={secao === 'registros' ? 'page' : undefined}
               onClick={() => setSecao('registros')}
               className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'registros' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
@@ -1184,11 +1195,23 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               <Trash2 className="size-4" /> Lixeira
             </button>
           </nav>
+          {secao === 'estoque-minimo' && (
+            <nav aria-label="Indicadores da Cobrideira" className="flex items-center gap-2 border-t border-[#e2e8f0] pt-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[#475569]">Indicadores</span>
+              <span className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-[#e3262e] bg-[#fff1f2] px-3 text-xs font-semibold text-[#7f1d1d]">
+                <ChartNoAxesCombined className="size-4" /> Estoque Mínimo
+              </span>
+            </nav>
+          )}
         </div>
       </header>
 
       <main className="mx-auto grid max-w-[96rem] gap-3 px-3 py-3 sm:px-4 sm:py-4">
-        {secao === 'cadastro' ? (
+        {secao === 'estoque-minimo' ? (
+          <Panel title="Indicadores · Estoque Mínimo" description="Comparativo dos estoques mínimos por peso e por metragem.">
+            <EstoqueMinimoCobrideira isDeveloper={isDeveloper} />
+          </Panel>
+        ) : secao === 'cadastro' ? (
           <>
             <Panel
               className="[&>div:last-child]:!p-2"
