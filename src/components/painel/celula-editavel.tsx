@@ -40,7 +40,7 @@ export function CelulaEditavel({
       ) : (
         <span className="block min-h-5 cursor-cell" onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === 'F2') { event.preventDefault(); onStartEdit() }
-        }} tabIndex={selected ? 0 : -1}>{displayValue ?? value || '—'}</span>
+        }} tabIndex={selected ? 0 : -1}>{(displayValue ?? value) || '—'}</span>
       )}
       {error && <span className="absolute left-0 top-full z-20 mt-1 max-w-64 rounded bg-[#B91C1C] px-2 py-1 text-xs text-white shadow">{error}</span>}
     </td>
