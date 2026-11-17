@@ -447,7 +447,7 @@ export const updateCobrideiraBobinaCell = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({
     numeroOriginal: z.string().trim().min(1).max(80),
     campo: z.enum([
-      'numero_bobina', 'cod_bob', 'data', 'fornecedor_filme', 'largura',
+      'numero_bobina', 'cod_bob', 'data', 'fornecedor_filme', 'largura', 'micragem',
       'peso_bruto', 'peso_final', 'metragem', 'material', 'perda_kg',
       'vareta_g', 'kg_cola', 'lote_cola', 'codigo_interno', 'fornecedor_cola',
       'linha', 'cor_fundo', 'pigmento_kg', 'cor_mistura', 'pigmento_mistura',
@@ -458,12 +458,13 @@ export const updateCobrideiraBobinaCell = createServerFn({ method: 'POST' })
   }))
   .handler(async ({ data }) => {
     const { client, user } = await requireCobrideiraEditor(data.accessToken)
-    const camposNumericos = ['largura', 'peso_bruto', 'peso_final', 'metragem', 'perda_kg', 'vareta_g', 'kg_cola', 'pigmento_kg']
+    const camposNumericos = ['largura', 'micragem', 'peso_bruto', 'peso_final', 'metragem', 'perda_kg', 'vareta_g', 'kg_cola', 'pigmento_kg']
     if (camposNumericos.includes(data.campo)) {
       if (typeof data.valor !== 'number' || !Number.isFinite(data.valor) || data.valor <= 0) {
         throw new Error('Informe um número positivo para este campo.')
       }
       if (Math.round(data.valor * 100) !== data.valor * 100) throw new Error('Use no máximo duas casas decimais.')
+      if (['micragem', 'metragem', 'vareta_g'].includes(data.campo) && !Number.isInteger(data.valor)) throw new Error('Este campo aceita apenas números inteiros.')
     } else if (typeof data.valor !== 'string') {
       throw new Error('Valor inválido para este campo.')
     }
