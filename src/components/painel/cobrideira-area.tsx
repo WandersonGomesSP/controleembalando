@@ -63,7 +63,7 @@ type FormularioBobina = {
   codigoEmenda: string
 }
 
-type Secao = 'cadastro' | 'registros' | 'operadores' | 'lixeira' | 'estoque-minimo'
+type Secao = 'cadastro' | 'registros' | 'operadores' | 'lixeira' | 'estoque-atual' | 'estoque-minimo'
 type OperadorCobrideira = { nome: string; turno: '1º TURNO' | '2º TURNO' }
 
 type LinhaCSVPreparada = { linha: number; bobina: CobrideiraBobinaInsert | null; erro: string | null }
@@ -509,7 +509,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [secao, setSecao] = React.useState<Secao>(() => {
     try {
       const salva = localStorage.getItem('controleembalando-cobrideira-menu') as Secao | null
-      return salva && ['cadastro', 'registros', 'operadores', 'lixeira'].includes(salva) ? salva : 'cadastro'
+      return salva && ['cadastro', 'registros', 'operadores', 'lixeira', 'estoque-atual', 'estoque-minimo'].includes(salva) ? salva : 'cadastro'
     } catch { return 'cadastro' }
   })
   React.useEffect(() => {
@@ -1187,8 +1187,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             </button>
             <button
               type="button"
-              aria-current={secao === 'estoque-minimo' ? 'page' : undefined}
-              onClick={() => setSecao('estoque-minimo')}
+              aria-current={secao === 'estoque-atual' || secao === 'estoque-minimo' ? 'page' : undefined}
+              onClick={() => setSecao('estoque-atual')}
               className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'estoque-minimo' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
             >
               <ChartNoAxesCombined className="size-4" />
@@ -1210,19 +1210,30 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               <Trash2 className="size-4" /> Lixeira
             </button>
           </nav>
-          {secao === 'estoque-minimo' && (
-            <nav aria-label="Indicadores da Cobrideira" className="flex items-center gap-2 border-t border-[#e2e8f0] pt-2">
+          {(secao === 'estoque-atual' || secao === 'estoque-minimo') && (
+            <nav aria-label="Submenus de Indicadores" className="flex items-center gap-2 border-t border-[#e2e8f0] pt-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-[#475569]">Indicadores</span>
-              <span className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-[#e3262e] bg-[#fff1f2] px-3 text-xs font-semibold text-[#7f1d1d]">
+              <button type="button" onClick={() => setSecao('estoque-atual')} aria-current={secao === 'estoque-atual' ? 'page' : undefined} className={`inline-flex min-h-8 items-center gap-2 rounded-lg border px-3 text-xs font-semibold ${secao === 'estoque-atual' ? 'border-[#e3262e] bg-[#fff1f2] text-[#7f1d1d]' : 'border-[#e2e8f0] bg-white text-[#475569] hover:bg-slate-50'}`}>
+                <PackagePlus className="size-4" /> Estoque Atual
+              </button>
+              <button type="button" onClick={() => setSecao('estoque-minimo')} aria-current={secao === 'estoque-minimo' ? 'page' : undefined} className={`inline-flex min-h-8 items-center gap-2 rounded-lg border px-3 text-xs font-semibold ${secao === 'estoque-minimo' ? 'border-[#e3262e] bg-[#fff1f2] text-[#7f1d1d]' : 'border-[#e2e8f0] bg-white text-[#475569] hover:bg-slate-50'}`}>
                 <ChartNoAxesCombined className="size-4" /> Estoque Mínimo
-              </span>
+              </button>
             </nav>
           )}
         </div>
       </header>
 
       <main className="mx-auto grid max-w-[96rem] gap-3 px-3 py-3 sm:px-4 sm:py-4">
-        {secao === 'estoque-minimo' ? (
+        {secao === 'estoque-atual' ? (
+          <Panel title="Indicadores · Estoque Atual" description="Comparação do estoque físico com o estoque mínimo calculado.">
+            <div className="rounded-xl border border-dashed border-[#cbd5e1] bg-white p-6 text-sm text-[#475569]">
+              <p className="font-semibold text-[#0f172a]">Estrutura do Estoque Atual preparada</p>
+              <p className="mt-2">O schema <strong>estoque_atual</strong> foi criado no banco. A tabela de bobinas, a importação do CSV, o comparativo de saldo e o histórico serão conectados assim que definirmos os campos do arquivo de estoque que você vai enviar.</p>
+              <p className="mt-2">A baixa automática pela Rebobinadeira permanece desligada.</p>
+            </div>
+          </Panel>
+        ) : secao === 'estoque-minimo' ? (
           <Panel title="Indicadores · Estoque Mínimo" description="Comparativo dos estoques mínimos por peso e por metragem.">
             <EstoqueMinimoCobrideira isDeveloper={isDeveloper} />
           </Panel>
