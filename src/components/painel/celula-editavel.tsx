@@ -26,6 +26,11 @@ export function CelulaEditavel({
       tabIndex={selected ? 0 : -1}
       onClick={(event) => { onSelect(); event.currentTarget.focus() }}
       onDoubleClick={() => onStartEdit()}
+      onKeyDown={(event) => {
+        if (!editing && selected && event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+          event.preventDefault(); setDraft(event.key); onStartEdit(event.key)
+        }
+      }}
       className={`relative min-w-32 border border-[#E2E8F0] bg-white px-2 py-2 text-sm text-[#1E293B] ${numeric ? 'text-right [font-variant-numeric:tabular-nums]' : 'text-left'} ${mono ? 'font-mono' : ''} ${selected ? 'outline outline-2 -outline-offset-2 outline-[#B91C1C]' : ''} ${error ? 'bg-red-50' : ''}`}
     >
       {editing ? (
