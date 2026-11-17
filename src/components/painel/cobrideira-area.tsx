@@ -282,6 +282,21 @@ const FORNECEDORES_FILME = ['INNOVA', 'TITAN', 'JHP']
 const VARETAS = ['16', '18', '20', '22', '26', '28']
 const LINHAS = ['Padrão', 'Personalizada', 'Impressa Linha']
 
+const CORES_IMPRESSA_LINHA = [
+  'CUIDADO FRÁGIL/IMPRE. PRETA – BRANCO',
+  'CUIDADO FRÁGIL/IMPRE. PRETA – CRISTAL',
+  'CUIDADO FRÁGIL/IMPRE. PRETA – MARROM',
+  'CUIDADO FRÁGIL/IMPRE. VER – BRANCO',
+  'CUIDADO FRÁGIL/IMPRE. VER – CRISTAL',
+  'CUIDADO FRÁGIL/IMPRE. VER – MARROM',
+  'VIOLAÇÃO (CADEADO)/IMPRE. PRETA – BRANCO',
+  'VIOLAÇÃO (CADEADO)/IMPRE. PRETA – CRISTAL',
+  'VIOLAÇÃO (CADEADO)/IMPRE. PRETA – MARROM',
+  'VIOLAÇÃO (CADEADO)/IMPRE. VER – BRANCO',
+  'VIOLAÇÃO (CADEADO)/IMPRE. VER – CRISTAL',
+  'VIOLAÇÃO (CADEADO)/IMPRE. VER – MARROM',
+]
+
 type CampoFiltro = keyof CobrideiraBobinaRow
 const CAMPOS_FILTRO: { campo: CampoFiltro; label: string }[] = [
   { campo: 'largura', label: 'Largura' },
@@ -1464,17 +1479,23 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                           label="Cor de impressão"
                           htmlFor="cb-cor-impressao"
                         >
-                          <TextInput highlightValid
-                            id="cb-cor-impressao"
-                            value={form.corImpressao}
-                            onChange={(e) =>
-                              atualizar(
-                                'corImpressao',
-                                e.target.value.toUpperCase(),
-                              )
-                            }
-                            maxLength={100}
-                          />
+                          {form.linha === 'Impressa Linha' ? (
+                            <SelectInput
+                              highlightValid
+                              id="cb-cor-impressao"
+                              value={form.corImpressao}
+                              onChange={(e) => atualizar('corImpressao', e.target.value)}
+                              options={CORES_IMPRESSA_LINHA}
+                            />
+                          ) : (
+                            <TextInput
+                              highlightValid
+                              id="cb-cor-impressao"
+                              value={form.corImpressao}
+                              onChange={(e) => atualizar('corImpressao', e.target.value.toUpperCase())}
+                              maxLength={100}
+                            />
+                          )}
                         </Field>
                       )}
                     </div>
