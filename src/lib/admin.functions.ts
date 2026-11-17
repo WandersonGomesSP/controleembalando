@@ -142,6 +142,93 @@ async function requireCobrideiraEditor(accessToken: string) {
   return { client, user: data.user }
 }
 
+
+async function requireRebobinadeiraEditor(accessToken: string) {
+  const client = createAdminClient()
+  const { data, error } = await client.auth.getUser(accessToken)
+  if (error || !data.user?.email) throw new Error('Sessão inválida.')
+  const [roleResult, developerResult] = await Promise.all([
+    client.from('user_roles').select('role, area').eq('user_id', data.user.id).maybeSingle(),
+    client.from('developer_accounts').select('email').eq('email', data.user.email.toLowerCase()).maybeSingle(),
+  ])
+  if (roleResult.error || developerResult.error) {
+    throw new Error('Não foi possível validar a permissão para importar dados da Rebobinadeira.')
+  }
+  const permitido = Boolean(developerResult.data)
+    || roleResult.data?.role === 'ADMIN'
+    || (roleResult.data?.role === 'OPERATOR' && roleResult.data.area === 'rebobinadeira')
+  if (!permitido) throw new Error('Você não tem permissão para importar dados da Rebobinadeira.')
+  return { client, user: data.user }
+}
+
+const REBOBINadeira_CSV_COLUMNS = [
+  'data_texto', 'maquina', 'setup', 'numero_bobina', 'turno_texto',
+  'material', 'largura_bobina_texto', 'peso_bobina_texto', 'fornec_filme',
+  'lote_cola', 'fornec_cola', 'medida', 'largura_fita_texto', 'comp_fita_texto',
+  'cor', 'linha', 'cliente', 'caixas_texto', 'pcts_texto', 'rolos_texto',
+  'refugos_texto', 'fitas_rebobinadas_texto', 'refilo_texto',
+  'perda_producao_texto', 'perda_filme_texto', 'metragem_bobina_texto',
+  'metragem_unica_texto', 'area_bobina_texto', 'observacoes',
+  'peso_unico_texto', 'area_unica_texto',
+] as const
+
+function parseRebobinadeiraCsv(csv: string) {
+  const text = csv.replace(/^\uFEFF/, '')
+  const rows: { fields: string[]; line: number }[] = []
+  let fields: string[] = []
+  let field = ''
+  let quoted = false
+  let physicalLine = 1
+  let rowStartLine = 1
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i]!
+    if (char === '"') {
+      if (quoted && text[i + 1] === '"') {
+        field += '"'
+        i += 1
+      } else {
+        quoted = !quoted
+      }
+      continue
+    }
+    if (char === ';' && !quoted) {
+      fields.push(field)
+      field = ''
+      continue
+    }
+    if ((char === '\n' || char === '\r') && !quoted) {
+      fields.push(field)
+      if (fields.some((value) => value.trim() !== '')) rows.push({ fields, line: rowStartLine })
+      fields = []
+      field = ''
+      if (char === '\r' && text[i + 1] === '\n') i += 1
+      physicalLine += 1
+      rowStartLine = physicalLine
+      continue
+    }
+    if (char === '\n') physicalLine += 1
+    field += char
+  }
+
+  if (quoted) throw new Error('O CSV contém um campo com aspas abertas.')
+  fields.push(field)
+  if (fields.some((value) => value.trim() !== '')) rows.push({ fields, line: rowStartLine })
+  return rows
+}
+
+function dataCsvValida(value: string) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim())
+  if (!match) return false
+  const day = Number(match[1])
+  const month = Number(match[2])
+  const year = Number(match[3])
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day
+}
+
 async function loadAdminSummarySnapshot(
   client: ReturnType<typeof createAdminClient>,
   entidade: 'Rolo de insumo' | 'Produção de tubos' | 'Lote de tubetes',
@@ -320,6 +407,104 @@ export const deleteAdminSummaryRecord = createServerFn({ method: 'POST' })
     }
     if (error) throw new Error('Não foi possível excluir o registro com auditoria.')
     return { success: true }
+  })
+
+
+export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
+  .validator(
+    tokenInput.extend({
+      csv: z.string().min(1).max(4_000_000),
+      nomeArquivo: z.string().trim().min(1).max(180).default('importacao.csv'),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const parsed = parseRebobinadeiraCsv(data.csv)
+    if (parsed[0]?.fields[0]?.trim().toUpperCase().startsWith('DATA')) parsed.shift()
+
+    for (const row of parsed) {
+      if (row.fields.length !== REBOBINadeira_CSV_COLUMNS.length) {
+        throw new Error(
+          \`Linha \${row.line}: esperado 31 colunas, mas foram encontradas \${row.fields.length}. Nenhum dado foi gravado.\`,
+        )
+      }
+    }
+
+    const rejeicoes: { linha: number; motivo: string }[] = []
+    const validas: Record<string, unknown>[] = []
+    for (const row of parsed) {
+      const fields = row.fields.map((value) => value.trim())
+      const material = fields[5] ?? ''
+      const materialSemLargura = /CREPE|DUPLA FACE|KRAFT/i.test(material)
+      const motivos: string[] = []
+      if (!dataCsvValida(fields[0] ?? '')) motivos.push('Data inválida; use DD/MM/AAAA.')
+      if (!fields[3]) motivos.push('Número da bobina não informado.')
+      if (!material) motivos.push('Material não informado.')
+      if (!materialSemLargura && !fields[6]) motivos.push('Largura do jumbo não informada.')
+      if (motivos.length) {
+        rejeicoes.push({ linha: row.line, motivo: motivos.join(' ') })
+        continue
+      }
+      const record: Record<string, unknown> = {
+        lote_id: '',
+        linha_csv: row.line,
+      }
+      REBOBINadeira_CSV_COLUMNS.forEach((column, index) => {
+        record[column] = fields[index] ?? ''
+      })
+      if (!String(record.linha ?? '').trim()) record.linha = 'PADRÃO'
+      validas.push(record)
+    }
+
+    if (!validas.length) {
+      return {
+        lote_id: null,
+        recebidas: parsed.length,
+        validas: 0,
+        rejeitadas: rejeicoes.length,
+        gravadas: 0,
+        rejeicoes,
+      }
+    }
+
+    const loteId = crypto.randomUUID()
+    const stagingRows = validas.map((row) => ({ ...row, lote_id: loteId }))
+    for (let offset = 0; offset < stagingRows.length; offset += 500) {
+      const batch = stagingRows.slice(offset, offset + 500)
+      const { error } = await client
+        .schema('rebobinadeira')
+        .from('staging_planilha')
+        .insert(batch as never)
+      if (error) {
+        await client.schema('rebobinadeira').from('staging_planilha').delete().eq('lote_id', loteId)
+        throw new Error(\`Falha ao preparar a importação: \${error.message}\`)
+      }
+    }
+
+    const { data: gravadas, error: processError } = await client
+      .schema('rebobinadeira')
+      .rpc('processar_lote', { p_lote: loteId })
+    if (processError) {
+      throw new Error(\`Falha ao processar o lote. Os dados temporários foram preservados para diagnóstico: \${processError.message}\`)
+    }
+
+    const { error: logError } = await client
+      .schema('rebobinadeira')
+      .from('importacao_log')
+      .update({ nome_arquivo: data.nomeArquivo })
+      .eq('id', loteId)
+    if (logError) {
+      throw new Error(\`As bobinas foram importadas, mas não foi possível registrar o nome do arquivo: \${logError.message}\`)
+    }
+
+    return {
+      lote_id: loteId,
+      recebidas: parsed.length,
+      validas: validas.length,
+      rejeitadas: rejeicoes.length,
+      gravadas: Number(gravadas ?? 0),
+      rejeicoes,
+    }
   })
 
 export const listDeveloperData = createServerFn({ method: 'POST' })
