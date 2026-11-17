@@ -88,13 +88,15 @@ function avaliarFormula(
     const esquerda = resolver(condicao[1])
     const literal = condicao[3].trim().replace(/^"|"$/g, '')
     const direita: unknown = /^-?\d+(?:[.,]\d+)?$/.test(literal) ? Number(literal.replace(',', '.')) : literal
-    const a = typeof esquerda === 'number' ? esquerda : String(esquerda ?? '')
-    const b = typeof direita === 'number' ? direita : String(direita)
-    const ok = condicao[2] === '>' ? a > b : condicao[2] === '<' ? a < b : condicao[2] === '>=' ? a >= b : condicao[2] === '<=' ? a <= b : condicao[2] === '<>' ? a !== b : a === b
+    const a = Number(esquerda); const b = Number(direita)
+    const ambosNumericos = Number.isFinite(a) && Number.isFinite(b)
+    const comparacao = ambosNumericos ? a - b : String(esquerda ?? '').localeCompare(String(direita))
+    const iguais = ambosNumericos ? comparacao === 0 : String(esquerda ?? '') === String(direita)
+    const ok = condicao[2] === '>' ? comparacao > 0 : condicao[2] === '<' ? comparacao < 0 : condicao[2] === '>=' ? comparacao >= 0 : condicao[2] === '<=' ? comparacao <= 0 : condicao[2] === '<>' ? !iguais : iguais
     return ok ? (args[1] ?? '').replace(/^"|"$/g, '') : (args[2] ?? '').replace(/^"|"$/g, '')
   }
   const valores = args.flatMap((arg) => /^[A-Z]+\d+:[A-Z]+\d+$/i.test(arg) ? intervalo(arg) : /^[A-Z]+\d+$/i.test(arg) ? [resolver(arg)] : [arg.replace(/^"|"$/g, '')])
-  if (nome === 'CONT.VALORES') return valores.filter((v) => v !== '' && v !== null && v !== undefined).length
+  if (nome === 'CONTVALORES') return valores.filter((v) => v !== '' && v !== null && v !== undefined).length
   const numeros = valores.map((v) => Number(v)).filter(Number.isFinite)
   if (nome === 'SOMA') return numeros.reduce((s, n) => s + n, 0)
   if (nome === 'MÉDIA' || nome === 'MEDIA') return numeros.length ? numeros.reduce((s, n) => s + n, 0) / numeros.length : 0
@@ -126,8 +128,8 @@ export function ModoPlanilha({ registros, todosRegistros, selecionadas, onAltern
   const metragemColuna = COLUNAS.findIndex((c) => c.campo === 'metragem')
   const enderecoPeso = (i: number) => `${LETRAS(pesoColuna)}${i + 2}`
   const enderecoMetragem = (i: number) => `${LETRAS(metragemColuna)}${i + 2}`
-  const resolverReferencia = React.useCallback((ref: string, pilha: Set<string> = new Set()): unknown => {
-    const match = ref.toUpperCase().match(/^([A-Z]+)(\d+)$/)
+  function resolverReferencia(ref: string, pilha: Set<string> = new Set()): unknown {
+    const match = ref.toUpperCase().match(/^([A-Z]+)(\\d+)$/)
     if (!match) return ''
     let ci = 0
     for (const ch of match[1]) ci = ci * 26 + ch.charCodeAt(0) - 64
@@ -141,18 +143,20 @@ export function ModoPlanilha({ registros, todosRegistros, selecionadas, onAltern
       return avaliarFormula(formulaCell, (r) => resolverReferencia(r, next), (range) => resolverIntervalo(range, next))
     }
     return dados[li]?.[COLUNAS[ci - 1].campo] ?? ''
-  }, [dados, formulas])
-  const resolverIntervalo = React.useCallback((range: string, pilha: Set<string> = new Set()): unknown[] => {
+  }
+  function resolverIntervalo(range: string, pilha: Set<string> = new Set()): unknown[] {
     const [inicio, fim] = range.toUpperCase().split(':')
-    const a = inicio.match(/^([A-Z]+)(\d+)$/); const b = fim.match(/^([A-Z]+)(\d+)$/)
+    const a = inicio.match(/^([A-Z]+)(\\d+)$/); const b = fim.match(/^([A-Z]+)(\\d+)$/)
     if (!a || !b) return []
     let c1 = 0; for (const ch of a[1]) c1 = c1 * 26 + ch.charCodeAt(0) - 64
     let c2 = 0; for (const ch of b[1]) c2 = c2 * 26 + ch.charCodeAt(0) - 64
     const l1 = Number(a[2]); const l2 = Number(b[2])
     const valores: unknown[] = []
-    for (let l = Math.min(l1, l2); l <= Math.max(l1, l2); l++) for (let c = Math.min(c1, c2); c <= Math.max(c1, c2); c++) valores.push(resolverReferencia(`${LETRAS(c - 1)}${l}`, pilha))
+    for (let l = Math.min(l1, l2); l <= Math.max(l1, l2); l++) {
+      for (let c = Math.min(c1, c2); c <= Math.max(c1, c2); c++) valores.push(resolverReferencia(`${LETRAS(c - 1)}${l}`, pilha))
+    }
     return valores
-  }, [resolverReferencia])
+  }
   const valorCalculado = (i: number, j: number) => {
     const address = `${LETRAS(j)}${i + 2}`
     return formulas[address] ? avaliarFormula(formulas[address], resolverReferencia, resolverIntervalo) : dados[i]?.[COLUNAS[j].campo]
@@ -167,6 +171,7 @@ export function ModoPlanilha({ registros, todosRegistros, selecionadas, onAltern
   const maxPeso = peso.length ? Math.max(...peso) : 0
   const colunasTotais = new Set<Campo>(['largura', 'peso_bruto', 'peso_final', 'peso_liquido', 'metragem', 'perda_kg', 'vareta_g', 'kg_cola', 'pigmento_kg'])
   const formulaDaCelula = formulas[endereco] ?? ''
+  const valorAtual = atual && colunaAtual ? String(atual[colunaAtual.campo] ?? '') : ''
   const totalFormula = (j: number) => `=SOMA(${LETRAS(j)}2:${LETRAS(j)}${dados.length + 1})`
   const salvar = async (valor: string) => {
     if (!atual || !colunaAtual || colunaAtual.somenteLeitura) return
