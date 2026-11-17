@@ -471,7 +471,7 @@ export const updateCobrideiraBobinaCell = createServerFn({ method: 'POST' })
     if (['numero_bobina', 'cod_bob', 'fornecedor_filme'].includes(data.campo) && !String(data.valor).trim()) {
       throw new Error('Este campo não pode ficar vazio.')
     }
-    if (data.campo === 'data' && !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(data.valor))) {
+    if (data.campo === 'data' && !/^\d{4}-\d{2}-\d{2}$/.test(String(data.valor))) {
       throw new Error('Informe uma data válida.')
     }
     const patch = {
