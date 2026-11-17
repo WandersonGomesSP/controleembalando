@@ -2,24 +2,24 @@
 CREATE SCHEMA IF NOT EXISTS rebobinadeira;
 
 CREATE OR REPLACE FUNCTION rebobinadeira.para_numeric_br(txt text)
-RETURNS numeric LANGUAGE sql IMMUTABLE AS $$
+RETURNS numeric LANGUAGE sql IMMUTABLE AS $function$
   SELECT CASE
     WHEN NULLIF(TRIM(txt), '') IS NULL THEN NULL
     WHEN POSITION(',' IN TRIM(txt)) > 0
       THEN REPLACE(REPLACE(TRIM(txt), '.', ''), ',', '.')::numeric
     ELSE TRIM(txt)::numeric
   END;
-$$;
+$function$;
 
 CREATE OR REPLACE FUNCTION rebobinadeira.normaliza_numero(txt text)
-RETURNS text LANGUAGE sql IMMUTABLE AS $$
+RETURNS text LANGUAGE sql IMMUTABLE AS $function$
   SELECT NULLIF(REGEXP_REPLACE(COALESCE(txt, ''), '\D', '', 'g'), '');
-$$;
+$function$;
 
 CREATE OR REPLACE FUNCTION rebobinadeira.codigo_produto(
   p_material text, p_cor text, p_largura numeric, p_tipo text
 )
-RETURNS text LANGUAGE sql IMMUTABLE AS $$
+RETURNS text LANGUAGE sql IMMUTABLE AS $function$
   SELECT CONCAT_WS('|',
     UPPER(REGEXP_REPLACE(TRIM(COALESCE(p_material, '')), '\s+', ' ', 'g')),
     UPPER(REGEXP_REPLACE(TRIM(COALESCE(p_cor, '')), '\s+', ' ', 'g')),
@@ -32,12 +32,12 @@ RETURNS text LANGUAGE sql IMMUTABLE AS $$
     END,
     UPPER(REGEXP_REPLACE(TRIM(COALESCE(NULLIF(p_tipo, ''), 'PADRÃO')), '\s+', ' ', 'g'))
   );
-$$;
+$function$;
 
 CREATE OR REPLACE FUNCTION rebobinadeira.lead_time_padrao(
   p_material text, p_cor text, p_largura numeric, p_tipo text
 )
-RETURNS integer LANGUAGE sql IMMUTABLE AS $$
+RETURNS integer LANGUAGE sql IMMUTABLE AS $function$
   SELECT CASE
     WHEN UPPER(COALESCE(p_material, '')) IN ('PEBD PRETO', 'PERSONALIZADAS') THEN NULL
     WHEN UPPER(COALESCE(p_tipo, 'PADRÃO')) = 'IMPRESSA (DE LINHA)' THEN 30
@@ -55,7 +55,7 @@ RETURNS integer LANGUAGE sql IMMUTABLE AS $$
       ) THEN 30
     ELSE NULL
   END;
-$$;
+$function$;
 
 CREATE TABLE IF NOT EXISTS rebobinadeira.produtos_jumbo (
   codigo text PRIMARY KEY,
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS rebobinadeira.produtos_jumbo (
 );
 
 CREATE OR REPLACE FUNCTION rebobinadeira.preparar_produto_jumbo()
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger LANGUAGE plpgsql AS $function$
 BEGIN
   IF NEW.lead_time_dias IS NULL THEN
     NEW.lead_time_dias := rebobinadeira.lead_time_padrao(
@@ -82,7 +82,7 @@ BEGIN
   NEW.atualizado_em := now();
   RETURN NEW;
 END;
-$$;
+$function$;
 
 DROP TRIGGER IF EXISTS trg_preparar_produto_jumbo ON rebobinadeira.produtos_jumbo;
 CREATE TRIGGER trg_preparar_produto_jumbo
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS rebobinadeira.importacao_log (
 );
 
 CREATE OR REPLACE FUNCTION rebobinadeira.processar_lote(p_lote uuid)
-RETURNS integer LANGUAGE plpgsql AS $$
+RETURNS integer LANGUAGE plpgsql AS $function$
 DECLARE n integer; recebidas integer;
 BEGIN
   SELECT COUNT(*) INTO recebidas FROM rebobinadeira.staging_planilha WHERE lote_id = p_lote;
