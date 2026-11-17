@@ -14,9 +14,6 @@ import {
   Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { AlternadorModo } from '@/components/painel/alternador-modo'
-import { ModoLista } from '@/components/painel/modo-lista'
-import { ModoPlanilha } from '@/components/painel/modo-planilha'
 import {
   Field,
   Panel,
@@ -26,7 +23,7 @@ import {
 } from '@/components/painel/fields'
 import { supabase } from '@/lib/supabase'
 import { downloadCobrideiraLabel } from '@/lib/cobrideira-label'
-import { synchronizeCobrideiraBobina, updateCobrideiraBobina, updateCobrideiraBobinaCell, moveCobrideiraBobinaToTrash, listCobrideiraBobinasTrash, restoreCobrideiraBobinaFromTrash, permanentlyDeleteCobrideiraBobina } from '@/lib/admin.functions'
+import { synchronizeCobrideiraBobina, updateCobrideiraBobina, moveCobrideiraBobinaToTrash, listCobrideiraBobinasTrash, restoreCobrideiraBobinaFromTrash, permanentlyDeleteCobrideiraBobina } from '@/lib/admin.functions'
 import type {
   CobrideiraBobinaInsert,
   CobrideiraBobinaRow,
@@ -518,6 +515,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [busca, setBusca] = React.useState('')
   const [mostrarFiltros, setMostrarFiltros] = React.useState(false)
   const [filtrosColunas, setFiltrosColunas] = React.useState<Partial<Record<CampoFiltro, string>>>({})
+  const [campoResumo, setCampoResumo] = React.useState<keyof CobrideiraBobinaRow>('peso_bruto')
+  const [operacaoResumo, setOperacaoResumo] = React.useState<'soma' | 'contar' | 'preenchidos'>('soma')
   const [paginaRegistros, setPaginaRegistros] = React.useState(0)
   const [mesSelecionado, setMesSelecionado] = React.useState(() => dataLocalHoje().slice(0, 7))
   const [emailsCriadores, setEmailsCriadores] = React.useState<Record<string, string>>({})
@@ -530,7 +529,6 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [ordenacao, setOrdenacao] = React.useState<{ campo: keyof CobrideiraBobinaRow; asc: boolean }>({ campo: 'data', asc: false })
   const [registrosExpandidos, setRegistrosExpandidos] = React.useState<Set<string>>(() => new Set())
   const [selecionadas, setSelecionadas] = React.useState<Set<string>>(() => new Set())
-  const [modo, setModo] = React.useState<'lista' | 'planilha'>('lista')
   const [csvLinhas, setCsvLinhas] = React.useState<LinhaCSVPreparada[]>([])
   const [csvNome, setCsvNome] = React.useState('')
   const [importandoCSV, setImportandoCSV] = React.useState(false)
@@ -602,6 +600,30 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
       return !selecionado || (campo === 'cliente' ? clientesParecidos(valorFiltro(registro, campo), selecionado) : valorFiltro(registro, campo) === selecionado)
     })
   })
+  const camposResumo: { campo: keyof CobrideiraBobinaRow; label: string }[] = [
+    { campo: 'peso_bruto', label: 'Peso bruto (kg)' },
+    { campo: 'peso_final', label: 'Peso final (kg)' },
+    { campo: 'peso_liquido', label: 'Peso líquido (kg)' },
+    { campo: 'perda_kg', label: 'Perda (kg)' },
+    { campo: 'metragem', label: 'Metragem (m)' },
+    { campo: 'largura', label: 'Largura' },
+    { campo: 'micragem', label: 'Micragem' },
+    { campo: 'vareta_g', label: 'Vareta (g)' },
+    { campo: 'kg_cola', label: 'Cola (kg)' },
+    { campo: 'pigmento_kg', label: 'Pigmento (kg)' },
+  ]
+  const valoresResumo = registrosFiltrados.map((registro) => {
+    const valor = campoResumo === 'peso_bruto'
+      ? pesoBrutoContabilizado(registro)
+      : Number(registro[campoResumo] ?? 0)
+    return Number.isFinite(valor) ? valor : 0
+  })
+  const resultadoResumo = operacaoResumo === 'soma'
+    ? valoresResumo.reduce((total, valor) => total + valor, 0)
+    : operacaoResumo === 'contar'
+      ? registrosFiltrados.length
+      : valoresResumo.filter((valor) => valor !== 0).length
+
   const registrosOrdenados = [...registrosFiltrados].sort((a, b) => {
     const av = a[ordenacao.campo]
     const bv = b[ordenacao.campo]
@@ -712,46 +734,6 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     }
   }
 
-
-  async function tokenAtual() {
-    const { data, error } = await supabase.auth.getSession()
-    if (error || !data.session?.access_token) throw new Error('Sessão expirada. Entre novamente.')
-    return data.session.access_token
-  }
-
-  async function salvarCelulaPlanilha(
-    registro: CobrideiraBobinaRow,
-    campo: keyof CobrideiraBobinaRow,
-    valor: string | number,
-  ) {
-    const numeroOriginal = registro.numero_bobina
-    const anterior = registros.find((item) => item.numero_bobina === numeroOriginal) ?? registro
-    const otimista = { ...anterior, [campo]: valor } as CobrideiraBobinaRow
-    setRegistros((atuais) => atuais.map((item) => item.numero_bobina === numeroOriginal ? otimista : item))
-    try {
-      const atualizado = await updateCobrideiraBobinaCell({
-        data: {
-          accessToken: await tokenAtual(),
-          numeroOriginal,
-          campo: campo as string,
-          valor,
-          updatedAt: anterior.updated_at ?? anterior.created_at,
-        },
-      })
-      setRegistros((atuais) => atuais.map((item) => item.numero_bobina === numeroOriginal ? atualizado : item))
-      if (campo === 'numero_bobina' && String(valor) !== numeroOriginal) {
-        setSelecionadas((atuais) => {
-          const novas = new Set(atuais)
-          if (novas.delete(numeroOriginal)) novas.add(String(valor))
-          return novas
-        })
-      }
-    } catch (error) {
-      setRegistros((atuais) => atuais.map((item) => item.numero_bobina === numeroOriginal ? anterior : item))
-      toast.error('Não foi possível salvar a célula.', { description: erroMensagem(error), duration: 10000 })
-      throw error
-    }
-  }
 
   function alternarSelecao(numeroBobina: string) {
     setSelecionadas((atuais) => {
@@ -1579,7 +1561,6 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             description="Todos os registros da Cobrideira."
             action={
               <div className="flex flex-wrap items-center justify-end gap-2">
-                <AlternadorModo modo={modo} onChange={setModo} />
                 <button
                   type="button"
                   onClick={() => void carregarRegistros()}
@@ -1670,6 +1651,30 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   </div>
                 </section>
               )}
+              <section className="mt-3 grid gap-3 rounded-xl border border-[#d6d3d1] bg-[#f5f5f4] p-4 text-[#292524] sm:grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)_auto] sm:items-end">
+                <div className="grid gap-1">
+                  <label htmlFor="cb-resumo-operacao" className="text-xs font-semibold">O que deseja calcular?</label>
+                  <select id="cb-resumo-operacao" value={operacaoResumo} onChange={(event) => setOperacaoResumo(event.target.value as 'soma' | 'contar' | 'preenchidos')} className="h-10 rounded-md border border-[#a8a29e] bg-white px-3 text-sm text-[#292524]">
+                    <option value="soma">Somar valores</option>
+                    <option value="contar">Contar bobinas</option>
+                    <option value="preenchidos">Contar valores preenchidos</option>
+                  </select>
+                </div>
+                <div className="grid gap-1">
+                  <label htmlFor="cb-resumo-campo" className="text-xs font-semibold">Campo</label>
+                  <select id="cb-resumo-campo" value={String(campoResumo)} onChange={(event) => setCampoResumo(event.target.value as keyof CobrideiraBobinaRow)} className="h-10 rounded-md border border-[#a8a29e] bg-white px-3 text-sm text-[#292524]">
+                    {camposResumo.map((item) => <option key={String(item.campo)} value={String(item.campo)}>{item.label}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-wrap items-end gap-3">
+                  <button type="button" onClick={() => setPaginaRegistros(0)} className="h-10 rounded-md bg-[#57534E] px-5 text-sm font-semibold text-white transition-all hover:brightness-110">Calcular</button>
+                  <div className="min-w-36">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#57534E]">Resultado dos filtros</p>
+                    <p className="text-lg font-bold tabular-nums text-[#292524]">{operacaoResumo === 'soma' ? new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(resultadoResumo) : resultadoResumo.toLocaleString('pt-BR')}</p>
+                    <p className="text-[11px] text-[#57534E]">{operacaoResumo === 'soma' ? camposResumo.find((item) => item.campo === campoResumo)?.label : operacaoResumo === 'contar' ? 'bobinas encontradas' : 'valores preenchidos'}</p>
+                  </div>
+                </div>
+              </section>
             </div>
 
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -1713,8 +1718,6 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   <p className="text-sm text-muted-foreground">{registrosFiltrados.length} registro(s) encontrado(s)</p>
                 </div>
                 
-                  <div className={modo === 'lista' ? 'block' : 'hidden'}>
-                  <ModoLista>
                   <div className="scroll-area overflow-x-auto">
                     <table className="cobrideira-registros-table w-full min-w-[58rem] text-left text-sm">
                       <thead>
@@ -1826,17 +1829,6 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         })}
                       </tbody>
                     </table>
-                  </div>
-                  </ModoLista>
-                  </div>
-                  <div className={modo === 'planilha' ? 'block' : 'hidden'}>
-                    <ModoPlanilha
-                      registros={registrosPagina}
-                      todosRegistros={registros}
-                      selecionadas={selecionadas}
-                      onAlternarSelecao={alternarSelecao}
-                      onSalvarCelula={salvarCelulaPlanilha}
-                    />
                   </div>
               </div>
             )}
