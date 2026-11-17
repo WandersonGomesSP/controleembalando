@@ -6,7 +6,10 @@ import {
   listCurrentStock,
   createCurrentStockRecord,
   updateCurrentStockRecord,
-  deleteCurrentStockRecord,
+  listCurrentStockTrash,
+  moveCurrentStockToTrash,
+  restoreCurrentStockRecord,
+  permanentlyDeleteCurrentStockTrashRecord,
 } from '@/lib/admin.functions'
 
 type Categoria = 'BOPP' | 'CREPE' | 'KRAFT' | 'DUPLA FACE'
@@ -22,6 +25,7 @@ type ResumoProduto = {
   estoque_minimo_jumbos: number | null; status_origem: string | null; folga_estoque: string | null
   categoria: string
 }
+type BobinaLixeira = { id: string; categoria: Categoria; codigo: string | null; dados: BobinaEstoque; excluida_em: string }
 type FormEstoque = {
   categoria: Categoria; data_entrada: string; fornecedor: string; medida: string
   peso_kg: string; metragem_m: string; codigo: string; cor: string; cliente: string; linha: string; observacoes: string
@@ -31,9 +35,11 @@ const numero = (v: number | null | undefined) => Number(v ?? 0)
 const fmt = (v: number | null | undefined, casas = 0) => numero(v).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
 const categorias: Categoria[] = ['BOPP', 'CREPE', 'KRAFT', 'DUPLA FACE']
 
-export function EstoqueAtualCobrideira() {
+export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }) {
   const [bobinas, setBobinas] = React.useState<BobinaEstoque[]>([])
   const [resumos, setResumos] = React.useState<ResumoProduto[]>([])
+  const [lixeira, setLixeira] = React.useState<BobinaLixeira[]>([])
+  const [aba, setAba] = React.useState<'ATIVAS' | 'LIXEIRA'>('ATIVAS')
   const [carregando, setCarregando] = React.useState(true)
   const [salvando, setSalvando] = React.useState(false)
   const [busca, setBusca] = React.useState('')
@@ -50,6 +56,10 @@ export function EstoqueAtualCobrideira() {
       const result = await listCurrentStock({ data: { accessToken: sessionData.session.access_token } })
       setBobinas(result.bobinas as BobinaEstoque[])
       setResumos(result.resumos as ResumoProduto[])
+      if (isDeveloper) {
+        const arquivadas = await listCurrentStockTrash({ data: { accessToken: sessionData.session.access_token } })
+        setLixeira(arquivadas as BobinaLixeira[])
+      } else setLixeira([])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível carregar o estoque atual.')
     } finally { setCarregando(false) }
@@ -119,15 +129,38 @@ export function EstoqueAtualCobrideira() {
     finally { setSalvando(false) }
   }
   async function excluir(b: BobinaEstoque) {
-    if (!window.confirm(`Excluir a bobina ${b.codigo ?? ''} do Estoque Atual? Essa ação não altera o histórico de produção.`)) return
+    if (!window.confirm(`Mover a bobina ${b.codigo ?? ''} para a lixeira do Estoque Atual? Você poderá restaurá-la depois.`)) return
     try {
       const { data: sessionData } = await supabase.auth.getSession()
       const accessToken = sessionData.session?.access_token
       if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
-      await deleteCurrentStockRecord({ data: { accessToken, id: b.id } })
-      toast.success('Bobina removida do estoque atual.')
+      await moveCurrentStockToTrash({ data: { accessToken, id: b.id } })
+      toast.success('Bobina movida para a lixeira do Estoque Atual.')
       await carregar()
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível excluir a bobina.') }
+  }
+
+  async function restaurar(item: BobinaLixeira) {
+    if (!window.confirm(`Restaurar a bobina ${item.codigo ?? ''} para o Estoque Atual?`)) return
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
+      await restoreCurrentStockRecord({ data: { accessToken, id: item.id } })
+      toast.success('Bobina restaurada para o Estoque Atual.')
+      await carregar()
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível restaurar a bobina.') }
+  }
+  async function excluirDefinitivamente(item: BobinaLixeira) {
+    if (!window.confirm(`Excluir definitivamente a bobina ${item.codigo ?? ''}? Esta ação não poderá ser desfeita.`)) return
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
+      await permanentlyDeleteCurrentStockTrashRecord({ data: { accessToken, id: item.id } })
+      toast.success('Bobina excluída definitivamente da lixeira.')
+      await carregar()
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível excluir definitivamente a bobina.') }
   }
 
   return (
@@ -136,8 +169,13 @@ export function EstoqueAtualCobrideira() {
         <div><h2 className="text-lg font-bold text-slate-900">Posição do estoque físico</h2><p className="text-sm text-slate-500">Edite ou exclua os itens daqui sem alterar o histórico de produção.</p></div>
         <div className="flex gap-2">
           <button type="button" onClick={() => void carregar()} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="size-4"/> Atualizar</button>
-          <button type="button" onClick={abrirNovo} className="inline-flex items-center gap-2 rounded-lg bg-[#57534E] px-3 py-2 text-sm font-semibold text-white hover:brightness-110"><Plus className="size-4"/> Nova bobina</button>
+          {aba === 'ATIVAS' && <button type="button" onClick={abrirNovo} className="inline-flex items-center gap-2 rounded-lg bg-[#57534E] px-3 py-2 text-sm font-semibold text-white hover:brightness-110"><Plus className="size-4"/> Nova bobina</button>}
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => setAba('ATIVAS')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'ATIVAS' ? 'bg-[#57534E] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>Estoque atual</button>
+        {isDeveloper && <button type="button" onClick={() => setAba('LIXEIRA')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'LIXEIRA' ? 'bg-[#57534E] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>Lixeira ({lixeira.length})</button>}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -174,13 +212,13 @@ export function EstoqueAtualCobrideira() {
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-bold text-slate-900">Bobinas em estoque</h3>
-          <div className="flex flex-wrap gap-2">
+          <h3 className="font-bold text-slate-900">{aba === 'ATIVAS' ? 'Bobinas em estoque' : 'Bobinas na lixeira'}</h3>
+          {aba === 'ATIVAS' && <div className="flex flex-wrap gap-2">
             <div className="relative"><Search className="absolute left-3 top-2.5 size-4 text-slate-400"/><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar código, fornecedor..." className="h-9 w-56 rounded-lg border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-slate-500"/></div>
             <select value={categoria} onChange={(e) => setCategoria(e.target.value as typeof categoria)} className="h-9 rounded-lg border border-slate-300 px-3 text-sm"><option value="TODAS">Todas as categorias</option>{categorias.map((c) => <option key={c}>{c}</option>)}</select>
-          </div>
+          </div>}
         </div>
-        {carregando ? <p className="py-8 text-center text-sm text-slate-500">Carregando estoque...</p> : (
+        {carregando ? <p className="py-8 text-center text-sm text-slate-500">Carregando estoque...</p> : aba === 'ATIVAS' ? (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[850px] text-left text-sm">
               <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="p-2">Entrada</th><th className="p-2">Categoria / medida</th><th className="p-2">Código</th><th className="p-2">Fornecedor</th><th className="p-2 text-right">Peso</th><th className="p-2 text-right">Metros</th><th className="p-2 text-right">Ações</th></tr></thead>
@@ -189,10 +227,24 @@ export function EstoqueAtualCobrideira() {
                 <td className="p-2"><div className="font-semibold text-slate-800">{b.categoria}</div><div className="text-xs text-slate-500">{b.medida ?? '—'}</div></td>
                 <td className="p-2 font-medium text-slate-800">{b.codigo ?? '—'}{b.cor || b.cliente ? <div className="text-xs text-slate-500">{b.cor ?? ''}{b.cliente ? ` · Cliente: ${b.cliente}` : ''} {b.linha ? `· ${b.linha}` : ''}</div> : null}</td>
                 <td className="p-2 text-slate-600">{b.fornecedor ?? '—'}</td><td className="p-2 text-right tabular-nums">{fmt(b.peso_kg, 1)} kg</td><td className="p-2 text-right tabular-nums">{fmt(b.metragem_m)} m</td>
-                <td className="p-2"><div className="flex justify-end gap-1"><button type="button" title="Editar" onClick={() => abrirEdicao(b)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100"><Pencil className="size-4"/></button><button type="button" title="Excluir do estoque atual" onClick={() => void excluir(b)} className="rounded-md p-2 text-red-600 hover:bg-red-50"><Trash2 className="size-4"/></button></div></td>
+                <td className="p-2"><div className="flex justify-end gap-1"><button type="button" title="Editar" onClick={() => abrirEdicao(b)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100"><Pencil className="size-4"/></button>{isDeveloper && <button type="button" title="Mover para lixeira" onClick={() => void excluir(b)} className="rounded-md p-2 text-red-600 hover:bg-red-50"><Trash2 className="size-4"/></button>}</div></td>
               </tr>)}</tbody>
             </table>
             {!filtradas.length && <p className="py-8 text-center text-sm text-slate-500">Nenhuma bobina encontrada.</p>}
+          </div>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[850px] text-left text-sm">
+              <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="p-2">Excluída em</th><th className="p-2">Categoria / medida</th><th className="p-2">Código / cliente</th><th className="p-2">Fornecedor</th><th className="p-2 text-right">Peso</th><th className="p-2 text-right">Metros</th><th className="p-2 text-right">Ações</th></tr></thead>
+              <tbody>{lixeira.map((item) => <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50">
+                <td className="p-2 text-slate-600">{new Date(item.excluida_em).toLocaleString('pt-BR')}</td>
+                <td className="p-2"><div className="font-semibold text-slate-800">{item.dados.categoria}</div><div className="text-xs text-slate-500">{item.dados.medida ?? '—'}</div></td>
+                <td className="p-2 font-medium text-slate-800">{item.codigo ?? '—'}{item.dados.cliente ? <div className="text-xs text-slate-500">Cliente: {item.dados.cliente}</div> : null}</td>
+                <td className="p-2 text-slate-600">{item.dados.fornecedor ?? '—'}</td><td className="p-2 text-right tabular-nums">{fmt(item.dados.peso_kg, 1)} kg</td><td className="p-2 text-right tabular-nums">{fmt(item.dados.metragem_m)} m</td>
+                <td className="p-2"><div className="flex justify-end gap-1"><button type="button" onClick={() => void restaurar(item)} className="rounded-md px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">Restaurar</button><button type="button" title="Excluir definitivamente" onClick={() => void excluirDefinitivamente(item)} className="rounded-md p-2 text-red-600 hover:bg-red-50"><Trash2 className="size-4"/></button></div></td>
+              </tr>)}</tbody>
+            </table>
+            {!lixeira.length && <p className="py-8 text-center text-sm text-slate-500">A lixeira está vazia.</p>}
           </div>
         )}
       </section>
