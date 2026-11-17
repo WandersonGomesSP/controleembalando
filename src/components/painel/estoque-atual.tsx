@@ -115,12 +115,12 @@ function lerCsv(texto: string, nomeArquivo: string) {
       : categoriaBruta === 'KRAFT' ? 'KRAFT'
       : categoriaBruta === 'DUPLA FACE' ? 'DUPLA FACE'
       : categoriaDoArquivo
-    const codigo = valor(colunas, 'codigo', 'codigo_bobina', 'codigo_da_bobina', 'cod_bob', 'numero_bobina', 'numero_da_bobina', 'numero', 'id_bobina', 'identificacao')
+    const codigo = valor(colunas, 'codigo', 'codigo_bobina', 'codigo_da_bobina', 'cod_bob', 'cod_bobina', 'numero_bobina', 'numero_da_bobina', 'numero', 'id_bobina', 'identificacao')
     if (!colunas.some((v) => v.trim()) || !codigo) return null
     if (!categoria) throw new Error(\`\${nomeArquivo}: informe a categoria em cada linha ou use BOPP, CREPE, KRAFT ou DUPLA_FACE no nome do arquivo (linha \${indiceLinha + 2}).\`)
-    const medida = converterNumero(valor(colunas, 'medida', 'medidas', 'largura', 'largura_bobina', 'especificacao', 'medida_produto'))
-    const peso = converterNumero(valor(colunas, 'peso_kg', 'peso', 'peso_bobina', 'peso_bobina_kg', 'peso_atual', 'kg'))
-    const metragem = converterNumero(valor(colunas, 'metragem_m', 'metragem', 'metros', 'metragem_disponivel_m', 'comprimento', 'metragem_unica'))
+    const medida = converterNumero(valor(colunas, 'medida', 'medidas', 'largura', 'largura_bobina', 'largura_bobina_texto', 'medida_texto', 'especificacao', 'medida_produto'))
+    const peso = converterNumero(valor(colunas, 'peso_kg', 'peso', 'peso_bobina', 'peso_bobina_kg', 'peso_bobina_texto', 'peso_atual', 'kg'))
+    const metragem = converterNumero(valor(colunas, 'metragem_m', 'metragem', 'metros', 'metragem_disponivel_m', 'metragem_bobina_texto', 'comprimento', 'metragem_unica'))
     const data = converterData(valor(colunas, 'data_entrada', 'data', 'entrada', 'data_de_entrada'))
     return {
       categoria, data_entrada: data, fornecedor: valor(colunas, 'fornecedor', 'fornec_filme', 'fornecedor_filme', 'fornec') || null,
@@ -310,7 +310,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h2 className="text-lg font-bold text-slate-900">Posição do estoque físico</h2><p className="text-sm text-slate-500">Edite ou exclua os itens daqui sem alterar o histórico de produção.</p></div>
+        <div><h2 className="text-lg font-bold text-slate-900">Posição do estoque físico</h2><p className="text-sm text-slate-500">Edite ou exclua os itens daqui sem alterar o histórico de produção.</p><p className="mt-1 text-xs text-slate-500">Na importação, selecione vários CSVs de uma vez (BOPP, CREPE, DUPLA_FACE e KRAFT). Os arquivos são consolidados por categoria e código, sem duplicar bobinas.</p></div>
         <div className="flex gap-2">
           <button type="button" onClick={() => void carregar()} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="size-4"/> Atualizar</button>
           {aba === 'ATIVAS' && <>
