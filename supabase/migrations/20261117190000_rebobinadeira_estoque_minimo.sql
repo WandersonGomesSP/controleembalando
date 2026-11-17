@@ -381,3 +381,16 @@ SELECT rebobinadeira.codigo_produto(material, cor, largura, tipo),
   descricao, material, cor, largura, tipo
 FROM produtos
 ON CONFLICT (codigo) DO NOTHING;
+
+-- Harden function search paths and index the foreign key / rolling-window filter.
+ALTER FUNCTION rebobinadeira.para_numeric_br(text) SET search_path TO '';
+ALTER FUNCTION rebobinadeira.normaliza_numero(text) SET search_path TO '';
+ALTER FUNCTION rebobinadeira.codigo_produto(text, text, numeric, text) SET search_path TO '';
+ALTER FUNCTION rebobinadeira.lead_time_padrao(text, text, numeric, text) SET search_path TO '';
+ALTER FUNCTION rebobinadeira.preparar_produto_jumbo() SET search_path TO '';
+ALTER FUNCTION rebobinadeira.processar_lote(uuid) SET search_path TO '';
+
+CREATE INDEX IF NOT EXISTS bobinas_produto_codigo_idx
+  ON rebobinadeira.bobinas (produto_codigo);
+CREATE INDEX IF NOT EXISTS bobinas_data_produto_codigo_idx
+  ON rebobinadeira.bobinas (data, produto_codigo);
