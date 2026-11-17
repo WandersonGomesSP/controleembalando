@@ -328,10 +328,20 @@ export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
                         </td>
                         <td className="px-4 py-3 tabular-nums">{formatar(item.consumo_mensal_kg, true)}</td>
                         <td className="px-4 py-3 tabular-nums">{item.lead_time_dias == null ? 'Não definido' : `${item.lead_time_dias} dias`}</td>
-                        <td className="px-4 py-3 tabular-nums font-medium">{formatar(item.estoque_minimo_kg, true)} kg</td>
+                        <td className="px-4 py-3 tabular-nums font-medium">
+                          {item.lead_time_dias == null
+                            ? 'Lead time não definido'
+                            : item.peso_medio_jumbo_kg <= 0
+                              ? 'Aguardando histórico'
+                              : `${formatar(item.estoque_minimo_kg, true)} kg`}
+                        </td>
                         <td className="px-4 py-3 tabular-nums font-semibold">{formatar(item.estoque_minimo_jumbos)} un.</td>
                         <td className="px-4 py-3 tabular-nums">{formatar(item.consumo_semanal_m, true)} m</td>
-                        <td className="px-4 py-3 tabular-nums font-semibold">{formatar(item.estoque_minimo_m)} m</td>
+                        <td className="px-4 py-3 tabular-nums font-semibold">
+                          {item.metragem_media_jumbo_m <= 0
+                            ? 'Aguardando histórico'
+                            : `${formatar(item.estoque_minimo_m)} m`}
+                        </td>
                         {isDeveloper && (
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
