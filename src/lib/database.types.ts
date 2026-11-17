@@ -137,6 +137,8 @@ export type CobrideiraBobinaRow = {
   codigo_emenda: string
   created_by: string
   created_at: string
+  updated_at?: string
+  updated_by?: string | null
 }
 
 
