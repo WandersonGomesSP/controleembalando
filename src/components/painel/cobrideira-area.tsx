@@ -225,7 +225,7 @@ function prepararLinhaCSV(cabecalhos: string[], valores: string[], linha: number
     micragem: micragemInteira,
     peso_bruto: numerico('peso_bruto'),
     peso_final: numerico('peso_final'),
-    peso_cilindro: numerico('peso_cilindro', cilindroPadrao),
+    peso_cilindro: cilindroPadrao,
     metragem: Math.trunc(numerico('metragem')),
     perda_kg: numerico('perda_kg'),
     fornecedor_filme: texto('fornecedor_filme', 'INNOVA'),
@@ -500,7 +500,10 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [form, setForm] = React.useState(formularioInicial)
   const [numeroBobinaManual, setNumeroBobinaManual] = React.useState(false)
   React.useEffect(() => {
-    setForm((atual) => ({ ...atual, ...lerCamposReutilizaveis() }))
+    setForm((atual) => {
+      const proximo = { ...atual, ...lerCamposReutilizaveis() }
+      return { ...proximo, pesoCilindro: pesoCilindroPadrao(proximo.largura) }
+    })
   }, [])
   const [registros, setRegistros] = React.useState<CobrideiraBobinaRow[]>([])
   const [operadores, setOperadores] = React.useState<OperadorCobrideira[]>([])
@@ -933,7 +936,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
       largura: `${Math.trunc(Number(registro.largura ?? 0))}.${String(registro.micragem ?? 20).padStart(2, '0')}`,
       pesoBruto: String(registro.peso_bruto ?? ''),
       pesoFinal: String(registro.peso_final ?? ''),
-      pesoCilindro: String(registro.peso_cilindro ?? ''),
+      pesoCilindro: pesoCilindroPadrao(String(registro.largura)),
       metragem: String(registro.metragem ?? ''),
       perda: String(registro.perda_kg ?? ''),
       fornecedorFilme: registro.fornecedor_filme ?? '',
@@ -960,7 +963,10 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   function cancelarEdicao() {
     setEditandoNumero(null)
     setNumeroBobinaManual(false)
-    setForm({ ...formularioInicial(), ...lerCamposReutilizaveis() })
+    setForm(() => {
+      const proximo = { ...formularioInicial(), ...lerCamposReutilizaveis() }
+      return { ...proximo, pesoCilindro: pesoCilindroPadrao(proximo.largura) }
+    })
     setSecao('registros')
   }
 
@@ -1264,7 +1270,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                         id="cb-cilindro"
                         label="Peso cilindro (kg)"
                         value={form.pesoCilindro}
-                        onChange={(value) => atualizar('pesoCilindro', value)}
+                        readOnly
                       />
                       <CampoDecimal
                         id="cb-peso-liquido"
