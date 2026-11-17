@@ -19,6 +19,7 @@ import { ProducaoTubosTab } from '@/components/painel/producao-tubos-tab'
 import { EntradaTubeteTab } from '@/components/painel/entrada-tubete-tab'
 import { AccessGate } from '@/components/painel/access-gate'
 import { CobrideiraArea } from '@/components/painel/cobrideira-area'
+import { RebobinadeiraArea } from '@/components/painel/rebobinadeira-area'
 
 export const Route = createFileRoute('/')({
   component: () => (
@@ -26,6 +27,8 @@ export const Route = createFileRoute('/')({
       {(onChangeArea, area, isDeveloper) =>
         area === 'cobrideira' ? (
           <CobrideiraArea onChangeArea={onChangeArea} isDeveloper={isDeveloper} />
+        ) : area === 'rebobinadeira' ? (
+          <RebobinadeiraArea onChangeArea={onChangeArea} isDeveloper={isDeveloper} />
         ) : (
           <Painel onChangeArea={onChangeArea} />
         )
