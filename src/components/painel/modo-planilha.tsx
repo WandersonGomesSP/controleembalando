@@ -128,8 +128,6 @@ export function ModoPlanilha({ registros, todosRegistros, selecionadas, onAltern
   const endereco = `${LETRAS(coluna)}${linha + 2}`
   const pesoColuna = COLUNAS.findIndex((c) => c.campo === 'peso_liquido')
   const metragemColuna = COLUNAS.findIndex((c) => c.campo === 'metragem')
-  const enderecoPeso = (i: number) => `${LETRAS(pesoColuna)}${i + 2}`
-  const enderecoMetragem = (i: number) => `${LETRAS(metragemColuna)}${i + 2}`
   function resolverReferencia(ref: string, pilha: Set<string> = new Set()): unknown {
     const match = ref.toUpperCase().match(/^([A-Z]+)(\\d+)$/)
     if (!match) return ''
@@ -166,11 +164,6 @@ export function ModoPlanilha({ registros, todosRegistros, selecionadas, onAltern
   React.useEffect(() => {
     setRascunhoFormula(atual ? formulas[endereco] ?? String(atual[colunaAtual.campo] ?? '') : '')
   }, [endereco, atual, colunaAtual, formulas])
-  const peso = dados.map((_, i) => Number(valorCalculado(i, pesoColuna)) || 0)
-  const metragem = dados.reduce((s, _, i) => s + (Number(valorCalculado(i, metragemColuna)) || 0), 0)
-  const somaPeso = peso.reduce((s, n) => s + n, 0)
-  const mediaPeso = peso.length ? somaPeso / peso.length : 0
-  const maxPeso = peso.length ? Math.max(...peso) : 0
   const colunasTotais = new Set<Campo>(['largura', 'micragem', 'peso_bruto', 'peso_final', 'peso_liquido', 'metragem', 'perda_kg', 'vareta_g', 'kg_cola', 'pigmento_kg'])
   const formulaDaCelula = formulas[endereco] ?? ''
   const valorAtual = atual && colunaAtual ? String(atual[colunaAtual.campo] ?? '') : ''
