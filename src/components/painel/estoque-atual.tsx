@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, Weight, Ruler, Boxes } from 'lucide-react'
+import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, Weight, Ruler, Boxes, FileUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import {
@@ -10,6 +10,7 @@ import {
   moveCurrentStockToTrash,
   restoreCurrentStockRecord,
   permanentlyDeleteCurrentStockTrashRecord,
+  importCurrentStockCsv,
 } from '@/lib/admin.functions'
 
 type Categoria = 'BOPP' | 'CREPE' | 'KRAFT' | 'DUPLA FACE'
@@ -35,6 +36,104 @@ const numero = (v: number | null | undefined) => Number(v ?? 0)
 const fmt = (v: number | null | undefined, casas = 0) => numero(v).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
 const categorias: Categoria[] = ['BOPP', 'CREPE', 'KRAFT', 'DUPLA FACE']
 
+function normalizarCabecalho(valor: string) {
+  return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+}
+
+function lerCsv(texto: string, nomeArquivo: string) {
+  const linhasTexto = texto.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
+  const primeiraLinha = linhasTexto.split('\n').find((linha) => linha.trim()) ?? ''
+  const delimitador = (primeiraLinha.match(/;/g)?.length ?? 0) > (primeiraLinha.match(/,/g)?.length ?? 0) ? ';' : ','
+  const linhas: string[][] = []
+  let linha: string[] = []
+  let campo = ''
+  let aspas = false
+  for (let i = 0; i < linhasTexto.length; i++) {
+    const caractere = linhasTexto[i]
+    if (caractere === '"') {
+      if (aspas && linhasTexto[i + 1] === '"') { campo += '"'; i++ }
+      else aspas = !aspas
+    } else if (caractere === delimitador && !aspas) {
+      linha.push(campo); campo = ''
+    } else if (caractere === '\n' && !aspas) {
+      linha.push(campo); campo = ''
+      if (linha.some((valor) => valor.trim())) linhas.push(linha)
+      linha = []
+    } else campo += caractere
+  }
+  linha.push(campo)
+  if (linha.some((valor) => valor.trim())) linhas.push(linha)
+  if (linhas.length < 2) return []
+
+  const cabecalhos = linhas[0].map(normalizarCabecalho)
+  const indice = (...nomes: string[]) => {
+    const procurados = nomes.map(normalizarCabecalho)
+    return cabecalhos.findIndex((cabecalho) => procurados.includes(cabecalho))
+  }
+  const valor = (registro: string[], ...nomes: string[]) => {
+    const posicao = indice(...nomes)
+    return posicao >= 0 ? (registro[posicao] ?? '').trim() : ''
+  }
+  const categoriaDoArquivo: Categoria | null = (() => {
+    const nome = normalizarCabecalho(nomeArquivo)
+    if (nome.includes('dupla_face') || nome.includes('dupla')) return 'DUPLA FACE'
+    if (nome.includes('crepe')) return 'CREPE'
+    if (nome.includes('kraft')) return 'KRAFT'
+    if (nome.includes('bopp')) return 'BOPP'
+    return null
+  })()
+  const converterNumero = (bruto: string): number | null => {
+    let numero = bruto.trim().replace(/\s/g, '').replace(/[^\d,.-]/g, '')
+    if (!numero) return null
+    if (numero.includes(',') && numero.includes('.')) {
+      numero = numero.lastIndexOf(',') > numero.lastIndexOf('.')
+        ? numero.replace(/\./g, '').replace(',', '.')
+        : numero.replace(/,/g, '')
+    } else if (numero.includes(',')) numero = numero.replace(',', '.')
+    const convertido = Number(numero)
+    return Number.isFinite(convertido) ? convertido : null
+  }
+  const converterData = (bruta: string): string | null => {
+    const valorData = bruta.trim()
+    if (!valorData) return null
+    const brasileira = valorData.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+    if (brasileira) return \`\${brasileira[3]}-\${brasileira[2]}-\${brasileira[1]}\`
+    const iso = valorData.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (iso) return \`\${iso[1]}-\${iso[2]}-\${iso[3]}\`
+    const serial = Number(valorData)
+    if (Number.isFinite(serial) && serial > 20000 && serial < 80000) {
+      const data = new Date(Date.UTC(1899, 11, 30) + serial * 86400000)
+      return data.toISOString().slice(0, 10)
+    }
+    return null
+  }
+  const registros = linhas.slice(1).map((colunas, indiceLinha) => {
+    const categoriaBruta = valor(colunas, 'categoria', 'tipo_categoria').toUpperCase().replace(/_/g, ' ')
+    const categoria: Categoria | null = categoriaBruta === 'BOPP' ? 'BOPP'
+      : categoriaBruta === 'CREPE' ? 'CREPE'
+      : categoriaBruta === 'KRAFT' ? 'KRAFT'
+      : categoriaBruta === 'DUPLA FACE' ? 'DUPLA FACE'
+      : categoriaDoArquivo
+    const codigo = valor(colunas, 'codigo', 'codigo_bobina', 'codigo_da_bobina', 'cod_bob', 'numero_bobina', 'numero_da_bobina', 'numero', 'id_bobina', 'identificacao')
+    if (!colunas.some((v) => v.trim()) || !codigo) return null
+    if (!categoria) throw new Error(\`\${nomeArquivo}: informe a categoria em cada linha ou use BOPP, CREPE, KRAFT ou DUPLA_FACE no nome do arquivo (linha \${indiceLinha + 2}).\`)
+    const medida = converterNumero(valor(colunas, 'medida', 'medidas', 'largura', 'largura_bobina', 'especificacao', 'medida_produto'))
+    const peso = converterNumero(valor(colunas, 'peso_kg', 'peso', 'peso_bobina', 'peso_bobina_kg', 'peso_atual', 'kg'))
+    const metragem = converterNumero(valor(colunas, 'metragem_m', 'metragem', 'metros', 'metragem_disponivel_m', 'comprimento', 'metragem_unica'))
+    const data = converterData(valor(colunas, 'data_entrada', 'data', 'entrada', 'data_de_entrada'))
+    return {
+      categoria, data_entrada: data, fornecedor: valor(colunas, 'fornecedor', 'fornec_filme', 'fornecedor_filme', 'fornec') || null,
+      medida, peso_kg: peso, metragem_m: metragem, codigo,
+      cor: valor(colunas, 'cor', 'cor_filme', 'cor_do_filme') || null,
+      cliente: valor(colunas, 'cliente', 'cliente_personalizado', 'pedido') || null,
+      linha: valor(colunas, 'linha', 'tipo_linha') || null,
+      observacoes: valor(colunas, 'observacoes', 'observacao', 'obs') || null,
+    }
+  }).filter((registro): registro is NonNullable<typeof registro> => Boolean(registro))
+  return registros
+}
+
 export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }) {
   const [bobinas, setBobinas] = React.useState<BobinaEstoque[]>([])
   const [resumos, setResumos] = React.useState<ResumoProduto[]>([])
@@ -42,6 +141,8 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
   const [aba, setAba] = React.useState<'ATIVAS' | 'LIXEIRA'>('ATIVAS')
   const [carregando, setCarregando] = React.useState(true)
   const [salvando, setSalvando] = React.useState(false)
+  const [importando, setImportando] = React.useState(false)
+  const inputCsvRef = React.useRef<HTMLInputElement>(null)
   const [busca, setBusca] = React.useState('')
   const [categoria, setCategoria] = React.useState<'TODAS' | Categoria>('TODAS')
   const [form, setForm] = React.useState<FormEstoque>(vazio)
@@ -128,6 +229,49 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível salvar a bobina.') }
     finally { setSalvando(false) }
   }
+
+  async function importarCsvs(arquivos: FileList | null) {
+    if (!arquivos?.length) return
+    setImportando(true)
+    try {
+      const consolidados = new Map<string, ReturnType<typeof lerCsv>[number]>()
+      let arquivosLidos = 0
+      for (const arquivo of Array.from(arquivos)) {
+        if (!arquivo.name.toLowerCase().endsWith('.csv')) continue
+        const registros = lerCsv(await arquivo.text(), arquivo.name)
+        if (registros.length) arquivosLidos++
+        for (const registro of registros) {
+          const chave = \`\${registro.categoria}|\${registro.codigo}\`
+          const anterior = consolidados.get(chave)
+          consolidados.set(chave, anterior ? {
+            ...anterior,
+            ...registro,
+            cliente: registro.cliente ?? anterior.cliente,
+            observacoes: registro.observacoes ?? anterior.observacoes,
+          } : registro)
+        }
+      }
+      const registros = Array.from(consolidados.values())
+      if (!registros.length) throw new Error('Não encontrei bobinas nos CSVs selecionados. Confira os cabeçalhos e os nomes dos arquivos.')
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
+      let totalImportado = 0
+      for (let inicio = 0; inicio < registros.length; inicio += 500) {
+        const lote = registros.slice(inicio, inicio + 500)
+        const resultado = await importCurrentStockCsv({ data: { accessToken, registros: lote } })
+        totalImportado += resultado.importados
+      }
+      toast.success(\`\${totalImportado} bobinas consolidadas/importadas de \${arquivosLidos} arquivo(s). Códigos repetidos foram reunidos.\`)
+      await carregar()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível importar os CSVs.')
+    } finally {
+      setImportando(false)
+      if (inputCsvRef.current) inputCsvRef.current.value = ''
+    }
+  }
+
   async function excluir(b: BobinaEstoque) {
     if (!window.confirm(`Mover a bobina ${b.codigo ?? ''} para a lixeira do Estoque Atual? Você poderá restaurá-la depois.`)) return
     try {
@@ -169,7 +313,11 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
         <div><h2 className="text-lg font-bold text-slate-900">Posição do estoque físico</h2><p className="text-sm text-slate-500">Edite ou exclua os itens daqui sem alterar o histórico de produção.</p></div>
         <div className="flex gap-2">
           <button type="button" onClick={() => void carregar()} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="size-4"/> Atualizar</button>
-          {aba === 'ATIVAS' && <button type="button" onClick={abrirNovo} className="inline-flex items-center gap-2 rounded-lg bg-[#57534E] px-3 py-2 text-sm font-semibold text-white hover:brightness-110"><Plus className="size-4"/> Nova bobina</button>}
+          {aba === 'ATIVAS' && <>
+            <input ref={inputCsvRef} type="file" accept=".csv,text/csv" multiple className="hidden" onChange={(e) => void importarCsvs(e.target.files)} />
+            <button type="button" disabled={importando} onClick={() => inputCsvRef.current?.click()} className="inline-flex items-center gap-2 rounded-lg border border-[#57534E] bg-white px-3 py-2 text-sm font-semibold text-[#57534E] hover:bg-stone-50 disabled:opacity-50"><FileUp className="size-4"/> {importando ? 'Importando...' : 'Importar CSV'}</button>
+            <button type="button" onClick={abrirNovo} className="inline-flex items-center gap-2 rounded-lg bg-[#57534E] px-3 py-2 text-sm font-semibold text-white hover:brightness-110"><Plus className="size-4"/> Nova bobina</button>
+          </>}
         </div>
       </div>
 
