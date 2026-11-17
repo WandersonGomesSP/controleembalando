@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, Weight, Ruler, Boxes, FileUp } from 'lucide-react'
+import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, Weight, Ruler, Boxes, FileUp, Bell, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import {
@@ -138,6 +138,7 @@ function lerCsv(texto: string, nomeArquivo: string) {
 export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }) {
   const [bobinas, setBobinas] = React.useState<BobinaEstoque[]>([])
   const [resumos, setResumos] = React.useState<ResumoProduto[]>([])
+  const [usosPorProduto, setUsosPorProduto] = React.useState<Record<string, number>>({})
   const [lixeira, setLixeira] = React.useState<BobinaLixeira[]>([])
   const [aba, setAba] = React.useState<'ATIVAS' | 'LIXEIRA'>('ATIVAS')
   const [carregando, setCarregando] = React.useState(true)
@@ -158,6 +159,34 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
       const result = await listCurrentStock({ data: { accessToken: sessionData.session.access_token } })
       setBobinas(result.bobinas as BobinaEstoque[])
       setResumos(result.resumos as ResumoProduto[])
+      try {
+        const dataLimite = new Date()
+        dataLimite.setDate(dataLimite.getDate() - 90)
+        const desde = dataLimite.toISOString().slice(0, 10)
+        const { data: produtos, error: produtosError } = await supabase.schema('rebobinadeira')
+          .from('produtos_jumbo').select('codigo, descricao').eq('ativo', true)
+        if (produtosError) throw produtosError
+        const descricaoPorCodigo = new Map((produtos ?? []).map((p) => [p.codigo, p.descricao]))
+        const usos = new Map<string, Set<string>>()
+        for (let inicio = 0; ; inicio += 1000) {
+          const { data: linhas, error: linhasError } = await supabase.schema('rebobinadeira')
+            .from('bobinas').select('produto_codigo, numero_bobina, metragem_unica_m')
+            .gte('data', desde).range(inicio, inicio + 999)
+          if (linhasError) throw linhasError
+          for (const linha of linhas ?? []) {
+            const descricao = descricaoPorCodigo.get(linha.produto_codigo ?? '')
+            if (!descricao) continue
+            const chaves = usos.get(descricao) ?? new Set<string>()
+            chaves.add(`${linha.numero_bobina ?? ''}|${linha.metragem_unica_m ?? ''}`)
+            usos.set(descricao, chaves)
+          }
+          if (!linhas || linhas.length < 1000) break
+        }
+        setUsosPorProduto(Object.fromEntries(Array.from(usos, ([descricao, chaves]) => [descricao, chaves.size])))
+      } catch (consumoError) {
+        console.error('Falha ao calcular frequência de uso móvel:', consumoError)
+        setUsosPorProduto({})
+      }
       if (isDeveloper) {
         const arquivadas = await listCurrentStockTrash({ data: { accessToken: sessionData.session.access_token } })
         setLixeira(arquivadas as BobinaLixeira[])
@@ -332,6 +361,38 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
         </div>
       </div>
 
+      {aba === 'ATIVAS' && (() => {
+        const alertas = resumos.filter((r) => numero(r.estoque_minimo_semanal_m) > 0 && numero(r.metragem_disponivel_m) < numero(r.estoque_minimo_semanal_m))
+        return (
+          <section className="overflow-hidden rounded-xl border border-amber-200 bg-amber-50">
+            <div className="flex items-center gap-2 border-b border-amber-200 px-4 py-3 text-sm font-bold text-amber-950">
+              <Bell className="size-4" /> Avisos de estoque baixo
+              <span className="ml-auto rounded-full bg-amber-200 px-2.5 py-0.5 text-xs">{alertas.length} {alertas.length === 1 ? 'produto' : 'produtos'}</span>
+            </div>
+            {alertas.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-amber-900">Nenhum produto abaixo do mínimo de metragem neste momento.</p>
+            ) : (
+              <div className="divide-y divide-amber-200">
+                {alertas.map((r) => (
+                  <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                    <div className="flex min-w-0 items-start gap-2">
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-amber-950">{r.medida_produto}</div>
+                        <div className="text-xs text-amber-900">Atual: {fmt(r.metragem_disponivel_m)} m · mínimo: {fmt(r.estoque_minimo_semanal_m)} m</div>
+                      </div>
+                    </div>
+                    <div className="text-right text-xs text-amber-900">
+                      <div className="font-bold">{usosPorProduto[r.medida_produto] ?? 0} utilizações</div>
+                      <div>nos últimos 90 dias</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )
+      })()}
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => setAba('ATIVAS')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'ATIVAS' ? 'bg-[#57534E] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>Estoque atual</button>
         {isDeveloper && <button type="button" onClick={() => setAba('LIXEIRA')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'LIXEIRA' ? 'bg-[#57534E] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>Lixeira ({lixeira.length})</button>}
@@ -391,7 +452,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
                     <span className={`inline-block rounded-full px-3.5 py-1.5 text-xs font-bold text-white ${statusClass}`}>{r.status_origem ?? 'SEM STATUS'}</span>
                     <div className="mt-2 space-y-1 text-[13px] leading-[1.7] text-[#64748B]">
                       <div>Mínimo: <strong className="font-semibold text-[#1E293B]">{r.estoque_minimo_jumbos ?? '—'} jumbos</strong></div>
-                      <div>Metragem: <strong className="font-semibold text-[#1E293B]">{fmt(r.metragem_disponivel_m)} m</strong></div>
+                      <div>Mínimo de metragem: <strong className="font-semibold text-[#1E293B]">{fmt(r.estoque_minimo_semanal_m)} m</strong></div>
                       <div className={`mt-1 text-sm font-bold ${folgaClass}`}>{folgaLabel}</div>
                     </div>
                   </div>
