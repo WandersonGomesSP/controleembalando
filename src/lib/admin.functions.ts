@@ -1169,6 +1169,7 @@ const currentStockRecordSchema = z.object({
   metragem_m: z.number().min(0).nullable(),
   codigo: z.string().trim().min(1).max(120).nullable(),
   cor: z.string().max(80).nullable(),
+  cliente: z.string().max(160).nullable(),
   linha: z.string().max(80).nullable(),
   observacoes: z.string().max(1000).nullable(),
 }).strict()
@@ -1177,7 +1178,7 @@ export const listCurrentStock = createServerFn({ method: 'POST' })
   .validator(tokenInput)
   .handler(async ({ data }) => {
     const { client } = await requireCobrideiraEditor(data.accessToken)
-    const estoque = client.schema('estoque_atual') as any
+    const estoque = (client as any).schema('estoque_atual')
     const [bobinasResult, resumosResult] = await Promise.all([
       estoque.from('bobinas_estoque').select('*').order('data_entrada', { ascending: false }).order('codigo'),
       estoque.from('resumo_estoque_produtos').select('*').order('categoria').order('medida_produto'),
