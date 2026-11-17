@@ -425,7 +425,7 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
     for (const row of parsed) {
       if (row.fields.length !== REBOBINadeira_CSV_COLUMNS.length) {
         throw new Error(
-          \`Linha \${row.line}: esperado 31 colunas, mas foram encontradas \${row.fields.length}. Nenhum dado foi gravado.\`,
+          `Linha ${row.line}: esperado 31 colunas, mas foram encontradas ${row.fields.length}. Nenhum dado foi gravado.`,
         )
       }
     }
@@ -477,7 +477,7 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
         .insert(batch as never)
       if (error) {
         await client.schema('rebobinadeira').from('staging_planilha').delete().eq('lote_id', loteId)
-        throw new Error(\`Falha ao preparar a importação: \${error.message}\`)
+        throw new Error(`Falha ao preparar a importação: ${error.message}`)
       }
     }
 
@@ -485,7 +485,7 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
       .schema('rebobinadeira')
       .rpc('processar_lote', { p_lote: loteId })
     if (processError) {
-      throw new Error(\`Falha ao processar o lote. Os dados temporários foram preservados para diagnóstico: \${processError.message}\`)
+      throw new Error(`Falha ao processar o lote. Os dados temporários foram preservados para diagnóstico: ${processError.message}`)
     }
 
     const { error: logError } = await client
@@ -494,7 +494,7 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
       .update({ nome_arquivo: data.nomeArquivo })
       .eq('id', loteId)
     if (logError) {
-      throw new Error(\`As bobinas foram importadas, mas não foi possível registrar o nome do arquivo: \${logError.message}\`)
+      throw new Error(`As bobinas foram importadas, mas não foi possível registrar o nome do arquivo: ${logError.message}`)
     }
 
     return {
