@@ -1174,6 +1174,36 @@ const currentStockRecordSchema = z.object({
   observacoes: z.string().max(1000).nullable(),
 }).strict()
 
+export const importCurrentStockCsv = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ registros: z.array(currentStockRecordSchema).min(1).max(1000) }))
+  .handler(async ({ data }) => {
+    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const estoque = (client as any).schema('estoque_atual')
+    const codigos = [...new Set(data.registros.map((r) => r.codigo).filter((v): v is string => Boolean(v)))]
+    const existentes: any[] = []
+    for (let i = 0; i < codigos.length; i += 200) {
+      const lote = codigos.slice(i, i + 200)
+      const categorias = [...new Set(data.registros.filter((r) => r.codigo && lote.includes(r.codigo)).map((r) => r.categoria))]
+      for (const categoria of categorias) {
+        const { data: encontrados, error } = await estoque.from('bobinas_estoque')
+          .select('categoria,codigo,cliente').eq('categoria', categoria).in('codigo', lote)
+        if (error) throw new Error(`Não foi possível conferir os códigos existentes: ${error.message}`)
+        existentes.push(...(encontrados ?? []))
+      }
+    }
+    const clientes = new Map(existentes.map((r) => [`${r.categoria}|${r.codigo}`, r.cliente]))
+    const registros = data.registros.map((r) => ({
+      ...r,
+      cliente: r.cliente ?? clientes.get(`${r.categoria}|${r.codigo}`) ?? null,
+      data_entrada: r.data_entrada || null,
+      origem_arquivo: 'Importação CSV unificado',
+    }))
+    const { data: gravados, error } = await estoque.from('bobinas_estoque')
+      .upsert(registros, { onConflict: 'categoria,codigo' }).select('id')
+    if (error) throw new Error(`Não foi possível importar o CSV: ${error.message}`)
+    return { importados: gravados?.length ?? registros.length }
+  })
+
 export const listCurrentStock = createServerFn({ method: 'POST' })
   .validator(tokenInput)
   .handler(async ({ data }) => {
