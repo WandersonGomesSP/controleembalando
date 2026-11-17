@@ -24,6 +24,7 @@ import {
 } from '@/components/painel/fields'
 import { supabase } from '@/lib/supabase'
 import { EstoqueMinimoCobrideira } from '@/components/painel/rebobinadeira-area'
+import { EstoqueAtualCobrideira } from '@/components/painel/estoque-atual'
 import { downloadCobrideiraLabel } from '@/lib/cobrideira-label'
 import { synchronizeCobrideiraBobina, updateCobrideiraBobina, moveCobrideiraBobinaToTrash, listCobrideiraBobinasTrash, restoreCobrideiraBobinaFromTrash, permanentlyDeleteCobrideiraBobina } from '@/lib/admin.functions'
 import type {
@@ -1226,12 +1227,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
 
       <main className="mx-auto grid max-w-[96rem] gap-3 px-3 py-3 sm:px-4 sm:py-4">
         {secao === 'estoque-atual' ? (
-          <Panel title="Indicadores · Estoque Atual" description="Comparação do estoque físico com o estoque mínimo calculado.">
-            <div className="rounded-xl border border-dashed border-[#cbd5e1] bg-white p-6 text-sm text-[#475569]">
-              <p className="font-semibold text-[#0f172a]">Estrutura do Estoque Atual preparada</p>
-              <p className="mt-2">O schema <strong>estoque_atual</strong> foi criado no banco. A tabela de bobinas, a importação do CSV, o comparativo de saldo e o histórico serão conectados assim que definirmos os campos do arquivo de estoque que você vai enviar.</p>
-              <p className="mt-2">A baixa automática pela Rebobinadeira permanece desligada.</p>
-            </div>
+          <Panel title="Indicadores · Estoque Atual" description="Visão do saldo físico, com edição independente do histórico de produção.">
+            <EstoqueAtualCobrideira />
           </Panel>
         ) : secao === 'estoque-minimo' ? (
           <Panel title="Indicadores · Estoque Mínimo" description="Comparativo dos estoques mínimos por peso e por metragem.">
