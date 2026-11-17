@@ -1192,7 +1192,7 @@ export const createCurrentStockRecord = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({ registro: currentStockRecordSchema }))
   .handler(async ({ data }) => {
     const { client } = await requireCobrideiraEditor(data.accessToken)
-    const estoque = client.schema('estoque_atual') as any
+    const estoque = (client as any).schema('estoque_atual')
     const registro = { ...data.registro, data_entrada: data.registro.data_entrada || null, origem_arquivo: 'Cadastro manual no site' }
     const { data: created, error } = await estoque.from('bobinas_estoque').insert(registro).select('*').single()
     if (error?.code === '23505') throw new Error('Já existe uma bobina com esse código. Confira o cadastro.')
@@ -1204,7 +1204,7 @@ export const updateCurrentStockRecord = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({ id: z.uuid(), registro: currentStockRecordSchema }))
   .handler(async ({ data }) => {
     const { client } = await requireCobrideiraEditor(data.accessToken)
-    const estoque = client.schema('estoque_atual') as any
+    const estoque = (client as any).schema('estoque_atual')
     const { data: updated, error } = await estoque.from('bobinas_estoque')
       .update({ ...data.registro, data_entrada: data.registro.data_entrada || null })
       .eq('id', data.id).select('*').maybeSingle()
@@ -1218,7 +1218,7 @@ export const deleteCurrentStockRecord = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({ id: z.uuid() }))
   .handler(async ({ data }) => {
     const { client } = await requireCobrideiraEditor(data.accessToken)
-    const estoque = client.schema('estoque_atual') as any
+    const estoque = (client as any).schema('estoque_atual')
     const { error, count } = await estoque.from('bobinas_estoque').delete({ count: 'exact' }).eq('id', data.id)
     if (error) throw new Error(`Não foi possível excluir a bobina do estoque atual: ${error.message}`)
     if (count === 0) throw new Error('A bobina já não está no Estoque Atual.')
