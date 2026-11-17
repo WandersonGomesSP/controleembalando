@@ -415,6 +415,7 @@ function numeroCampo(valor: string, rotulo: string, padrao = 0) {
 
 function pesoCilindroPadrao(largura: string) {
   if (largura.startsWith('980')) return '3'
+  if (largura.startsWith('1020')) return '3.5'
   if (largura.startsWith('1200')) return '4.8'
   if (largura.startsWith('1265') || largura.startsWith('1270')) return '5'
   return ''
@@ -1776,6 +1777,10 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                             ['Peso bruto', pesoBrutoContabilizado(registro) > 0 ? `${formatarPeso(pesoBrutoContabilizado(registro))} kg` : 'Já contabilizado pelo mesmo código'],
                             ['Peso final', `${formatarPeso(Number(registro.peso_final))} kg`],
                             ['Peso do cilindro', `${formatarPeso(Number(registro.peso_cilindro))} kg`],
+                            ['Peso do filme BOPP calculado', registro.peso_filme_bopp_kg == null ? '—' : `${formatarPeso(Number(registro.peso_filme_bopp_kg))} kg`],
+                            ['Cola seca calculada', registro.peso_cola_seca_kg == null ? '—' : `${formatarPeso(Number(registro.peso_cola_seca_kg))} kg${Number(registro.peso_cola_seca_kg) < 0 ? ' · CONFERIR PESAGEM' : ''}`],
+                            ['Consumo estimado de cola líquida (54% sólidos)', registro.consumo_cola_liquida_kg == null ? '—' : `${formatarPeso(Number(registro.consumo_cola_liquida_kg))} kg`],
+                            ['Gramatura seca estimada', registro.gramatura_seca_g_m2 == null ? '—' : `${formatarPeso(Number(registro.gramatura_seca_g_m2))} g/m²`],
                             ['Perda', `${formatarPeso(Number(registro.perda_kg))} kg`],
                             ['Vareta', `${registro.vareta_g} g`], ['Cola', `${formatarPeso(Number(registro.kg_cola))} kg`],
                             ['Lote da cola', registro.lote_cola], ['Código interno', registro.codigo_interno],
