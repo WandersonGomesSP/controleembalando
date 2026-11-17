@@ -99,7 +99,7 @@ function avaliarFormula(
   }
   const valores = args.flatMap((arg) => /^[A-Z]+\d+:[A-Z]+\d+$/i.test(arg) ? intervalo(arg) : /^[A-Z]+\d+$/i.test(arg) ? [resolver(arg)] : [arg.replace(/^"|"$/g, '')])
   if (nome === 'CONTVALORES') return valores.filter((v) => v !== '' && v !== null && v !== undefined).length
-  const numeros = valores.map((v) => Number(v)).filter(Number.isFinite)
+  const numeros = valores.filter((v) => v !== '' && v !== null && v !== undefined).map((v) => Number(v)).filter(Number.isFinite)
   if (nome === 'SOMA') return numeros.reduce((s, n) => s + n, 0)
   if (nome === 'MÉDIA' || nome === 'MEDIA') return numeros.length ? numeros.reduce((s, n) => s + n, 0) / numeros.length : 0
   if (nome === 'MÁXIMO' || nome === 'MAXIMO') return numeros.length ? Math.max(...numeros) : 0
@@ -171,7 +171,7 @@ export function ModoPlanilha({ registros, todosRegistros, selecionadas, onAltern
   const somaPeso = peso.reduce((s, n) => s + n, 0)
   const mediaPeso = peso.length ? somaPeso / peso.length : 0
   const maxPeso = peso.length ? Math.max(...peso) : 0
-  const colunasTotais = new Set<Campo>(['largura', 'peso_bruto', 'peso_final', 'peso_liquido', 'metragem', 'perda_kg', 'vareta_g', 'kg_cola', 'pigmento_kg'])
+  const colunasTotais = new Set<Campo>(['largura', 'micragem', 'peso_bruto', 'peso_final', 'peso_liquido', 'metragem', 'perda_kg', 'vareta_g', 'kg_cola', 'pigmento_kg'])
   const formulaDaCelula = formulas[endereco] ?? ''
   const valorAtual = atual && colunaAtual ? String(atual[colunaAtual.campo] ?? '') : ''
   const totalFormula = (j: number) => `=SOMA(${LETRAS(j)}2:${LETRAS(j)}${dados.length + 1})`
