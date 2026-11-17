@@ -344,9 +344,17 @@ html, body {
   background-color: #57534E;
 }
 header.sticky,
-nav[aria-label],
 body:has(input[name='email']) main > div aside {
   background-color: #57534E !important;
+}
+/* A faixa externa usa cinza pedra; a navegação fica sem fundo próprio. */
+body {
+  background: #57534E !important;
+  background-image: none !important;
+  background-attachment: initial !important;
+}
+nav[aria-label] {
+  background: transparent !important;
 }
 button:not([disabled]),
 [role="button"],
