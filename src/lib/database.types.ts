@@ -155,7 +155,7 @@ export type CobrideiraBobinaLixeiraRow = {
 
 export type CobrideiraBobinaInsert = Omit<
   CobrideiraBobinaRow,
-  'peso_liquido' | 'created_by' | 'created_at' | 'operador'
+  'peso_liquido' | 'peso_filme_bopp_kg' | 'peso_cola_seca_kg' | 'consumo_cola_liquida_kg' | 'gramatura_seca_g_m2' | 'created_by' | 'created_at' | 'operador'
 > & { operador?: string }
 
 export type DeveloperAccountRow = {
