@@ -290,18 +290,27 @@ ALTER TABLE rebobinadeira.importacao_log ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "leitura produtos rebobinadeira" ON rebobinadeira.produtos_jumbo;
 CREATE POLICY "leitura produtos rebobinadeira" ON rebobinadeira.produtos_jumbo
-  FOR SELECT TO authenticated USING (true);
+  FOR SELECT TO authenticated USING (EXISTS (
+    SELECT 1 FROM public.current_user_access() a
+    WHERE a.role IN ('DEVELOPER', 'ADMIN') OR a.area = 'rebobinadeira'
+  ));
 DROP POLICY IF EXISTS "edicao lead time desenvolvedor" ON rebobinadeira.produtos_jumbo;
 CREATE POLICY "edicao lead time desenvolvedor" ON rebobinadeira.produtos_jumbo
   FOR UPDATE TO authenticated
-  USING (EXISTS (SELECT 1 FROM public.current_user_access() a WHERE a.role IN ('DEVELOPER','ADMIN')))
-  WITH CHECK (EXISTS (SELECT 1 FROM public.current_user_access() a WHERE a.role IN ('DEVELOPER','ADMIN')));
+  USING (EXISTS (SELECT 1 FROM public.current_user_access() a WHERE a.role = 'DEVELOPER'))
+  WITH CHECK (EXISTS (SELECT 1 FROM public.current_user_access() a WHERE a.role = 'DEVELOPER'));
 DROP POLICY IF EXISTS "leitura bobinas rebobinadeira" ON rebobinadeira.bobinas;
 CREATE POLICY "leitura bobinas rebobinadeira" ON rebobinadeira.bobinas
-  FOR SELECT TO authenticated USING (true);
+  FOR SELECT TO authenticated USING (EXISTS (
+    SELECT 1 FROM public.current_user_access() a
+    WHERE a.role IN ('DEVELOPER', 'ADMIN') OR a.area = 'rebobinadeira'
+  ));
 DROP POLICY IF EXISTS "leitura log rebobinadeira" ON rebobinadeira.importacao_log;
 CREATE POLICY "leitura log rebobinadeira" ON rebobinadeira.importacao_log
-  FOR SELECT TO authenticated USING (true);
+  FOR SELECT TO authenticated USING (EXISTS (
+    SELECT 1 FROM public.current_user_access() a
+    WHERE a.role IN ('DEVELOPER', 'ADMIN') OR a.area = 'rebobinadeira'
+  ));
 
 GRANT USAGE ON SCHEMA rebobinadeira TO authenticated, service_role;
 GRANT SELECT, UPDATE ON rebobinadeira.produtos_jumbo TO authenticated;
