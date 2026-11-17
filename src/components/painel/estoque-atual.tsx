@@ -72,6 +72,11 @@ export function EstoqueAtualCobrideira() {
     kg: bobinas.filter((b) => b.categoria === c).reduce((s, b) => s + numero(b.peso_kg), 0),
     metros: bobinas.filter((b) => b.categoria === c).reduce((s, b) => s + numero(b.metragem_m), 0),
   }))
+  const totalResumoKg = resumos.reduce((s, r) => s + numero(r.peso_estoque_kg), 0)
+  const totalResumoM = resumos.reduce((s, r) => s + numero(r.metragem_disponivel_m), 0)
+  const diferencaKg = totalResumoKg - totalKg
+  const diferencaM = totalResumoM - totalM
+  const temDivergencia = Math.abs(diferencaKg) > 0.1 || Math.abs(diferencaM) > 1
   const maxKg = Math.max(1, ...resumos.map((r) => numero(r.peso_estoque_kg)))
 
   function abrirNovo() { setEditando(null); setForm({ ...vazio }); setFormAberto(true) }
@@ -142,6 +147,8 @@ export function EstoqueAtualCobrideira() {
         <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2 text-sm text-slate-500"><Package className="size-4"/> Produtos monitorados</div><div className="mt-2 text-2xl font-bold text-slate-900">{fmt(resumos.length)}</div></div>
       </div>
 
+      {temDivergencia && <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><div className="font-bold">Conferência pendente entre planilha e bobinas individuais</div><p className="mt-1">A planilha-resumo registra {fmt(totalResumoKg, 1)} kg e {fmt(totalResumoM)} m; a soma das bobinas detalhadas registra {fmt(totalKg, 1)} kg e {fmt(totalM)} m. Diferença: {fmt(diferencaKg, 1)} kg e {fmt(diferencaM)} m. Mantive os dois conjuntos de dados sem ajustar ou apagar nada automaticamente.</p></div>}
+
       <div className="grid gap-3 lg:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <h3 className="font-bold text-slate-900">Estoque por categoria</h3>
@@ -154,7 +161,7 @@ export function EstoqueAtualCobrideira() {
           </div>
         </section>
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="font-bold text-slate-900">Resumo por produto · estoque mínimo</h3>
+          <h3 className="font-bold text-slate-900">Resumo por produto · planilha de referência</h3>
           <div className="mt-3 max-h-64 space-y-3 overflow-auto">
             {resumos.map((r) => <div key={r.id}>
               <div className="flex justify-between gap-2 text-sm"><span className="font-medium text-slate-700">{r.medida_produto}</span><span className="text-slate-500">{fmt(r.peso_estoque_kg, 1)} kg</span></div>
