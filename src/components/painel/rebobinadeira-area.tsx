@@ -308,7 +308,7 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1120px] border-collapse text-sm">
-                <thead className="bg-muted/60 text-left text-xs text-muted-foreground">
+                <thead className="sticky top-0 z-20 bg-muted text-left text-xs text-muted-foreground shadow-sm">
                   <tr>
                     <th className="px-4 py-3 font-semibold">Produto</th>
                     <th className="px-4 py-3 font-semibold">Consumo médio kg/mês</th>
