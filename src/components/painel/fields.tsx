@@ -49,7 +49,7 @@ export function TextInput({
         }
       }}
       {...props}
-      style={{ ...props.style, backgroundColor: valorValido ? '#dcfce7' : props.style?.backgroundColor, borderColor: valorValido ? '#86efac' : props.style?.borderColor }}
+      style={{ ...props.style, backgroundColor: valorValido ? '#dcfce7' : '#f1f5f9', borderColor: valorValido ? '#86efac' : '#cbd5e1' }}
     />
   )
 }
