@@ -117,6 +117,10 @@ export type CobrideiraBobinaRow = {
   peso_final: number
   peso_cilindro: number
   peso_liquido: number
+  peso_filme_bopp_kg: number | null
+  peso_cola_seca_kg: number | null
+  consumo_cola_liquida_kg: number | null
+  gramatura_seca_g_m2: number | null
   metragem: number
   perda_kg: number
   fornecedor_filme: string
