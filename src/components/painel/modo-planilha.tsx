@@ -10,11 +10,12 @@ const COLUNAS: Coluna[] = [
   { campo: 'cod_bob', titulo: 'Código da bobina', mono: true },
   { campo: 'fornecedor_filme', titulo: 'Fornecedor do filme' },
   { campo: 'largura', titulo: 'Largura', numerico: true, tipo: 'numero' },
-  { campo: 'peso_bruto', titulo: 'Peso bruto', numerico: true, tipo: 'numero' },
-  { campo: 'peso_final', titulo: 'Peso final', numerico: true, tipo: 'numero' },
+  { campo: 'micragem', titulo: 'Micragem', numerico: true, tipo: 'numero' },
   { campo: 'peso_liquido', titulo: 'Peso líquido', numerico: true, somenteLeitura: true },
   { campo: 'metragem', titulo: 'Metragem', numerico: true, tipo: 'numero' },
   { campo: 'material', titulo: 'Material' },
+  { campo: 'peso_bruto', titulo: 'Peso bruto', numerico: true, tipo: 'numero' },
+  { campo: 'peso_final', titulo: 'Peso final', numerico: true, tipo: 'numero' },
   { campo: 'perda_kg', titulo: 'Perda', numerico: true, tipo: 'numero' },
   { campo: 'vareta_g', titulo: 'Vareta', numerico: true, tipo: 'numero' },
   { campo: 'kg_cola', titulo: 'Cola', numerico: true, tipo: 'numero' },
@@ -54,6 +55,7 @@ function validar(coluna: Coluna, valor: string, todos: CobrideiraBobinaRow[], at
     const formatoValido = /^\d+(?:[.,]\d{1,2})?$/.test(v) || /^\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?$/.test(v)
     if (!v || !Number.isFinite(n) || n <= 0) return 'Informe um número positivo.'
     if (!formatoValido) return 'Use até duas casas decimais.'
+    if ((coluna.campo === 'metragem' || coluna.campo === 'micragem' || coluna.campo === 'vareta_g') && !Number.isInteger(n)) return 'Este campo aceita apenas números inteiros.'
   }
   if (coluna.tipo === 'data' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return 'Data inválida.'
   return ''
