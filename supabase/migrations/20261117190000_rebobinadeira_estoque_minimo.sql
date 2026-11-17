@@ -210,9 +210,10 @@ BEGIN
   VALUES (p_lote, 'planilha', recebidas, n, 'PROCESSADO')
   ON CONFLICT (id) DO UPDATE SET linhas_recebidas = EXCLUDED.linhas_recebidas,
     linhas_gravadas = EXCLUDED.linhas_gravadas, status = EXCLUDED.status;
+  DELETE FROM rebobinadeira.staging_planilha WHERE lote_id = p_lote;
   RETURN n;
 END;
-$$;
+$;
 
 CREATE OR REPLACE VIEW rebobinadeira.vw_estoque_minimo
 WITH (security_invoker = true) AS
