@@ -173,6 +173,44 @@ export type CapacidadeProducaoRow = {
   tubos_por_container: number
 }
 
+
+export type RebobinadeiraProdutoRow = {
+  codigo: string
+  descricao: string
+  material: string
+  cor: string
+  largura_jumbo_mm: number | null
+  tipo_produto: string
+  lead_time_dias: number | null
+  piso_minimo_jumbos: number
+  ativo: boolean
+  criado_em: string
+  atualizado_em: string
+}
+
+export type RebobinadeiraEstoqueMinimoRow = {
+  codigo: string
+  descricao: string
+  material: string
+  cor: string
+  largura_jumbo_mm: number | null
+  tipo_produto: string
+  lead_time_dias: number | null
+  piso_minimo_jumbos: number
+  consumo_mensal_kg: number
+  consumo_diario_kg: number
+  estoque_minimo_calculado_kg: number
+  peso_medio_jumbo_kg: number
+  jumbos_consumidos: number
+  estoque_minimo_jumbos: number
+  consumo_semanal_m: number
+  estoque_minimo_recomendado_m: number
+  metragem_media_jumbo_m: number
+  estoque_minimo_m: number
+  possui_consumo: boolean
+  estoque_minimo_kg: number
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -304,6 +342,37 @@ export type Database = {
         }
         Returns: ProducaoTuboRow[]
       }
+    }
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
+  }
+  rebobinadeira: {
+    Tables: {
+      produtos_jumbo: Table<RebobinadeiraProdutoRow>
+      bobinas: Table<{
+        id: number
+        numero_bobina: string
+        numero_normalizado: string
+        data: string
+        material: string
+        produto_codigo: string
+        largura_jumbo_mm: number | null
+        peso_jumbo_kg: number | null
+        cor: string
+        linha: string
+        metragem_bobina_m: number | null
+      }>
+      staging_planilha: Table<{ id: number; lote_id: string; linha_csv: number }>
+      importacao_log: Table<{ id: string; origem: string; nome_arquivo: string | null; linhas_recebidas: number; linhas_gravadas: number; status: string | null; criado_em: string }>
+    }
+    Views: {
+      vw_estoque_minimo: {
+        Row: RebobinadeiraEstoqueMinimoRow
+        Relationships: []
+      }
+    }
+    Functions: {
+      processar_lote: { Args: { p_lote: string }; Returns: number }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
