@@ -129,7 +129,7 @@ export function ModoPlanilha({ registros, todosRegistros, selecionadas, onAltern
   const pesoColuna = COLUNAS.findIndex((c) => c.campo === 'peso_liquido')
   const metragemColuna = COLUNAS.findIndex((c) => c.campo === 'metragem')
   function resolverReferencia(ref: string, pilha: Set<string> = new Set()): unknown {
-    const match = ref.toUpperCase().match(/^([A-Z]+)(\\d+)$/)
+    const match = ref.toUpperCase().match(/^([A-Z]+)(\d+)$/)
     if (!match) return ''
     let ci = 0
     for (const ch of match[1]) ci = ci * 26 + ch.charCodeAt(0) - 64
@@ -146,7 +146,7 @@ export function ModoPlanilha({ registros, todosRegistros, selecionadas, onAltern
   }
   function resolverIntervalo(range: string, pilha: Set<string> = new Set()): unknown[] {
     const [inicio, fim] = range.toUpperCase().split(':')
-    const a = inicio.match(/^([A-Z]+)(\\d+)$/); const b = fim.match(/^([A-Z]+)(\\d+)$/)
+    const a = inicio.match(/^([A-Z]+)(\d+)$/); const b = fim.match(/^([A-Z]+)(\d+)$/)
     if (!a || !b) return []
     let c1 = 0; for (const ch of a[1]) c1 = c1 * 26 + ch.charCodeAt(0) - 64
     let c2 = 0; for (const ch of b[1]) c2 = c2 * 26 + ch.charCodeAt(0) - 64
