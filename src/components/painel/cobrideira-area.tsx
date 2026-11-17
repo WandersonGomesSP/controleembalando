@@ -14,6 +14,9 @@ import {
   Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { AlternadorModo } from '@/components/painel/alternador-modo'
+import { ModoLista } from '@/components/painel/modo-lista'
+import { ModoPlanilha } from '@/components/painel/modo-planilha'
 import {
   Field,
   Panel,
@@ -23,7 +26,7 @@ import {
 } from '@/components/painel/fields'
 import { supabase } from '@/lib/supabase'
 import { downloadCobrideiraLabel } from '@/lib/cobrideira-label'
-import { synchronizeCobrideiraBobina, updateCobrideiraBobina, moveCobrideiraBobinaToTrash, listCobrideiraBobinasTrash, restoreCobrideiraBobinaFromTrash, permanentlyDeleteCobrideiraBobina } from '@/lib/admin.functions'
+import { synchronizeCobrideiraBobina, updateCobrideiraBobina, updateCobrideiraBobinaCell, moveCobrideiraBobinaToTrash, listCobrideiraBobinasTrash, restoreCobrideiraBobinaFromTrash, permanentlyDeleteCobrideiraBobina } from '@/lib/admin.functions'
 import type {
   CobrideiraBobinaInsert,
   CobrideiraBobinaRow,
@@ -527,6 +530,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [ordenacao, setOrdenacao] = React.useState<{ campo: keyof CobrideiraBobinaRow; asc: boolean }>({ campo: 'data', asc: false })
   const [registrosExpandidos, setRegistrosExpandidos] = React.useState<Set<string>>(() => new Set())
   const [selecionadas, setSelecionadas] = React.useState<Set<string>>(() => new Set())
+  const [modo, setModo] = React.useState<'lista' | 'planilha'>('lista')
   const [csvLinhas, setCsvLinhas] = React.useState<LinhaCSVPreparada[]>([])
   const [csvNome, setCsvNome] = React.useState('')
   const [importandoCSV, setImportandoCSV] = React.useState(false)
@@ -713,6 +717,40 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     const { data, error } = await supabase.auth.getSession()
     if (error || !data.session?.access_token) throw new Error('Sessão expirada. Entre novamente.')
     return data.session.access_token
+  }
+
+  async function salvarCelulaPlanilha(
+    registro: CobrideiraBobinaRow,
+    campo: keyof CobrideiraBobinaRow,
+    valor: string | number,
+  ) {
+    const numeroOriginal = registro.numero_bobina
+    const anterior = registros.find((item) => item.numero_bobina === numeroOriginal) ?? registro
+    const otimista = { ...anterior, [campo]: valor } as CobrideiraBobinaRow
+    setRegistros((atuais) => atuais.map((item) => item.numero_bobina === numeroOriginal ? otimista : item))
+    try {
+      const atualizado = await updateCobrideiraBobinaCell({
+        data: {
+          accessToken: await tokenAtual(),
+          numeroOriginal,
+          campo: campo as string,
+          valor,
+          updatedAt: anterior.updated_at ?? anterior.created_at,
+        },
+      })
+      setRegistros((atuais) => atuais.map((item) => item.numero_bobina === numeroOriginal ? atualizado : item))
+      if (campo === 'numero_bobina' && String(valor) !== numeroOriginal) {
+        setSelecionadas((atuais) => {
+          const novas = new Set(atuais)
+          if (novas.delete(numeroOriginal)) novas.add(String(valor))
+          return novas
+        })
+      }
+    } catch (error) {
+      setRegistros((atuais) => atuais.map((item) => item.numero_bobina === numeroOriginal ? anterior : item))
+      toast.error('Não foi possível salvar a célula.', { description: erroMensagem(error), duration: 10000 })
+      throw error
+    }
   }
 
   function alternarSelecao(numeroBobina: string) {
@@ -1540,13 +1578,16 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             title="Bobinas registradas"
             description="Todos os registros da Cobrideira."
             action={
-              <button
-                type="button"
-                onClick={() => void carregarRegistros()}
-                className="inline-flex h-10 items-center gap-2 rounded-full border-0 bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42]"
-              >
-                Atualizar
-              </button>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <AlternadorModo modo={modo} onChange={setModo} />
+                <button
+                  type="button"
+                  onClick={() => void carregarRegistros()}
+                  className="inline-flex h-10 items-center gap-2 rounded-full border-0 bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42]"
+                >
+                  Atualizar
+                </button>
+              </div>
             }
           >
             {logSincronizacao.length > 0 && (
@@ -1672,6 +1713,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   <p className="text-sm text-muted-foreground">{registrosFiltrados.length} registro(s) encontrado(s)</p>
                 </div>
                 
+                  {modo === 'lista' ? (
+                  <ModoLista>
                   <div className="scroll-area overflow-x-auto">
                     <table className="cobrideira-registros-table w-full min-w-[58rem] text-left text-sm">
                       <thead>
@@ -1784,6 +1827,15 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       </tbody>
                     </table>
                   </div>
+                  </ModoLista>
+                  ) : (
+                    <ModoPlanilha
+                      registros={registrosPagina}
+                      selecionadas={selecionadas}
+                      onAlternarSelecao={alternarSelecao}
+                      onSalvarCelula={salvarCelulaPlanilha}
+                    />
+                  )}
               </div>
             )}
           </Panel>
