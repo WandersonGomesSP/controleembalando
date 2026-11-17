@@ -28,7 +28,7 @@ function formatar(valor: number | null | undefined, casas = false) {
   return (casas ? numero : inteiro).format(Number(valor))
 }
 
-export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
+export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) { return <EstoqueMinimoView onChangeArea={onChangeArea} isDeveloper={isDeveloper} /> }\n\nexport function EstoqueMinimoCobrideira({ isDeveloper }: { isDeveloper: boolean }) { return <EstoqueMinimoView isDeveloper={isDeveloper} embedded /> }\n\nfunction EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Props & { embedded?: boolean }) {
   const [registros, setRegistros] = React.useState<RebobinadeiraEstoqueMinimoRow[]>([])
   const [leadTimes, setLeadTimes] = React.useState<Record<string, string>>({})
   const [busca, setBusca] = React.useState('')
@@ -145,7 +145,7 @@ export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
+      {!embedded && <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-[96rem] flex-col gap-3 px-4 py-4 sm:px-6">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -174,9 +174,9 @@ export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
             </span>
           </nav>
         </div>
-      </header>
+      </header>}
 
-      <main className="mx-auto max-w-[96rem] space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+      <main className={embedded ? "mx-auto max-w-[96rem] space-y-6 px-1 py-2 sm:px-2" : "mx-auto max-w-[96rem] space-y-6 px-4 py-6 sm:px-6 sm:py-8"}>
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Indicadores / Estoque Mínimo</p>
