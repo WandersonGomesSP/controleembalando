@@ -8,9 +8,11 @@ import {
   Ruler,
   Search,
   Save,
+  FileUp,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { importarCsvRebobinadeira } from '@/lib/admin.functions'
 import type { RebobinadeiraEstoqueMinimoRow } from '@/lib/database.types'
 
 type Props = {
@@ -34,6 +36,16 @@ export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
   const [atualizando, setAtualizando] = React.useState(false)
   const [salvando, setSalvando] = React.useState<string | null>(null)
   const [erro, setErro] = React.useState('')
+  const [arquivo, setArquivo] = React.useState<File | null>(null)
+  const [importando, setImportando] = React.useState(false)
+  const [resultadoImportacao, setResultadoImportacao] = React.useState<{
+    recebidas: number
+    validas: number
+    rejeitadas: number
+    gravadas: number
+    rejeicoes: { linha: number; motivo: string }[]
+  } | null>(null)
+  const inputArquivoRef = React.useRef<HTMLInputElement>(null)
 
   const carregar = React.useCallback(async (silencioso = false) => {
     if (silencioso) setAtualizando(true)
@@ -82,6 +94,43 @@ export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
       await carregar(true)
     }
     setSalvando(null)
+  }
+
+
+  async function importarArquivo() {
+    if (!arquivo) {
+      toast.error('Selecione um arquivo CSV primeiro.')
+      return
+    }
+    setImportando(true)
+    setResultadoImportacao(null)
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !sessionData.session?.access_token) {
+        throw new Error('Sua sessão expirou. Entre novamente no sistema.')
+      }
+      const csv = await arquivo.text()
+      const resultado = await importarCsvRebobinadeira({
+        data: {
+          accessToken: sessionData.session.access_token,
+          csv,
+          nomeArquivo: arquivo.name,
+        },
+      })
+      setResultadoImportacao(resultado)
+      setArquivo(null)
+      if (inputArquivoRef.current) inputArquivoRef.current.value = ''
+      toast.success('Importação concluída.', {
+        description: `${resultado.gravadas} bobinas gravadas; ${resultado.rejeitadas} linhas rejeitadas.`,
+      })
+      await carregar(true)
+    } catch (error) {
+      toast.error('Não foi possível importar o CSV.', {
+        description: error instanceof Error ? error.message : 'Verifique o arquivo e tente novamente.',
+      })
+    } finally {
+      setImportando(false)
+    }
   }
 
   const filtrados = registros.filter((item) => {
@@ -146,6 +195,62 @@ export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
             Atualizar
           </button>
         </div>
+
+
+        <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-semibold">Importar dados da Rebobinadeira</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Selecione o CSV exportado da planilha. O arquivo deve usar ponto e vírgula e conter 31 colunas.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={inputArquivoRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="sr-only"
+              onChange={(event) => setArquivo(event.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              onClick={() => inputArquivoRef.current?.click()}
+              disabled={importando}
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium transition hover:bg-accent disabled:opacity-50"
+            >
+              <FileUp className="size-4" />
+              {arquivo ? arquivo.name : 'Selecionar CSV'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void importarArquivo()}
+              disabled={!arquivo || importando}
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50"
+            >
+              <FileUp className={`size-4 ${importando ? 'animate-pulse' : ''}`} />
+              {importando ? 'Importando...' : 'Importar arquivo'}
+            </button>
+          </div>
+        </section>
+
+        {resultadoImportacao && (
+          <section className="rounded-xl border border-border bg-card p-4">
+            <h3 className="font-semibold">Resultado da última importação</h3>
+            <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+              <span>Recebidas: <strong>{resultadoImportacao.recebidas}</strong></span>
+              <span>Válidas: <strong>{resultadoImportacao.validas}</strong></span>
+              <span>Gravadas: <strong>{resultadoImportacao.gravadas}</strong></span>
+              <span>Rejeitadas: <strong>{resultadoImportacao.rejeitadas}</strong></span>
+            </div>
+            {resultadoImportacao.rejeicoes.length > 0 && (
+              <ul className="mt-3 max-h-40 list-disc space-y-1 overflow-y-auto pl-5 text-xs text-muted-foreground">
+                {resultadoImportacao.rejeicoes.map((item) => (
+                  <li key={item.linha}>Linha {item.linha}: {item.motivo}</li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-3">
           <section className="rounded-xl border border-border bg-card p-4">
