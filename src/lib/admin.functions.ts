@@ -646,7 +646,7 @@ export const registrarProducaoRebobinadeira = createServerFn({ method: 'POST' })
       maquina: z.string().trim().min(1).max(40),
       setup: z.boolean().default(false),
       numero_bobina: z.string().trim().min(1).max(80),
-      turno: z.enum(['1º TURNO', '2º TURNO']),
+      turno: z.enum(['1º TURNO', '2º TURNO']).nullable().optional(),
       produto_codigo: z.string().trim().min(1).max(180),
       peso_jumbo_kg: z.number().positive().nullable().optional(),
       metragem_bobina_m: z.number().positive().nullable().optional(),
