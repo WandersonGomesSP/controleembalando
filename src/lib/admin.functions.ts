@@ -700,6 +700,47 @@ export const corrigirNumeroBobinaRebobinadeira = createServerFn({ method: 'POST'
     return { success: Boolean(success) }
   })
 
+export const editarProducaoRebobinadeira = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({
+    producaoId: z.number().int().positive(),
+    registro: z.object({
+      data: isoDate,
+      maquina: z.string().trim().min(1).max(40),
+      setup: z.boolean(),
+      produto_codigo: z.string().trim().min(1).max(180),
+      material: z.string().trim().min(1).max(120),
+      largura_jumbo_mm: z.number().positive().nullable(),
+      peso_jumbo_kg: z.number().positive().nullable(),
+      fornec_filme: z.string().max(180),
+      lote_cola: z.string().max(120),
+      fornec_cola: z.string().max(180),
+      medida: z.string().max(80),
+      cor: z.string().trim().min(1).max(100),
+      linha: z.enum(['PADRÃO', 'PERSONALIZADA', 'KIT']),
+      linha_detalhe: z.string().max(180),
+      cliente: z.string().max(180),
+      caixas: z.number().int().min(0).max(1000000),
+      pcts: z.number().int().min(0).max(1000000),
+      rolos: z.number().int().min(0).max(1000000),
+      refugos: z.number().min(0).max(1000000),
+      fitas_rebobinadas: z.number().min(0).max(1000000),
+      refilo_kg: z.number().min(0).max(1000000),
+      perda_producao_kg: z.number().min(0).max(1000000),
+      observacoes: z.string().max(1000),
+    }),
+  }))
+  .handler(async ({ data }) => {
+    const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const { data: updated, error } = await client.schema('rebobinadeira').from('bobinas')
+      .update(data.registro)
+      .eq('id', data.producaoId)
+      .select('id')
+      .maybeSingle()
+    if (error) throw new Error('Não foi possível editar a produção: ' + error.message)
+    if (!updated) throw new Error('O lançamento não foi encontrado ou não pôde ser alterado.')
+    return { id: Number(updated.id) }
+  })
+
 export const estornarProducaoRebobinadeira = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({
     producaoId: z.number().int().positive(),
