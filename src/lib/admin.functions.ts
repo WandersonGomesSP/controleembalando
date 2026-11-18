@@ -639,6 +639,7 @@ export const registrarProducaoRebobinadeira = createServerFn({ method: 'POST' })
       medida: z.string().max(80).nullable().optional(),
       cor: z.string().trim().min(1).max(100),
       linha: z.enum(['PADRÃO', 'PERSONALIZADA', 'KIT']),
+      linha_detalhe: z.string().max(180).optional().default(''),
       cliente: z.string().max(180).nullable().optional(),
       caixas: z.number().int().min(0).max(1000000),
       pcts: z.number().int().min(0).max(1000000),
