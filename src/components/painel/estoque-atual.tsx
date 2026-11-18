@@ -367,7 +367,8 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
         const alertas = resumos.filter((r) => numero(r.estoque_minimo_semanal_m) > 0 && numero(r.metragem_disponivel_m) < numero(r.estoque_minimo_semanal_m) && !alertasDesativados.includes(chaveAlertaEstoque(r.medida_produto)))
         const porPagina = 4
         const totalPaginas = Math.ceil(alertas.length / porPagina)
-        const inicio = paginaAlertas * porPagina
+        const paginaAtual = totalPaginas ? paginaAlertas % totalPaginas : 0
+        const inicio = paginaAtual * porPagina
         const visiveis = alertas.slice(inicio, inicio + porPagina)
         return (
           <section className="overflow-hidden rounded-xl border border-amber-200 bg-amber-50">
@@ -387,7 +388,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
               </div>
               {totalPaginas > 1 && <div className="flex items-center justify-between border-t border-amber-200 px-4 py-2">
                 <button type="button" onClick={() => setPaginaAlertas((p) => (p - 1 + totalPaginas) % totalPaginas)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-amber-950 hover:bg-amber-100"><ChevronLeft className="size-4" /> Anterior</button>
-                <span className="text-xs text-amber-900">{inicio + 1}–{Math.min(inicio + porPagina, alertas.length)} de {alertas.length} · página {paginaAlertas + 1}/{totalPaginas}</span>
+                <span className="text-xs text-amber-900">{inicio + 1}–{Math.min(inicio + porPagina, alertas.length)} de {alertas.length} · página {paginaAtual + 1}/{totalPaginas}</span>
                 <button type="button" onClick={() => setPaginaAlertas((p) => (p + 1) % totalPaginas)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-amber-950 hover:bg-amber-100">Próximos <ChevronRight className="size-4" /></button>
               </div>}
             </>}
