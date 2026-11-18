@@ -294,7 +294,11 @@ export function HistoricoProducao({ onChangeArea }: Props) {
 
   async function pesquisarBobina(termo: string) {
     setBuscaBobina(termo)
-    setForm((atual) => ({ ...atual, numero_bobina: termo }))
+    if (bobinaSelecionada) {
+      setForm((atual) => ({ ...atual, numero_bobina: termo, produto_codigo: '', material: '', largura_jumbo_mm: '', peso_jumbo_kg: '', fornec_filme: '', lote_cola: '', fornec_cola: '', medida: '', cor: '', linha: 'PADRÃO', linha_detalhe: '', cliente: '', metragem_bobina_m: '', bobina_voltou_parcial: false, metragem_devolvida_m: '' }))
+    } else {
+      setForm((atual) => ({ ...atual, numero_bobina: termo }))
+    }
     setBobinaSelecionada(null)
     if (termo.trim().length < 2) {
       setResultadosBobina([])
@@ -672,7 +676,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             </div>
           )}
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border p-3 text-xs text-muted-foreground">
-            <span>{filtrados.length} lançamento(s) · Página {paginaAtual + 1} de {totalPaginas}</span>
+            <span>{filtrados.length} bobina(s) · Página {paginaAtual + 1} de {totalPaginas}</span>
             <div className="flex gap-2"><button type="button" disabled={paginaAtual === 0} onClick={() => setPagina((p) => Math.max(0, p - 1))} className="rounded-md border border-border px-3 py-2 hover:bg-accent disabled:opacity-40">Anterior</button><button type="button" disabled={paginaAtual >= totalPaginas - 1} onClick={() => setPagina((p) => Math.min(totalPaginas - 1, p + 1))} className="rounded-md border border-border px-3 py-2 hover:bg-accent disabled:opacity-40">Próxima</button></div>
           </div>
         </section>
