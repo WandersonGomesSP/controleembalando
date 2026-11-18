@@ -9,9 +9,9 @@ import {
   FileUp,
   History,
   Package,
+  Pencil,
   Plus,
   RefreshCw,
-  RotateCcw,
   Save,
   Search,
   X,
@@ -19,7 +19,7 @@ import {
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import {
-  estornarProducaoRebobinadeira,
+  corrigirNumeroBobinaRebobinadeira,
   importarCsvRebobinadeira,
   registrarProducaoRebobinadeira,
   buscarBobinasOrigemRebobinadeira,
@@ -82,6 +82,9 @@ type ProducaoRow = {
   metragem_devolvida_m: number | null
   bobina_voltou_parcial: boolean
   linha_detalhe: string | null
+  fornec_filme: string | null
+  lote_cola: string | null
+  fornec_cola: string | null
 }
 
 const numero = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
@@ -160,8 +163,8 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const [bobinaSelecionada, setBobinaSelecionada] = React.useState<BobinaOrigem | null>(null)
   const [buscandoBobina, setBuscandoBobina] = React.useState(false)
   const [inputArquivoKey, setInputArquivoKey] = React.useState(0)
-  const [motivoEstorno, setMotivoEstorno] = React.useState<Record<number, string>>({})
-  const [estornoAberto, setEstornoAberto] = React.useState<number | null>(null)
+  const [bobinaEmEdicao, setBobinaEmEdicao] = React.useState<{ id: number; numero: string } | null>(null)
+  const [novoNumeroBobina, setNovoNumeroBobina] = React.useState('')
   const [form, setForm] = React.useState({
     data: dataHoje(),
     maquina: 'M1',
@@ -449,23 +452,27 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     }
   }
 
-  async function estornar(id: number) {
-    const motivo = motivoEstorno[id]?.trim()
-    if (!motivo) {
-      toast.error('Informe o motivo do estorno.')
+  async function salvarCorrecaoNumero() {
+    if (!bobinaEmEdicao) return
+    if (!novoNumeroBobina.trim()) {
+      toast.error('Informe o número correto da bobina.')
       return
     }
     setSalvando(true)
     try {
       const accessToken = await obterToken()
-      await estornarProducaoRebobinadeira({ data: { accessToken, producaoId: id, motivo } })
-      toast.success('Estorno registrado. O histórico foi preservado e o saldo foi recomposto.')
-      setEstornoAberto(null)
-      setMotivoEstorno((estado) => ({ ...estado, [id]: '' }))
+      await corrigirNumeroBobinaRebobinadeira({
+        data: { accessToken, producaoId: bobinaEmEdicao.id, novoNumero: novoNumeroBobina.trim() },
+      })
+      toast.success('Número da bobina corrigido.', {
+        description: 'O saldo do número antigo foi recomposto e os movimentos foram transferidos para o número correto.',
+      })
+      setBobinaEmEdicao(null)
+      setNovoNumeroBobina('')
       await carregar(true)
     } catch (error) {
-      toast.error('Não foi possível estornar a produção.', {
-        description: error instanceof Error ? error.message : 'Tente novamente.',
+      toast.error('Não foi possível corrigir o número da bobina.', {
+        description: error instanceof Error ? error.message : 'Confira o número e tente novamente.',
       })
     } finally {
       setSalvando(false)
@@ -639,7 +646,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
 
         <section className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="flex flex-col gap-3 border-b border-border p-4">
-            <div><h3 className="font-semibold">Bobinas no histórico</h3><p className="text-xs text-muted-foreground">Cada bobina aparece uma vez na lista. Abra os detalhes para consultar todos os lançamentos e estornar uma linha específica.</p></div>
+            <div><h3 className="font-semibold">Bobinas no histórico</h3><p className="text-xs text-muted-foreground">Cada bobina aparece uma vez na lista. Abra os detalhes para consultar os dados de origem e os lançamentos de produção.</p></div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <label className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input value={busca} onChange={(e) => { setBusca(e.target.value); setPagina(0) }} placeholder="Buscar bobina, máquina ou produto" className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm" /></label>
               <select value={statusFiltro} onChange={(e) => { setStatusFiltro(e.target.value); setPagina(0) }} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="">Todos os status</option><option value="CADASTRADA">Cadastrada</option><option value="PENDENTE">Pendente</option><option value="DEVOLVIDA_PARCIAL">Devolvida Parcialmente</option></select>
@@ -651,7 +658,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
           {carregando ? <p className="p-10 text-center text-sm text-muted-foreground">Carregando histórico...</p> : paginaRegistros.length === 0 ? <p className="p-10 text-center text-sm text-muted-foreground">Nenhum lançamento encontrado com os filtros atuais.</p> : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="px-4 py-3">Data</th><th className="px-4 py-3">Bobina</th><th className="px-4 py-3">Produto</th><th className="px-4 py-3">Lançamentos</th><th className="px-4 py-3">Metros consumidos</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Detalhes</th></tr></thead>
+                <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="px-4 py-3">Data</th><th className="px-4 py-3">Bobina</th><th className="px-4 py-3">Produto</th><th className="px-4 py-3">Lançamentos</th><th className="px-4 py-3">Metros consumidos</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Detalhes</th><th className="px-4 py-3">Ação</th></tr></thead>
                 <tbody className="divide-y divide-border">
                   {paginaRegistros.map((grupo) => (
                     <React.Fragment key={grupo.numero_normalizado}>
@@ -662,9 +669,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                         <td className="px-4 py-3 tabular-nums">{grupo.linhas.length}</td>
                         <td className="px-4 py-3 tabular-nums">{formatar(grupo.metrosConsumidos, ' m')}</td>
                         <td className="px-4 py-3"><span className={'inline-flex rounded-full border px-2 py-1 text-xs font-semibold ' + statusClass(grupo.status)}>{statusLabel(grupo.status)}</span></td>
-                        <td className="px-4 py-3"><button type="button" onClick={() => setDetalheAberto(detalheAberto === grupo.numero_normalizado ? null : grupo.numero_normalizado)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent">{detalheAberto === grupo.numero_normalizado ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />} {detalheAberto === grupo.numero_normalizado ? 'Fechar' : 'Ver lançamentos'}</button></td>
+                        <td className="px-4 py-3"><button type="button" onClick={() => setDetalheAberto(detalheAberto === grupo.numero_normalizado ? null : grupo.numero_normalizado)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent">{detalheAberto === grupo.numero_normalizado ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />} {detalheAberto === grupo.numero_normalizado ? 'Fechar' : 'Detalhes'}</button></td>
+                        <td className="px-4 py-3"><button type="button" onClick={() => { setBobinaEmEdicao({ id: grupo.linhas[0]!.id, numero: grupo.numero_bobina }); setNovoNumeroBobina(grupo.numero_bobina) }} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent"><Pencil className="size-3" /> Editar</button></td>
                       </tr>
-                      {detalheAberto === grupo.numero_normalizado && <tr className="bg-muted/20"><td colSpan={10} className="px-4 py-3">
+                      {detalheAberto === grupo.numero_normalizado && <tr className="bg-muted/20"><td colSpan={8} className="px-4 py-3">
                         <div className="mb-3 grid gap-2 text-xs sm:grid-cols-3">
                           <span><strong>Primeiro registro:</strong> {formatarData(grupo.dataInicio)}</span>
                           <span><strong>Último registro:</strong> {formatarData(grupo.dataFim)}</span>
@@ -684,11 +692,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                           <span><strong>Linha:</strong> {grupo.linhas.at(-1)?.linha || '—'}</span>
                           <span><strong>Cliente:</strong> {grupo.linhas.at(-1)?.cliente || '—'}</span>
                         </div>
-                        <div className="overflow-x-auto"><table className="w-full min-w-[1500px] text-left text-xs">
-                          <thead><tr className="text-muted-foreground"><th className="px-2 py-2">Data</th><th className="px-2 py-2">Máquina/turno</th><th className="px-2 py-2">Setup</th><th className="px-2 py-2">Medida/linha</th><th className="px-2 py-2">Caixas</th><th className="px-2 py-2">Pacotes</th><th className="px-2 py-2">Rolos</th><th className="px-2 py-2">Refugos</th><th className="px-2 py-2">Fitas</th><th className="px-2 py-2">Refilo kg</th><th className="px-2 py-2">Perda kg</th><th className="px-2 py-2">Metragem</th><th className="px-2 py-2">Devolvida</th><th className="px-2 py-2">Status</th><th className="px-2 py-2">Ação</th></tr></thead>
+                        <div className="overflow-x-auto"><table className="w-full min-w-[1400px] text-left text-xs">
+                          <thead><tr className="text-muted-foreground"><th className="px-2 py-2">Data</th><th className="px-2 py-2">Máquina/turno</th><th className="px-2 py-2">Setup</th><th className="px-2 py-2">Medida/linha</th><th className="px-2 py-2">Caixas</th><th className="px-2 py-2">Pacotes</th><th className="px-2 py-2">Rolos</th><th className="px-2 py-2">Refugos</th><th className="px-2 py-2">Fitas</th><th className="px-2 py-2">Refilo kg</th><th className="px-2 py-2">Perda kg</th><th className="px-2 py-2">Metragem</th><th className="px-2 py-2">Devolvida</th><th className="px-2 py-2">Status</th></tr></thead>
                           <tbody>{grupo.linhas.map((item) => <React.Fragment key={item.id}>
-                            <tr className="border-t border-border"><td className="px-2 py-2">{formatarData(item.data)}</td><td className="px-2 py-2">{item.maquina ?? '—'} · {item.turno ?? '—'}</td><td className="px-2 py-2">{item.setup ? 'SIM' : 'NÃO'}</td><td className="px-2 py-2">{item.medida ?? '—'} · {item.linha === 'KIT' ? item.linha_detalhe ?? 'KIT' : item.linha}</td><td className="px-2 py-2">{formatar(item.caixas)}</td><td className="px-2 py-2">{formatar(item.pcts)}</td><td className="px-2 py-2">{formatar(item.rolos)}</td><td className="px-2 py-2">{formatar(item.refugos)}</td><td className="px-2 py-2">{formatar(item.fitas_rebobinadas)}</td><td className="px-2 py-2">{formatar(item.refilo_kg)}</td><td className="px-2 py-2">{formatar(item.perda_producao_kg)}</td><td className="px-2 py-2">{formatar(item.metragem_bobina_m, ' m')}</td><td className="px-2 py-2">{formatar(item.metragem_devolvida_m, ' m')}</td><td className="px-2 py-2">{statusLabel(item.status_baixa)}</td><td className="px-2 py-2">{item.status_baixa !== 'ESTORNADA' && <button type="button" onClick={() => setEstornoAberto(estornoAberto === item.id ? null : item.id)} className="inline-flex items-center gap-1 rounded-md border border-red-300 px-2 py-1 text-red-800 hover:bg-red-50"><RotateCcw className="size-3" /> Estornar</button>}</td></tr>
-                            {estornoAberto === item.id && <tr className="bg-red-50"><td colSpan={15} className="px-2 py-2"><div className="flex flex-col gap-2 sm:flex-row"><input value={motivoEstorno[item.id] ?? ''} onChange={(e) => setMotivoEstorno((estado) => ({ ...estado, [item.id]: e.target.value }))} placeholder="Motivo obrigatório do estorno" className="h-9 flex-1 rounded-lg border border-red-200 bg-white px-3 text-sm" /><button type="button" disabled={salvando} onClick={() => void estornar(item.id)} className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-red-700 px-3 text-xs font-semibold text-white hover:bg-red-800 disabled:opacity-50">Confirmar estorno</button><button type="button" onClick={() => setEstornoAberto(null)} className="min-h-9 rounded-lg border border-red-200 px-3 text-xs hover:bg-red-100">Cancelar</button></div></td></tr>}
+                            <tr className="border-t border-border"><td className="px-2 py-2">{formatarData(item.data)}</td><td className="px-2 py-2">{item.maquina ?? '—'} · {item.turno ?? '—'}</td><td className="px-2 py-2">{item.setup ? 'SIM' : 'NÃO'}</td><td className="px-2 py-2">{item.medida ?? '—'} · {item.linha === 'KIT' ? item.linha_detalhe ?? 'KIT' : item.linha}</td><td className="px-2 py-2">{formatar(item.caixas)}</td><td className="px-2 py-2">{formatar(item.pcts)}</td><td className="px-2 py-2">{formatar(item.rolos)}</td><td className="px-2 py-2">{formatar(item.refugos)}</td><td className="px-2 py-2">{formatar(item.fitas_rebobinadas)}</td><td className="px-2 py-2">{formatar(item.refilo_kg)}</td><td className="px-2 py-2">{formatar(item.perda_producao_kg)}</td><td className="px-2 py-2">{formatar(item.metragem_bobina_m, ' m')}</td><td className="px-2 py-2">{formatar(item.metragem_devolvida_m, ' m')}</td><td className="px-2 py-2">{statusLabel(item.status_baixa)}</td></tr>
                           </React.Fragment>)}</tbody>
                         </table></div>
                       </td></tr>}
@@ -709,6 +716,16 @@ export function HistoricoProducao({ onChangeArea }: Props) {
         </>)}
 
         <p className="text-xs leading-5 text-muted-foreground">A baixa é vinculada ao número da bobina e controlada pelo histórico de movimentações. Nenhuma movimentação pode deixar o saldo negativo.</p>
+      {tela === 'historico' && bobinaEmEdicao && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <section className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-xl">
+            <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">Corrigir número da bobina</h3><button type="button" onClick={() => setBobinaEmEdicao(null)} className="rounded-md p-2 hover:bg-accent" aria-label="Fechar"><X className="size-4" /></button></div>
+            <p className="mt-2 text-sm text-muted-foreground">A correção será aplicada a todos os lançamentos agrupados deste número. O saldo antigo será recomposto e a movimentação passará para a bobina correta cadastrada na Cobrideira.</p>
+            <label className="mt-4 grid gap-1 text-sm"><span className="font-medium">Número correto</span><input value={novoNumeroBobina} onChange={(event) => setNovoNumeroBobina(event.target.value)} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
+            <div className="mt-4 flex justify-end gap-2"><button type="button" onClick={() => setBobinaEmEdicao(null)} className="rounded-lg border border-border px-3 py-2 text-sm">Cancelar</button><button type="button" onClick={() => void salvarCorrecaoNumero()} disabled={salvando || !novoNumeroBobina.trim()} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{salvando ? 'Salvando...' : 'Salvar correção'}</button></div>
+          </section>
+        </div>
+      )}
       </main>
     </div>
   )
