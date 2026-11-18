@@ -969,3 +969,19 @@ $function$;
 -- Preferência de avisos por produto fica no banco, compartilhada entre usuários/dispositivos.
 alter table rebobinadeira.produtos_jumbo
   add column if not exists alerta_estoque_baixo_ativo boolean not null default true;
+
+
+-- RPCs de escrita são acessíveis somente pelo backend autenticado com service_role.
+revoke all on function rebobinadeira.processar_consumo_producao(bigint) from public, anon, authenticated;
+revoke all on function rebobinadeira.reprocessar_pendentes(text) from public, anon, authenticated;
+revoke all on function rebobinadeira.registrar_producao(jsonb) from public, anon, authenticated;
+revoke all on function rebobinadeira.estornar_producao(bigint,text) from public, anon, authenticated;
+revoke all on function rebobinadeira.ajuste_manual(text,numeric,numeric,text) from public, anon, authenticated;
+revoke all on function rebobinadeira.processar_lote(uuid) from public, anon, authenticated;
+
+grant execute on function rebobinadeira.processar_consumo_producao(bigint) to service_role;
+grant execute on function rebobinadeira.reprocessar_pendentes(text) to service_role;
+grant execute on function rebobinadeira.registrar_producao(jsonb) to service_role;
+grant execute on function rebobinadeira.estornar_producao(bigint,text) to service_role;
+grant execute on function rebobinadeira.ajuste_manual(text,numeric,numeric,text) to service_role;
+grant execute on function rebobinadeira.processar_lote(uuid) to service_role;
