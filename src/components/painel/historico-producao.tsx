@@ -704,10 +704,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <input key={inputArquivoKey} type="file" accept=".csv,text/csv" className="sr-only" id="historico-rebobinadeira-csv" onChange={(event) => setArquivo(event.target.files?.[0] ?? null)} />
-              <label htmlFor="historico-rebobinadeira-csv" className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium transition hover:bg-accent">
+              <label htmlFor="historico-rebobinadeira-csv" className="csv-import-control inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium transition hover:bg-accent">
                 <FileUp className="size-4" /> {arquivo ? arquivo.name : 'Selecionar CSV'}
               </label>
-              <button type="button" onClick={() => void importarArquivo()} disabled={!arquivo || importando} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50">
+              <button type="button" onClick={() => void importarArquivo()} disabled={!arquivo || importando} className="csv-import-control inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50">
                 {importando ? <RefreshCw className="size-4 animate-spin" /> : <FileUp className="size-4" />}
                 {importando ? 'Importando...' : 'Importar'}
               </button>
