@@ -9,6 +9,8 @@ import {
   Search,
   Save,
   FileUp,
+  Bell,
+  BellOff,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
@@ -22,6 +24,11 @@ type Props = {
 
 const numero = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
 const inteiro = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 })
+const ALERTAS_ESTOQUE_STORAGE_KEY = 'controleembalando-estoque-alertas-desativados'
+const chaveAlertaEstoque = (valor: string) => valor.trim().toLocaleLowerCase('pt-BR')
+function lerAlertasEstoqueDesativados(): string[] {
+  try { const valor = JSON.parse(localStorage.getItem(ALERTAS_ESTOQUE_STORAGE_KEY) ?? '[]'); return Array.isArray(valor) ? valor.filter((item): item is string => typeof item === 'string') : [] } catch { return [] }
+}
 
 function formatar(valor: number | null | undefined, casas = false) {
   if (valor == null || !Number.isFinite(Number(valor))) return '—'
@@ -36,6 +43,7 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
   const [registros, setRegistros] = React.useState<RebobinadeiraEstoqueMinimoRow[]>([])
   const [leadTimes, setLeadTimes] = React.useState<Record<string, string>>({})
   const [ajustes, setAjustes] = React.useState<Record<string, number>>({})
+  const [alertasDesativados, setAlertasDesativados] = React.useState<string[]>(lerAlertasEstoqueDesativados)
   const [busca, setBusca] = React.useState('')
   const [carregando, setCarregando] = React.useState(true)
   const [atualizando, setAtualizando] = React.useState(false)
@@ -80,6 +88,15 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
   React.useEffect(() => {
     void carregar()
   }, [carregar])
+
+  function alternarAlertaEstoque(descricao: string) {
+    const chave = chaveAlertaEstoque(descricao)
+    setAlertasDesativados((atuais) => {
+      const proximos = atuais.includes(chave) ? atuais.filter((item) => item !== chave) : [...atuais, chave]
+      try { localStorage.setItem(ALERTAS_ESTOQUE_STORAGE_KEY, JSON.stringify(proximos)) } catch { /* armazenamento local indisponível */ }
+      return proximos
+    })
+  }
 
   async function salvarLeadTime(registro: RebobinadeiraEstoqueMinimoRow) {
     const texto = leadTimes[registro.codigo] ??
@@ -397,6 +414,9 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
                                 className="inline-flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground transition hover:brightness-110 disabled:opacity-50"
                               >
                                 <Save className="size-4" />
+                              </button>
+                              <button type="button" aria-label={`${alertasDesativados.includes(chaveAlertaEstoque(item.descricao)) ? 'Ativar' : 'Desativar'} aviso de estoque baixo de ${item.descricao}`} title={alertasDesativados.includes(chaveAlertaEstoque(item.descricao)) ? 'Ativar aviso de estoque baixo' : 'Desativar aviso de estoque baixo'} onClick={() => alternarAlertaEstoque(item.descricao)} className={`inline-flex size-9 items-center justify-center rounded-md border transition hover:brightness-95 ${alertasDesativados.includes(chaveAlertaEstoque(item.descricao)) ? 'border-amber-300 bg-amber-100 text-amber-800' : 'border-border bg-background text-muted-foreground hover:bg-accent'}`}>
+                                {alertasDesativados.includes(chaveAlertaEstoque(item.descricao)) ? <BellOff className="size-4" /> : <Bell className="size-4" />}
                               </button>
                             </div>
                           </td>
