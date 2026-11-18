@@ -259,8 +259,10 @@ export function HistoricoProducao({ onChangeArea, onBack }: Props) {
       const resultado = await importarCsvRebobinadeira({
         data: { accessToken, csv, nomeArquivo: arquivo.name },
       })
-      toast.success('Importação concluída.', {
-        description: resultado.gravadas + ' linhas gravadas; ' + resultado.rejeitadas + ' rejeitadas.',
+      toast.success(resultado.repetido ? 'Este arquivo já foi importado.' : 'Importação concluída.', {
+        description: resultado.repetido
+          ? 'Nenhuma linha foi duplicada.'
+          : resultado.gravadas + ' linhas gravadas; ' + resultado.rejeitadas + ' rejeitadas.',
       })
       setArquivo(null)
       setInputArquivoKey((key) => key + 1)
