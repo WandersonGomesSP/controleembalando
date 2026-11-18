@@ -152,7 +152,6 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     setup: false,
     numero_bobina: '',
     turno: '1º TURNO',
-    produto_codigo: 'PENDENTE',
     material: '',
     largura_jumbo_mm: '',
     peso_jumbo_kg: '',
@@ -265,7 +264,6 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const paginaRegistros = filtrados.slice(paginaAtual * porPagina, (paginaAtual + 1) * porPagina)
   const pendentes = registros.filter((item) => item.status_baixa === 'PENDENTE' || item.status_baixa === 'NAO_PROCESSADA').length
   const consumidas = saldos.filter((item) => item.status === 'CONSUMIDA').length
-  const produtoSelecionado = produtos.find((item) => item.codigo === form.produto_codigo)
   const saldoBobinaSelecionada = bobinaSelecionada ? saldos.find((item) => item.numero_bobina.replace(/\\D/g, '') === bobinaSelecionada.numero_bobina.replace(/\\D/g, '')) : undefined
 
   async function obterToken() {
