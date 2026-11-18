@@ -358,7 +358,7 @@ function abaMesAtual() {
 const COBRIDEIRA_FORM_CACHE_KEY = 'cobrideira-form-last-values'
 const CAMPOS_REUTILIZAVEIS: (keyof FormularioBobina)[] = [
   'data', 'largura', 'material', 'fornecedorFilme', 'corFundo',
-  'kgCola', 'loteCola', 'codigoInterno', 'fornecedorCola', 'linha', 'operador',
+  'kgCola', 'loteCola', 'codigoInterno', 'fornecedorCola', 'linha', 'operador', 'codBob',
 ]
 
 function lerCamposReutilizaveis(): Partial<FormularioBobina> {
