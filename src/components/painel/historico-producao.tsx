@@ -85,6 +85,22 @@ type BobinaOrigemDetalhe = {
   operador: string | null
 }
 
+type ProdutoAdicional = {
+  id: number
+  produto_codigo: string
+  linha: 'PADRÃO' | 'PERSONALIZADA' | 'KIT'
+  linha_detalhe: string
+  cliente: string
+  caixas: string
+  pcts: string
+  rolos: string
+  refugos: string
+  fitas_rebobinadas: string
+  refilo_kg: string
+  perda_producao_kg: string
+  observacoes: string
+}
+
 type ProducaoRow = {
   id: number
   numero_bobina: string
@@ -202,6 +218,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const [inputArquivoKey, setInputArquivoKey] = React.useState(0)
   const [bobinaEmEdicao, setBobinaEmEdicao] = React.useState<{ id: number; numero: string } | null>(null)
   const [novoNumeroBobina, setNovoNumeroBobina] = React.useState('')
+  const [produtosExtras, setProdutosExtras] = React.useState<ProdutoAdicional[]>([])
   const [form, setForm] = React.useState({
     data: dataHoje(),
     maquina: 'M1',
@@ -724,7 +741,18 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                 <span><strong>Lote cola:</strong> {bobinaSelecionada.lote_cola || '—'}</span>
               </div>}
 
-              {(!bobinaSelecionada || !form.produto_codigo) && <label className="grid gap-1 text-sm sm:col-span-2"><span className="font-medium">Produtos</span><select required value={form.produto_codigo} onChange={(e) => { const produto = produtos.find((p) => p.codigo === e.target.value); setForm({ ...form, produto_codigo: e.target.value, medida: produto?.descricao ?? e.target.value }) }} className="h-10 rounded-lg border border-input bg-background px-3"><option value="">Selecione a medida</option>{produtos.map((p) => <option key={p.codigo} value={p.codigo}>{p.descricao}</option>)}</select></label>}
+              {(!bobinaSelecionada || !form.produto_codigo) && <div className="grid gap-2 text-sm sm:col-span-2"><div className="flex items-center justify-between gap-2"><span className="font-medium">Produtos</span><button type="button" onClick={() => setProdutosExtras((itens) => [...itens, { id: Date.now(), produto_codigo: '', linha: form.linha, linha_detalhe: '', cliente: form.cliente, caixas: '0', pcts: '0', rolos: '0', refugos: '0', fitas_rebobinadas: '0', refilo_kg: '0', perda_producao_kg: '0', observacoes: '' }])} className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/15"><Plus className="size-3" /> Adicionar produto</button></div><select required value={form.produto_codigo} onChange={(e) => { const produto = produtos.find((p) => p.codigo === e.target.value); setForm({ ...form, produto_codigo: e.target.value, medida: produto?.descricao ?? e.target.value }) }} className="h-10 rounded-lg border border-input bg-background px-3"><option value="">Selecione a medida</option>{produtos.map((p) => <option key={p.codigo} value={p.codigo}>{p.descricao}</option>)}</select></div>}
+              {produtosExtras.map((produto, indice) => (
+                <section key={produto.id} className="grid gap-3 rounded-xl border border-violet-300 bg-violet-50 p-3 text-violet-950 sm:col-span-2 lg:col-span-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="flex items-center justify-between sm:col-span-2 lg:col-span-4"><strong className="text-sm">Produto adicional {indice + 2}</strong><button type="button" onClick={() => setProdutosExtras((itens) => itens.filter((item) => item.id !== produto.id))} className="rounded-md border border-violet-300 px-2 py-1 text-xs font-semibold hover:bg-violet-100">Remover</button></div>
+                  <label className="grid gap-1 text-sm sm:col-span-2"><span>Produtos / medida</span><select required value={produto.produto_codigo} onChange={e=>setProdutosExtras(itens=>itens.map(item=>item.id===produto.id?{...item,produto_codigo:e.target.value}:item))} className="h-10 rounded-lg border border-violet-300 bg-white px-3 text-slate-900"><option value="">Selecione a medida</option>{produtos.map(p=><option key={p.codigo} value={p.codigo}>{p.descricao}</option>)}</select></label>
+                  <label className="grid gap-1 text-sm"><span>Linha</span><select value={produto.linha} onChange={e=>setProdutosExtras(itens=>itens.map(item=>item.id===produto.id?{...item,linha:e.target.value as ProdutoAdicional['linha']}:item))} className="h-10 rounded-lg border border-violet-300 bg-white px-3 text-slate-900"><option value="PADRÃO">Padrão</option><option value="PERSONALIZADA">Personalizada</option><option value="KIT">Kit</option></select></label>
+                  {produto.linha==='KIT' && <label className="grid gap-1 text-sm"><span>Identificação do Kit</span><input value={produto.linha_detalhe} onChange={e=>setProdutosExtras(itens=>itens.map(item=>item.id===produto.id?{...item,linha_detalhe:e.target.value}:item))} className="h-10 rounded-lg border border-violet-300 bg-white px-3 text-slate-900" /></label>}
+                  <label className="grid gap-1 text-sm"><span>Cliente</span><input value={produto.cliente} onChange={e=>setProdutosExtras(itens=>itens.map(item=>item.id===produto.id?{...item,cliente:e.target.value}:item))} className="h-10 rounded-lg border border-violet-300 bg-white px-3 text-slate-900" /></label>
+                  {(['caixas','pcts','rolos','refugos','fitas_rebobinadas','refilo_kg','perda_producao_kg'] as const).map(campo => <label key={campo} className="grid gap-1 text-sm"><span>{{caixas:'Caixas',pcts:'Pacotes (pcts)',rolos:'Rolos',refugos:'Refugos',fitas_rebobinadas:'Fitas rebobinadas',refilo_kg:'Refilo (kg)',perda_producao_kg:'Perda de produção (kg)'}[campo]}</span><input type="number" min="0" step={['caixas','pcts','rolos'].includes(campo)?'1':'0.001'} value={produto[campo]} onChange={e=>setProdutosExtras(itens=>itens.map(item=>item.id===produto.id?{...item,[campo]:e.target.value}:item))} className="h-10 rounded-lg border border-violet-300 bg-white px-3 text-slate-900" /></label>)}
+                  <label className="grid gap-1 text-sm sm:col-span-2 lg:col-span-4"><span>Observações do produto</span><textarea value={produto.observacoes} onChange={e=>setProdutosExtras(itens=>itens.map(item=>item.id===produto.id?{...item,observacoes:e.target.value}:item))} rows={2} className="rounded-lg border border-violet-300 bg-white px-3 py-2 text-slate-900" /></label>
+                </section>
+              ))}
               <label className="grid gap-1 text-sm"><span className="font-medium">Material</span><input required readOnly={Boolean(bobinaSelecionada)} value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Largura da bobina (mm)</span><input required readOnly={Boolean(bobinaSelecionada)} inputMode="decimal" value={form.largura_jumbo_mm} onChange={(e) => setForm({ ...form, largura_jumbo_mm: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Peso da bobina (kg)</span><input required readOnly={Boolean(bobinaSelecionada)} inputMode="decimal" value={form.peso_jumbo_kg} onChange={(e) => setForm({ ...form, peso_jumbo_kg: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
