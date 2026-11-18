@@ -144,10 +144,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     if (silencioso) setAtualizando(true)
     else setCarregando(true)
     setErro('')
-    const [producao, alertasResult, saldosResult, produtosResult] = await Promise.all([
-      supabase.schema('rebobinadeira').from('bobinas')
-        .select('id,numero_bobina,numero_normalizado,data,maquina,setup,turno,material,produto_codigo,largura_jumbo_mm,peso_jumbo_kg,cor,linha,metragem_bobina_m,metragem_unica_m,status_baixa,metros_consumidos,peso_consumido_kg,observacoes')
-        .order('data', { ascending: false }).order('id', { ascending: false }).range(0, 999),
+    const [alertasResult, saldosResult, produtosResult] = await Promise.all([
       supabase.schema('rebobinadeira').from('alertas_bobinas')
         .select('*').eq('status', 'ABERTO').order('criado_em', { ascending: false }).limit(100),
       supabase.schema('rebobinadeira').from('vw_saldo_bobinas')
@@ -155,13 +152,24 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       supabase.schema('rebobinadeira').from('produtos_jumbo')
         .select('*').eq('ativo', true).order('descricao', { ascending: true }),
     ])
-    const falhas = [producao.error, alertasResult.error, saldosResult.error, produtosResult.error].filter(Boolean)
+    const producaoRows: ProducaoRow[] = []
+    let erroProducao: string | null = null
+    for (let inicio = 0; ; inicio += 1000) {
+      const { data, error } = await supabase.schema('rebobinadeira').from('bobinas')
+        .select('id,numero_bobina,numero_normalizado,data,maquina,setup,turno,material,produto_codigo,largura_jumbo_mm,peso_jumbo_kg,cor,linha,metragem_bobina_m,metragem_unica_m,status_baixa,metros_consumidos,peso_consumido_kg,observacoes')
+        .order('data', { ascending: false }).order('id', { ascending: false })
+        .range(inicio, inicio + 999)
+      if (error) { erroProducao = error.message; break }
+      producaoRows.push(...((data ?? []) as ProducaoRow[]))
+      if (!data || data.length < 1000) break
+    }
+    const falhas = [erroProducao, alertasResult.error?.message, saldosResult.error?.message, produtosResult.error?.message].filter(Boolean)
     if (falhas.length) {
-      const mensagem = falhas.map((item) => item?.message).filter(Boolean).join(' · ')
+      const mensagem = falhas.join(' · ')
       setErro(mensagem || 'Não foi possível carregar os dados do histórico.')
       toast.error('Falha ao carregar o histórico de produção.', { description: mensagem })
     } else {
-      setRegistros((producao.data ?? []) as ProducaoRow[])
+      setRegistros(producaoRows)
       setAlertas((alertasResult.data ?? []) as RebobinadeiraAlertaBobinaRow[])
       setSaldos((saldosResult.data ?? []) as RebobinadeiraSaldoBobinaRow[])
       setProdutos((produtosResult.data ?? []) as RebobinadeiraProdutoRow[])
@@ -445,7 +453,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             <div><h3 className="font-semibold">Bobinas no histórico</h3><p className="text-xs text-muted-foreground">Cada bobina aparece uma vez na lista. Abra os detalhes para consultar todos os lançamentos e estornar uma linha específica.</p></div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <label className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input value={busca} onChange={(e) => { setBusca(e.target.value); setPagina(0) }} placeholder="Buscar bobina, máquina ou produto" className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm" /></label>
-              <select value={statusFiltro} onChange={(e) => { setStatusFiltro(e.target.value); setPagina(0) }} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="">Todos os status</option><option value="PENDENTE">Pendente</option><option value="NAO_PROCESSADA">Não processada</option><option value="DEVOLVIDA_PARCIAL">Devolvida parcialmente</option><option value="CONSUMIDA">Consumida</option><option value="ESTORNADA">Estornada</option></select>
+              <select value={statusFiltro} onChange={(e) => { setStatusFiltro(e.target.value); setPagina(0) }} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="">Todos os status</option><option value="CADASTRADA">Cadastrada</option><option value="EM_USO">Em uso</option><option value="PENDENTE">Pendente</option><option value="NAO_PROCESSADA">Não processada</option><option value="DEVOLVIDA_PARCIAL">Devolvida parcialmente</option><option value="CONSUMIDA">Consumida</option><option value="ESTORNADA">Estornada</option></select>
               <input type="date" value={dataInicio} onChange={(e) => { setDataInicio(e.target.value); setPagina(0) }} aria-label="Data inicial" className="h-10 rounded-lg border border-input bg-background px-3 text-sm" />
               <input type="date" value={dataFim} onChange={(e) => { setDataFim(e.target.value); setPagina(0) }} aria-label="Data final" className="h-10 rounded-lg border border-input bg-background px-3 text-sm" />
             </div>
