@@ -153,7 +153,7 @@ function statusLabel(status: string) {
   }
   if (status === 'EM_USO' || status === 'CONSUMIDA' || status === 'CADASTRADA') return 'Cadastrada'
   if (status === 'DEVOLVIDA_PARCIAL') return 'Devolvida Parcialmente'
-  if (status === 'NAO_PROCESSADA') return 'Pendente'
+  if (status === 'NAO_PROCESSADA' || status === 'PENDENTE') return 'Pendente'
   if (status === 'ESTORNADA') return 'Cadastrada'
   return labels[status] ?? status
 }
@@ -726,7 +726,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                           <span><strong>Primeiro registro:</strong> {formatarData(grupo.dataInicio)}</span>
                           <span><strong>Último registro:</strong> {formatarData(grupo.dataFim)}</span>
                           <span><strong>Total de dias:</strong> {grupo.diasNaMaquina}</span>
-                          <span><strong>Máquinas:</strong> {grupo.maquinas.join(', ') || '—'}</span>
+                          <span><strong>Máquina inicial:</strong> {grupo.linhas[0]?.maquina || '—'} · {grupo.linhas[0]?.turno || '—'}</span>
+                          <span><strong>Máquina final:</strong> {grupo.linhas.at(-1)?.maquina || '—'} · {grupo.linhas.at(-1)?.turno || '—'}</span>
+                          <span><strong>Máquinas utilizadas:</strong> {grupo.maquinas.join(', ') || '—'}</span>
+                          <span><strong>Saldo atual:</strong> {formatar(saldos.find((item) => item.numero_bobina === grupo.numero_bobina)?.saldo_metros, ' m')} · {formatar(saldos.find((item) => item.numero_bobina === grupo.numero_bobina)?.saldo_kg, ' kg')}</span>
                         </div>
                         <div className="mb-3 rounded-lg border border-border bg-background p-3">
                           <div className="mb-2 font-semibold text-foreground">Identificação da bobina · dados da Cobrideira</div>
