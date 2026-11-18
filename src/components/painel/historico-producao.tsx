@@ -302,7 +302,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       setRegistros(producaoRows)
       setAlertas((alertasResult.data ?? []) as RebobinadeiraAlertaBobinaRow[])
       setSaldos((saldosResult.data ?? []) as RebobinadeiraSaldoBobinaRow[])
-      setOrigens(Object.fromEntries(origensRows.map((row) => [row.numero_bobina.replace(/\\D/g, ''), row])))
+      setOrigens(Object.fromEntries(origensRows.map((row) => [row.numero_bobina.replace(/\D/g, ''), row])))
       setProdutos((produtosResult.data ?? []) as RebobinadeiraProdutoRow[])
       const falhasAuxiliares = [alertasResult.error?.message, saldosResult.error?.message, produtosResult.error?.message].filter(Boolean)
       if (falhasAuxiliares.length) toast.warning('Alguns indicadores auxiliares não puderam ser atualizados.', { description: falhasAuxiliares.join(' · ') })
@@ -317,7 +317,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const filtrados = React.useMemo(() => {
     const mapa = new Map<string, ProducaoRow[]>()
     for (const item of registros) {
-      const chave = item.numero_normalizado || item.numero_bobina.replace(/\\D/g, '')
+      const chave = item.numero_normalizado || item.numero_bobina.replace(/\D/g, '')
       const grupo = mapa.get(chave) ?? []
       grupo.push(item)
       mapa.set(chave, grupo)
@@ -381,7 +381,6 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const mesesDisponiveis = Array.from(new Set(registros.map((item) => item.data.slice(0, 7)))).sort().reverse()
   const paginaAtual = Math.min(pagina, totalPaginas - 1)
   const paginaRegistros = filtrados.slice(paginaAtual * porPagina, (paginaAtual + 1) * porPagina)
-  const pendentes = registros.filter((item) => item.status_baixa === 'PENDENTE' || item.status_baixa === 'NAO_PROCESSADA').length
   const consumidas = React.useMemo(() => {
     const hoje = new Date()
     const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
@@ -393,11 +392,11 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       if (metros <= 0) continue
       const dataRegistro = new Date(item.data + 'T00:00:00')
       if (inicio && dias !== null && dataRegistro < inicio) continue
-      unicas.add(item.numero_normalizado || item.numero_bobina.replace(/\\D/g, ''))
+      unicas.add(item.numero_normalizado || item.numero_bobina.replace(/\D/g, ''))
     }
     return unicas.size
   }, [registros, periodoUtilizacao])
-  const saldoBobinaSelecionada = bobinaSelecionada ? saldos.find((item) => item.numero_bobina.replace(/\\D/g, '') === bobinaSelecionada.numero_bobina.replace(/\\D/g, '')) : undefined
+  const saldoBobinaSelecionada = bobinaSelecionada ? saldos.find((item) => item.numero_bobina.replace(/\D/g, '') === bobinaSelecionada.numero_bobina.replace(/\D/g, '')) : undefined
 
   async function obterToken() {
     const { data, error } = await supabase.auth.getSession()
@@ -438,7 +437,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     setResultadosBobina([])
     const linha = row.linha?.toLocaleUpperCase('pt-BR').includes('KIT') ? 'KIT'
       : row.linha?.toLocaleUpperCase('pt-BR').includes('PERSONALIZ') ? 'PERSONALIZADA' : 'PADRÃO'
-    const saldoAtual = saldos.find((item) => item.numero_bobina.replace(/\\D/g, '') === row.numero_bobina.replace(/\\D/g, ''))
+    const saldoAtual = saldos.find((item) => item.numero_bobina.replace(/\D/g, '') === row.numero_bobina.replace(/\D/g, ''))
     const metragemDisponivel = Number(saldoAtual?.saldo_metros ?? row.metragem_m)
     setForm((atual) => ({
       ...atual,
