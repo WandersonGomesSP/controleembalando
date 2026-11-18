@@ -181,21 +181,25 @@ async function registrarAlertasRebobinadeira(
 ) {
   if (!alertas.length) return
   try {
-    const { error } = await client.schema('rebobinadeira').from('alertas_bobinas').insert(
-      alertas.map((alerta) => {
-        const numero = alerta.numeroBobina?.trim() || null
-        return {
-          tipo: alerta.tipo,
-          severidade: alerta.severidade ?? 'ALTA',
-          numero_bobina: numero,
-          numero_normalizado: numero ? numero.replace(/[^0-9]/g, '') : null,
-          producao_id: alerta.producaoId ?? null,
-          mensagem: alerta.mensagem,
-          detalhes: alerta.detalhes ?? {},
-        }
-      }),
-    )
-    if (error) console.error('Falha ao persistir alertas da Rebobinadeira:', error.message)
+    const linhas = alertas.map((alerta) => {
+      const numero = alerta.numeroBobina?.trim() || null
+      return {
+        tipo: alerta.tipo,
+        severidade: alerta.severidade ?? 'ALTA',
+        numero_bobina: numero,
+        numero_normalizado: numero ? numero.replace(/[^0-9]/g, '') : null,
+        producao_id: alerta.producaoId ?? null,
+        mensagem: alerta.mensagem,
+        detalhes: alerta.detalhes ?? {},
+      }
+    })
+    for (let offset = 0; offset < linhas.length; offset += 100) {
+      const { error } = await client.schema('rebobinadeira').from('alertas_bobinas').insert(linhas.slice(offset, offset + 100))
+      if (error) {
+        console.error('Falha ao persistir alertas da Rebobinadeira:', error.message)
+        break
+      }
+    }
   } catch (error) {
     console.error('Não foi possível persistir alertas da Rebobinadeira:', error)
   }
