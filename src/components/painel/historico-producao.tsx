@@ -353,7 +353,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
           material: ultima.material,
           cor: ultima.cor,
           status: ultima.status_baixa,
-          metrosConsumidos: linhasCiclo.reduce((soma, item) => soma + Number(item.metros_consumidos ?? item.metragem_unica_m ?? 0), 0),
+          metrosConsumidos: linhasCiclo.reduce((soma, item) => soma + Number(item.metros_consumidos || item.metragem_unica_m || 0), 0),
           caixasTotal: linhasCiclo.reduce((soma, item) => soma + Number(item.caixas ?? 0), 0),
           pctsTotal: linhasCiclo.reduce((soma, item) => soma + Number(item.pcts ?? 0), 0),
           rolosTotal: linhasCiclo.reduce((soma, item) => soma + Number(item.rolos ?? 0), 0),
