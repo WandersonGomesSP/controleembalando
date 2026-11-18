@@ -488,7 +488,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
               fornec_cola: form.fornec_cola,
               medida: item.medida,
               cor: form.cor,
-              linha: item.linha,
+              linha: item.linha as ProdutoAdicional['linha'],
               linha_detalhe: item.linha_detalhe,
               cliente: item.cliente,
               caixas: Number(item.caixas),
@@ -615,7 +615,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             fornec_cola: form.fornec_cola,
             medida: form.medida,
             cor: form.cor,
-            linha: form.linha,
+            linha: form.linha as ProdutoAdicional['linha'],
             linha_detalhe: form.linha_detalhe,
             cliente: form.cliente,
             caixas: Number(form.caixas),
@@ -773,7 +773,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                 <span><strong>Lote cola:</strong> {bobinaSelecionada.lote_cola || '—'}</span>
               </div>}
 
-              <div className="grid gap-2 text-sm sm:col-span-2"><div className="flex items-center justify-between gap-2"><span className="font-medium">Produtos</span><button type="button" onClick={() => setProdutosExtras((itens) => [...itens, { id: Date.now(), produto_codigo: '', linha: form.linha, linha_detalhe: '', cliente: form.cliente, caixas: '0', pcts: '0', rolos: '0', refugos: '0', fitas_rebobinadas: '0', refilo_kg: '0', perda_producao_kg: '0', observacoes: '' }])} className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/15"><Plus className="size-3" /> Adicionar produto</button></div><select required value={form.produto_codigo} onChange={(e) => { const produto = produtos.find((p) => p.codigo === e.target.value); setForm({ ...form, produto_codigo: e.target.value, medida: produto?.descricao ?? e.target.value }) }} className="h-10 rounded-lg border border-input bg-background px-3"><option value="">Selecione a medida</option>{produtos.map((p) => <option key={p.codigo} value={p.codigo}>{p.descricao}</option>)}</select></div>
+              <div className="grid gap-2 text-sm sm:col-span-2"><div className="flex items-center justify-between gap-2"><span className="font-medium">Produtos</span><button type="button" onClick={() => setProdutosExtras((itens) => [...itens, { id: Date.now(), produto_codigo: '', linha: form.linha as ProdutoAdicional['linha'], linha_detalhe: '', cliente: form.cliente, caixas: '0', pcts: '0', rolos: '0', refugos: '0', fitas_rebobinadas: '0', refilo_kg: '0', perda_producao_kg: '0', observacoes: '' }])} className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/15"><Plus className="size-3" /> Adicionar produto</button></div><select required value={form.produto_codigo} onChange={(e) => { const produto = produtos.find((p) => p.codigo === e.target.value); setForm({ ...form, produto_codigo: e.target.value, medida: produto?.descricao ?? e.target.value }) }} className="h-10 rounded-lg border border-input bg-background px-3"><option value="">Selecione a medida</option>{produtos.map((p) => <option key={p.codigo} value={p.codigo}>{p.descricao}</option>)}</select></div>
               {produtosExtras.map((produto, indice) => (
                 <section key={produto.id} className="grid gap-3 rounded-xl border border-violet-300 bg-violet-50 p-3 text-violet-950 sm:col-span-2 lg:col-span-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="flex items-center justify-between sm:col-span-2 lg:col-span-4"><strong className="text-sm">Produto adicional {indice + 2}</strong><button type="button" onClick={() => setProdutosExtras((itens) => itens.filter((item) => item.id !== produto.id))} className="rounded-md border border-violet-300 px-2 py-1 text-xs font-semibold hover:bg-violet-100">Remover</button></div>
