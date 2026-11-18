@@ -133,7 +133,7 @@ export function AccessGate({
 }: {
   children: (
     onChangeArea: () => void,
-    area: 'tubeteira' | 'cobrideira',
+    area: AreaId,
     isDeveloper: boolean,
   ) => React.ReactNode
 }) {
@@ -340,7 +340,7 @@ export function AccessGate({
     return <>{children(returnToAreas, area, isDeveloper)}</>
   }
 
-  if (activeUser && access && area === 'cobrideira' && areasPermitidas.some((entry) => entry.id === area)) {
+  if (activeUser && access && (area === 'cobrideira' || area === 'rebobinadeira') && areasPermitidas.some((entry) => entry.id === area)) {
     return <>{children(returnToAreas, area, isDeveloper)}</>
   }
 
