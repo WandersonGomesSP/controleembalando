@@ -24,6 +24,7 @@ import {
   buscarDetalhesBobinasOrigemRebobinadeira,
   importarCsvRebobinadeira,
   registrarProducaoRebobinadeira,
+  adicionarMedidaRebobinadeira,
   buscarBobinasOrigemRebobinadeira,
 } from '@/lib/admin.functions'
 import type {
@@ -218,6 +219,9 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const [inputArquivoKey, setInputArquivoKey] = React.useState(0)
   const [bobinaEmEdicao, setBobinaEmEdicao] = React.useState<{ id: number; numero: string } | null>(null)
   const [novoNumeroBobina, setNovoNumeroBobina] = React.useState('')
+  const [mostrarNovaMedida, setMostrarNovaMedida] = React.useState(false)
+  const [novaMedida, setNovaMedida] = React.useState('')
+  const [salvandoMedida, setSalvandoMedida] = React.useState(false)
   const [produtosExtras, setProdutosExtras] = React.useState<ProdutoAdicional[]>([])
   const [form, setForm] = React.useState({
     data: dataHoje(),
@@ -317,35 +321,47 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       mapa.set(chave, grupo)
     }
     const termo = busca.trim().toLocaleLowerCase('pt-BR')
-    return Array.from(mapa.entries()).map(([chave, linhas]) => {
+    return Array.from(mapa.entries()).flatMap(([chave, linhas]) => {
       const ordenadas = [...linhas].sort((a, b) => a.data.localeCompare(b.data) || a.id - b.id)
-      const primeira = ordenadas[0]!
-      const ultima = ordenadas[ordenadas.length - 1]!
-      const dataInicioGrupo = primeira.data
-      const dataFimGrupo = ultima.data
-      const diasNaMaquina = Math.max(1, Math.floor((new Date(dataFimGrupo + 'T00:00:00').getTime() - new Date(dataInicioGrupo + 'T00:00:00').getTime()) / 86400000) + 1)
-      const maquinas = Array.from(new Set(ordenadas.map((item) => item.maquina).filter((v): v is string => Boolean(v))))
-      const grupo = {
-        numero_normalizado: chave,
-        numero_bobina: primeira.numero_bobina,
-        dataInicio: dataInicioGrupo,
-        dataFim: dataFimGrupo,
-        diasNaMaquina,
-        maquinas,
-        material: ultima.material,
-        cor: ultima.cor,
-        status: ultima.status_baixa,
-        metrosConsumidos: ordenadas.reduce((soma, item) => soma + Number(item.metros_consumidos ?? item.metragem_unica_m ?? 0), 0),
-        caixasTotal: ordenadas.reduce((soma, item) => soma + Number(item.caixas ?? 0), 0),
-        pctsTotal: ordenadas.reduce((soma, item) => soma + Number(item.pcts ?? 0), 0),
-        rolosTotal: ordenadas.reduce((soma, item) => soma + Number(item.rolos ?? 0), 0),
-        refugosTotal: ordenadas.reduce((soma, item) => soma + Number(item.refugos ?? 0), 0),
-        fitasTotal: ordenadas.reduce((soma, item) => soma + Number(item.fitas_rebobinadas ?? 0), 0),
-        refiloTotal: ordenadas.reduce((soma, item) => soma + Number(item.refilo_kg ?? 0), 0),
-        perdaTotal: ordenadas.reduce((soma, item) => soma + Number(item.perda_producao_kg ?? 0), 0),
-        linhas: ordenadas,
+      const ciclos: ProducaoRow[][] = []
+      let cicloAtual: ProducaoRow[] = []
+      for (const linha of ordenadas) {
+        cicloAtual.push(linha)
+        if (linha.bobina_voltou_parcial) {
+          ciclos.push(cicloAtual)
+          cicloAtual = []
+        }
       }
-      return grupo
+      if (cicloAtual.length) ciclos.push(cicloAtual)
+      return ciclos.map((linhasCiclo, indiceCiclo) => {
+        const primeira = linhasCiclo[0]!
+        const ultima = linhasCiclo[linhasCiclo.length - 1]!
+        const dataInicioGrupo = primeira.data
+        const dataFimGrupo = ultima.data
+        const diasNaMaquina = Math.max(1, Math.floor((new Date(dataFimGrupo + 'T00:00:00').getTime() - new Date(dataInicioGrupo + 'T00:00:00').getTime()) / 86400000) + 1)
+        const maquinas = Array.from(new Set(linhasCiclo.map((item) => item.maquina).filter((v): v is string => Boolean(v))))
+        return {
+          groupId: chave + ':' + indiceCiclo + ':' + primeira.id,
+          numero_normalizado: chave,
+          numero_bobina: primeira.numero_bobina,
+          dataInicio: dataInicioGrupo,
+          dataFim: dataFimGrupo,
+          diasNaMaquina,
+          maquinas,
+          material: ultima.material,
+          cor: ultima.cor,
+          status: ultima.status_baixa,
+          metrosConsumidos: linhasCiclo.reduce((soma, item) => soma + Number(item.metros_consumidos ?? item.metragem_unica_m ?? 0), 0),
+          caixasTotal: linhasCiclo.reduce((soma, item) => soma + Number(item.caixas ?? 0), 0),
+          pctsTotal: linhasCiclo.reduce((soma, item) => soma + Number(item.pcts ?? 0), 0),
+          rolosTotal: linhasCiclo.reduce((soma, item) => soma + Number(item.rolos ?? 0), 0),
+          refugosTotal: linhasCiclo.reduce((soma, item) => soma + Number(item.refugos ?? 0), 0),
+          fitasTotal: linhasCiclo.reduce((soma, item) => soma + Number(item.fitas_rebobinadas ?? 0), 0),
+          refiloTotal: linhasCiclo.reduce((soma, item) => soma + Number(item.refilo_kg ?? 0), 0),
+          perdaTotal: linhasCiclo.reduce((soma, item) => soma + Number(item.perda_producao_kg ?? 0), 0),
+          linhas: linhasCiclo,
+        }
+      })
     }).filter((grupo) => {
       const correspondeTexto = !termo || [grupo.numero_bobina, grupo.material, grupo.cor, ...grupo.maquinas, ...grupo.linhas.map((item) => item.produto_codigo)]
         .some((valor) => String(valor ?? '').toLocaleLowerCase('pt-BR').includes(termo))
@@ -689,9 +705,9 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => void carregar(true)} disabled={atualizando || carregando} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium transition hover:bg-accent disabled:opacity-50">
+{tela === 'historico' && (<button type="button" onClick={() => void carregar(true)} disabled={atualizando || carregando} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium transition hover:bg-accent disabled:opacity-50">
               <RefreshCw className={'size-4 ' + (atualizando ? 'animate-spin' : '')} /> Atualizar
-            </button>
+            </button>)}
           </div>
         </div>
 
@@ -782,7 +798,11 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                 <span><strong>Cliente:</strong> {bobinaSelecionada.cliente || '—'}</span>
               </div>}
 
-              <div className="grid gap-2 text-sm sm:col-span-2"><div className="flex items-center justify-between gap-2"><span className="font-medium">Produtos</span><button type="button" onClick={() => setProdutosExtras((itens) => [...itens, { id: Date.now(), produto_codigo: '', linha: form.linha as ProdutoAdicional['linha'], linha_detalhe: '', cliente: form.cliente, caixas: '0', pcts: '0', rolos: '0', refugos: '0', fitas_rebobinadas: '0', refilo_kg: '0', perda_producao_kg: '0', observacoes: '' }])} className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/15"><Plus className="size-3" /> Adicionar produto</button></div><select required value={form.produto_codigo} onChange={(e) => { const produto = produtos.find((p) => p.codigo === e.target.value); setForm({ ...form, produto_codigo: e.target.value, medida: produto?.descricao ?? e.target.value }) }} className="h-10 rounded-lg border border-input bg-background px-3"><option value="">Selecione a medida</option>{produtos.map((p) => <option key={p.codigo} value={p.codigo}>{p.descricao}</option>)}</select></div>
+              <div className="grid gap-2 text-sm sm:col-span-2">
+                <div className="flex items-center justify-between gap-2"><span className="font-medium">Produtos</span><div className="flex gap-2"><button type="button" onClick={() => setMostrarNovaMedida((aberto) => !aberto)} className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"><Plus className="size-3" /> Nova medida</button><button type="button" onClick={() => setProdutosExtras((itens) => [...itens, { id: itens.reduce((maior, atual) => Math.max(maior, atual.id), 0) + 1, produto_codigo: '', linha: form.linha as ProdutoAdicional['linha'], linha_detalhe: '', cliente: form.cliente, caixas: '0', pcts: '0', rolos: '0', refugos: '0', fitas_rebobinadas: '0', refilo_kg: '0', perda_producao_kg: '0', observacoes: '' }])} className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/15"><Plus className="size-3" /> Adicionar produto</button></div></div>
+                {mostrarNovaMedida && <div className="flex flex-wrap gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3"><input value={novaMedida} onChange={(e) => setNovaMedida(e.target.value)} maxLength={80} placeholder="Ex.: 48x60" className="h-10 min-w-0 flex-1 rounded-lg border border-emerald-300 bg-white px-3 text-slate-900" /><button type="button" disabled={salvandoMedida || !novaMedida.trim()} onClick={async () => { setSalvandoMedida(true); try { const accessToken = await obterToken(); const produto = await adicionarMedidaRebobinadeira({ data: { accessToken, descricao: novaMedida } }); setProdutos((atuais) => [...atuais.filter((p) => p.codigo !== produto.codigo), produto as RebobinadeiraProdutoRow].sort((a,b) => a.descricao.localeCompare(b.descricao, 'pt-BR'))); setForm((atual) => ({ ...atual, produto_codigo: produto.codigo, medida: produto.descricao })); setNovaMedida(''); setMostrarNovaMedida(false); toast.success('Medida adicionada.'); } catch (error) { toast.error('Não foi possível adicionar a medida.', { description: error instanceof Error ? error.message : 'Tente novamente.' }); } finally { setSalvandoMedida(false); } }} className="h-10 rounded-lg bg-emerald-700 px-4 text-xs font-semibold text-white disabled:opacity-50">{salvandoMedida ? 'Salvando...' : 'Salvar medida'}</button></div>}
+                <select required value={form.produto_codigo} onChange={(e) => { const produto = produtos.find((p) => p.codigo === e.target.value); setForm((atual) => ({ ...atual, produto_codigo: e.target.value, medida: produto?.descricao ?? e.target.value })) }} className="h-10 rounded-lg border border-input bg-background px-3"><option value="">Selecione a medida</option>{produtos.map((p) => <option key={p.codigo} value={p.codigo}>{p.descricao}</option>)}</select>
+              </div>
               {produtosExtras.map((produto, indice) => (
                 <section key={produto.id} className="grid gap-3 rounded-xl border border-violet-300 bg-violet-50 p-3 text-violet-950 sm:col-span-2 lg:col-span-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="flex items-center justify-between sm:col-span-2 lg:col-span-4"><strong className="text-sm">Produto adicional {indice + 2}</strong><button type="button" onClick={() => setProdutosExtras((itens) => itens.filter((item) => item.id !== produto.id))} className="rounded-md border border-violet-300 px-2 py-1 text-xs font-semibold hover:bg-violet-100">Remover</button></div>
@@ -803,7 +823,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
               
 {!bobinaSelecionada && (<label className="grid gap-1 text-sm"><span className="font-medium">Cor</span><input required readOnly={Boolean(bobinaSelecionada)} value={form.cor} onChange={(e) => setForm({ ...form, cor: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>)}
 {!bobinaSelecionada && (<label className="grid gap-1 text-sm"><span className="font-medium">Linha</span><select disabled={Boolean(bobinaSelecionada)} value={form.linha} onChange={(e) => setForm({ ...form, linha: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 disabled:bg-muted"><option value="PADRÃO">Padrão</option><option value="PERSONALIZADA">Personalizada</option><option value="KIT">Kit</option></select></label>)}
-{!bobinaSelecionada && ({form.linha === 'KIT' && <label className="grid gap-1 text-sm"><span className="font-medium">Identificação do Kit</span><input required value={form.linha_detalhe} onChange={(e) => setForm({ ...form, linha_detalhe: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" placeholder="Descreva o kit" /></label>})}
+{form.linha === 'KIT' && !bobinaSelecionada && <label className="grid gap-1 text-sm"><span className="font-medium">Identificação do Kit</span><input required value={form.linha_detalhe} onChange={(e) => setForm({ ...form, linha_detalhe: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" placeholder="Descreva o kit" /></label>}
 {!bobinaSelecionada && (<label className="grid gap-1 text-sm"><span className="font-medium">Cliente</span><input readOnly={Boolean(bobinaSelecionada)} value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>)}
               <label className="grid gap-1 text-sm"><span className="font-medium">Caixas</span><input required type="number" min="0" step="1" value={form.caixas} onChange={(e) => setForm({ ...form, caixas: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Pacotes (pcts)</span><input required type="number" min="0" step="1" value={form.pcts} onChange={(e) => setForm({ ...form, pcts: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
@@ -850,7 +870,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                 <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="px-4 py-3">Data</th><th className="px-4 py-3">Bobina</th><th className="px-4 py-3">Produto</th><th className="px-4 py-3">Lançamentos</th><th className="px-4 py-3">Metros consumidos</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Detalhes</th><th className="px-4 py-3">Ação</th></tr></thead>
                 <tbody className="divide-y divide-border">
                   {paginaRegistros.map((grupo) => (
-                    <React.Fragment key={grupo.numero_normalizado}>
+                    <React.Fragment key={grupo.groupId}>
                       <tr className="hover:bg-muted/30">
                         <td className="whitespace-nowrap px-4 py-3">{formatarData(grupo.dataFim)}</td>
                         <td className="px-4 py-3 font-mono font-semibold">{grupo.numero_bobina}</td>
@@ -858,10 +878,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                         <td className="px-4 py-3 tabular-nums">{grupo.linhas.length}</td>
                         <td className="px-4 py-3 tabular-nums">{formatar(grupo.metrosConsumidos, ' m')}</td>
                         <td className="px-4 py-3"><span className={'inline-flex rounded-full border px-2 py-1 text-xs font-semibold ' + statusClass(grupo.status)}>{statusLabel(grupo.status)}</span></td>
-                        <td className="px-4 py-3"><button type="button" onClick={() => setDetalheAberto(detalheAberto === grupo.numero_normalizado ? null : grupo.numero_normalizado)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent">{detalheAberto === grupo.numero_normalizado ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />} {detalheAberto === grupo.numero_normalizado ? 'Fechar' : 'Detalhes'}</button></td>
+                        <td className="px-4 py-3"><button type="button" onClick={() => setDetalheAberto(detalheAberto === grupo.groupId ? null : grupo.numero_normalizado)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent">{detalheAberto === grupo.groupId ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />} {detalheAberto === grupo.groupId ? 'Fechar' : 'Detalhes'}</button></td>
                         <td className="px-4 py-3"><button type="button" onClick={() => iniciarEdicao(grupo.linhas.at(-1)!)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent"><Pencil className="size-3" /> Editar</button></td>
                       </tr>
-                      {detalheAberto === grupo.numero_normalizado && <tr className="bg-muted/20"><td colSpan={8} className="px-4 py-3">
+                      {detalheAberto === grupo.groupId && <tr className="bg-muted/20"><td colSpan={8} className="px-4 py-3">
                         <div className="mb-3 grid gap-2 text-xs sm:grid-cols-3">
                           <span><strong>Primeiro registro:</strong> {formatarData(grupo.dataInicio)}</span>
                           <span><strong>Último registro:</strong> {formatarData(grupo.dataFim)}</span>
