@@ -994,3 +994,92 @@ alter table rebobinadeira.importacao_log
 create unique index if not exists importacao_log_hash_arquivo_unique
   on rebobinadeira.importacao_log (hash_arquivo)
   where hash_arquivo is not null;
+
+
+-- Mantém os lançamentos históricos sem origem pendentes, sem criar centenas de alertas repetidos.
+update rebobinadeira.bobinas b
+set status_baixa = 'PENDENTE'
+where b.status_baixa = 'NAO_PROCESSADA'
+  and not exists (
+    select 1 from cobrideira.bobinas c
+    where rebobinadeira.normaliza_numero(c.numero_bobina) = b.numero_normalizado
+  );
+
+do $alerta_historico$
+declare
+  quantidade integer;
+  exemplos jsonb;
+begin
+  select count(*) into quantidade
+  from rebobinadeira.bobinas b
+  where b.status_baixa = 'PENDENTE'
+    and not exists (
+      select 1 from cobrideira.bobinas c
+      where rebobinadeira.normaliza_numero(c.numero_bobina) = b.numero_normalizado
+    );
+
+  if quantidade > 0 then
+    select coalesce(jsonb_agg(numero_bobina), '[]'::jsonb) into exemplos
+    from (
+      select b.numero_bobina
+      from rebobinadeira.bobinas b
+      where b.status_baixa = 'PENDENTE'
+        and not exists (
+          select 1 from cobrideira.bobinas c
+          where rebobinadeira.normaliza_numero(c.numero_bobina) = b.numero_normalizado
+        )
+      order by b.numero_bobina
+      limit 20
+    ) amostra;
+
+    insert into rebobinadeira.alertas_bobinas
+      (tipo, severidade, mensagem, detalhes)
+    values
+      ('HISTORICO_SEM_ESTOQUE', 'ALTA',
+       quantidade::text || ' lançamentos históricos não encontraram a bobina no estoque ativo da Cobrideira. Nenhuma baixa foi feita; esses lançamentos ficarão pendentes e serão reprocessados quando a bobina entrar no estoque.',
+       jsonb_build_object('quantidade', quantidade, 'exemplos', exemplos))
+    on conflict do nothing;
+  end if;
+end;
+$alerta_historico$;
+
+create or replace function rebobinadeira.reprocessar_pendentes(p_numero_bobina text)
+returns integer
+language plpgsql
+set search_path to ''
+as $function$
+declare
+  registro record;
+  total integer := 0;
+begin
+  for registro in
+    select id
+    from rebobinadeira.bobinas
+    where numero_normalizado = rebobinadeira.normaliza_numero(p_numero_bobina)
+      and status_baixa = 'PENDENTE'
+    order by data, id
+  loop
+    perform rebobinadeira.processar_consumo_producao(registro.id);
+    total := total + 1;
+  end loop;
+
+  update rebobinadeira.alertas_bobinas a
+  set status = 'RESOLVIDO', resolvido_em = now()
+  where a.tipo = 'HISTORICO_SEM_ESTOQUE'
+    and a.status = 'ABERTO'
+    and not exists (
+      select 1
+      from rebobinadeira.bobinas b
+      where b.status_baixa = 'PENDENTE'
+        and not exists (
+          select 1 from cobrideira.bobinas c
+          where rebobinadeira.normaliza_numero(c.numero_bobina) = b.numero_normalizado
+        )
+    );
+
+  return total;
+end;
+$function$;
+
+revoke all on function rebobinadeira.reprocessar_pendentes(text) from public, anon, authenticated;
+grant execute on function rebobinadeira.reprocessar_pendentes(text) to service_role;
