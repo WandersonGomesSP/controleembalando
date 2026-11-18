@@ -608,9 +608,11 @@ with kg_unicos as (
   group by b.produto_codigo, b.numero_normalizado
 ),
 m_por_bobina as (
-  select b.produto_codigo, b.numero_normalizado, sum(b.metragem_unica_m) as metragem_consumida_m
+  select b.produto_codigo, b.numero_normalizado,
+    sum(coalesce(b.metragem_unica_m, b.metragem_bobina_m)) as metragem_consumida_m
   from rebobinadeira.bobinas b
-  where b.data >= current_date - 90 and b.data <= current_date and b.metragem_unica_m > 0
+  where b.data >= current_date - 90 and b.data <= current_date
+    and coalesce(b.metragem_unica_m, b.metragem_bobina_m) > 0
   group by b.produto_codigo, b.numero_normalizado
 ),
 kg as (
