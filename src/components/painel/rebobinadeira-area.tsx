@@ -54,26 +54,31 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpen
     if (silencioso) setAtualizando(true)
     else setCarregando(true)
     setErro('')
-    const { data, error } = await supabase
-      .schema('rebobinadeira')
-      .from('vw_estoque_minimo')
-      .select('*')
-      .order('descricao', { ascending: true })
-    if (error) {
-      setErro(error.message)
-      toast.error('Não foi possível carregar os indicadores da Rebobinadeira.', {
-        description: error.message,
-      })
-    } else {
+    try {
+      const { data, error } = await supabase
+        .schema('rebobinadeira')
+        .from('vw_estoque_minimo')
+        .select('*')
+        .order('descricao', { ascending: true })
+      if (error) throw error
       setRegistros((data ?? []) as RebobinadeiraEstoqueMinimoRow[])
-      setLeadTimes({})
-      const { data: ajustesData, error: ajustesError } = await supabase.schema('rebobinadeira').from('produtos_jumbo').select('codigo, descricao, ajuste_estoque_percentual, alerta_estoque_baixo_ativo').eq('ativo', true)
+      const { data: ajustesData, error: ajustesError } = await supabase
+        .schema('rebobinadeira')
+        .from('produtos_jumbo')
+        .select('codigo, descricao, ajuste_estoque_percentual, alerta_estoque_baixo_ativo')
+        .eq('ativo', true)
       if (ajustesError) throw ajustesError
       setAjustes(Object.fromEntries((ajustesData ?? []).map((produto) => [produto.codigo, Number(produto.ajuste_estoque_percentual ?? 0)])))
       setAlertasDesativados((ajustesData ?? []).filter((produto) => produto.alerta_estoque_baixo_ativo === false).map((produto) => chaveAlertaEstoque(produto.descricao)))
+      setLeadTimes({})
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'Erro inesperado ao consultar os parâmetros.'
+      setErro(mensagem)
+      toast.error('Não foi possível carregar os indicadores da Rebobinadeira.', { description: mensagem })
+    } finally {
+      setCarregando(false)
+      setAtualizando(false)
     }
-    setCarregando(false)
-    setAtualizando(false)
   }, [])
 
   React.useEffect(() => {
