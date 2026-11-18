@@ -592,6 +592,26 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
     }
   })
 
+export const buscarDetalhesBobinasOrigemRebobinadeira = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({
+    numeros: z.array(z.string().trim().min(1).max(80)).max(1000),
+  }))
+  .handler(async ({ data }) => {
+    const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const codigos = [...new Set(data.numeros)]
+    const resultados: Record<string, unknown>[] = []
+    for (let inicio = 0; inicio < codigos.length; inicio += 100) {
+      const lote = codigos.slice(inicio, inicio + 100)
+      const { data: rows, error } = await client.schema('cobrideira').from('bobinas')
+        .select('numero_bobina,cod_bob,data,aba,material,largura,micragem,peso_bruto,peso_final,peso_cilindro,peso_liquido,metragem,perda_kg,fornecedor_filme,vareta_g,kg_cola,lote_cola,codigo_interno,fornecedor_cola,turno,linha,cor_fundo,pigmento_kg,cor_mistura,pigmento_mistura,cliente,cor_impressao,emenda,codigo_emenda,operador')
+        .in('numero_bobina', lote)
+        .order('data', { ascending: false })
+      if (error) throw new Error('Não foi possível carregar os dados completos da Cobrideira: ' + error.message)
+      resultados.push(...(rows ?? []))
+    }
+    return resultados
+  })
+
 export const buscarBobinasOrigemRebobinadeira = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({ termo: z.string().trim().min(1).max(80) }))
   .handler(async ({ data }) => {
