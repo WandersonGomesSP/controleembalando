@@ -32,10 +32,7 @@ function formatar(valor: number | null | undefined, casas = false) {
 }
 
 export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
-  const [secao, setSecao] = React.useState<'estoque-minimo' | 'historico'>('estoque-minimo')
-  return secao === 'historico'
-    ? <HistoricoProducao onChangeArea={onChangeArea} onBack={() => setSecao('estoque-minimo')} isDeveloper={isDeveloper} />
-    : <EstoqueMinimoView onChangeArea={onChangeArea} isDeveloper={isDeveloper} onOpenHistorico={() => setSecao('historico')} />
+  return <HistoricoProducao onChangeArea={onChangeArea} onBack={() => {}} isDeveloper={isDeveloper} />
 }
 
 export function EstoqueMinimoCobrideira({ isDeveloper }: { isDeveloper: boolean }) { return <EstoqueMinimoView onChangeArea={() => {}} isDeveloper={isDeveloper} embedded /> }
