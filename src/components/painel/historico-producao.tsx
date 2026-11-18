@@ -261,7 +261,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       supabase.schema('rebobinadeira').from('vw_saldo_bobinas')
         .select('*').order('data', { ascending: false }).limit(500),
       supabase.schema('rebobinadeira').from('produtos_jumbo')
-        .select('*').eq('ativo', true).order('descricao', { ascending: true }),
+        .select('*').eq('ativo', false).like('codigo', 'MEDIDA|%').order('descricao', { ascending: true }),
     ])
     const producaoRows: ProducaoRow[] = []
     let erroProducao: string | null = null
