@@ -341,6 +341,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const paginaAtual = Math.min(pagina, totalPaginas - 1)
   const paginaRegistros = filtrados.slice(paginaAtual * porPagina, (paginaAtual + 1) * porPagina)
   const pendentes = registros.filter((item) => item.status_baixa === 'PENDENTE' || item.status_baixa === 'NAO_PROCESSADA').length
+  const consumidas = saldos.filter((item) => item.status === 'CONSUMIDA').length
   const saldoBobinaSelecionada = bobinaSelecionada ? saldos.find((item) => item.numero_bobina.replace(/\\D/g, '') === bobinaSelecionada.numero_bobina.replace(/\\D/g, '')) : undefined
 
   async function obterToken() {
@@ -623,12 +624,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
         </>)}
 
         {tela === 'cadastro' && (
-          {tela === 'historico' && (
-        <>
         <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div><h3 className="font-semibold">Registrar produção</h3><p className="text-xs text-muted-foreground">Se a bobina não estiver no estoque, o registro será salvo como pendente e gerará um alerta.</p></div>
-              <button type="button" onClick={() => setMostrarCadastro(false)} aria-label="Fechar cadastro" className="rounded-lg p-2 transition hover:bg-accent"><X className="size-4" /></button>
+              <button type="button" onClick={() => setTela('historico')} aria-label="Fechar cadastro" className="rounded-lg p-2 transition hover:bg-accent"><X className="size-4" /></button>
             </div>
             <form onSubmit={(event) => void salvarProducao(event)} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label className="grid gap-1 text-sm"><span className="font-medium">Data</span><input required type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
@@ -687,6 +686,8 @@ export function HistoricoProducao({ onChangeArea }: Props) {
         )}
 
 
+        {tela === 'historico' && (
+        <>
         <div className="grid gap-3 sm:grid-cols-3">
           <article className="rounded-xl border border-border bg-card p-4"><div className="flex items-center gap-2 text-sm text-muted-foreground"><ClipboardList className="size-4" /> Lançamentos no histórico</div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(registros.length)}</p></article>
           <article className="rounded-xl border border-border bg-card p-4"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Bell className="size-4" /> Alertas em aberto</div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(alertas.length)}</p></article>
