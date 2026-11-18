@@ -267,7 +267,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     } catch (error) {
       erroOrigem = error instanceof Error ? error.message : 'Não foi possível carregar os dados de origem.'
     }
-    const falhas = [erroProducao, erroOrigem, alertasResult.error?.message, saldosResult.error?.message, produtosResult.error?.message].filter(Boolean)
+    const falhas = [erroProducao, alertasResult.error?.message, saldosResult.error?.message, produtosResult.error?.message].filter(Boolean)
     if (falhas.length) {
       const mensagem = falhas.join(' · ')
       setErro(mensagem || 'Não foi possível carregar os dados do histórico.')
@@ -279,6 +279,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       setOrigens(Object.fromEntries(origensRows.map((row) => [row.numero_bobina.replace(/\\D/g, ''), row])))
       setProdutos((produtosResult.data ?? []) as RebobinadeiraProdutoRow[])
     }
+    if (erroOrigem) toast.warning('Dados completos da Cobrideira indisponíveis.', { description: erroOrigem })
     setCarregando(false)
     setAtualizando(false)
   }, [])
@@ -678,7 +679,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
               {form.bobina_voltou_parcial && <label className="grid gap-1 text-sm"><span className="font-medium">Metragem devolvida (m)</span><input required type="number" min="0.01" step="0.01" max={Math.max(0, Number(form.metragem_bobina_m || 0) - 0.01)} value={form.metragem_devolvida_m} onChange={(e) => setForm({ ...form, metragem_devolvida_m: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>}
               <label className="grid gap-1 text-sm sm:col-span-2 lg:col-span-4"><span className="font-medium">Observações</span><textarea value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={2} className="rounded-lg border border-input bg-background px-3 py-2" /></label>
               <div className="flex flex-wrap justify-end gap-2 sm:col-span-2 lg:col-span-4">
-                <button type="button" onClick={() => setMostrarCadastro(false)} className="min-h-10 rounded-lg border border-border px-4 text-sm font-medium transition hover:bg-accent">Cancelar</button>
+                <button type="button" onClick={() => setTela('historico')} className="min-h-10 rounded-lg border border-border px-4 text-sm font-medium transition hover:bg-accent">Cancelar</button>
                 <button type="submit" disabled={salvando} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50"><Save className="size-4" /> {salvando ? 'Salvando...' : 'Salvar produção'}</button>
               </div>
             </form>
