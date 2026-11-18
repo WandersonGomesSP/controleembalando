@@ -114,11 +114,14 @@ function statusLabel(status: string) {
     CADASTRADA: 'Cadastrada',
     LIXEIRA: 'Lixeira',
   }
+  if (status === 'EM_USO' || status === 'CONSUMIDA' || status === 'CADASTRADA') return 'Cadastrada'
+  if (status === 'DEVOLVIDA_PARCIAL') return 'Devolvida Parcialmente'
+  if (status === 'NAO_PROCESSADA') return 'Pendente'
   return labels[status] ?? status
 }
 
 function statusClass(status: string) {
-  if (status === 'CONSUMIDA' || status === 'ESTORNADA') return 'border-border bg-muted text-muted-foreground'
+  if (status === 'CONSUMIDA' || status === 'ESTORNADA' || status === 'CADASTRADA' || status === 'EM_USO') return 'border-emerald-300 bg-emerald-50 text-emerald-800'
   if (status === 'PENDENTE' || status === 'NAO_PROCESSADA' || status === 'LIXEIRA') return 'border-red-300 bg-red-50 text-red-800'
   if (status === 'DEVOLVIDA_PARCIAL') return 'border-amber-300 bg-amber-50 text-amber-800'
   if (status === 'EM_USO') return 'border-blue-300 bg-blue-50 text-blue-800'
@@ -145,9 +148,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const [statusFiltro, setStatusFiltro] = React.useState('')
   const [dataInicio, setDataInicio] = React.useState('')
   const [dataFim, setDataFim] = React.useState('')
+  const [mesFiltro, setMesFiltro] = React.useState('')
   const [pagina, setPagina] = React.useState(0)
   const [detalheAberto, setDetalheAberto] = React.useState<string | null>(null)
-  const [mostrarCadastro, setMostrarCadastro] = React.useState(false)
+  const [tela, setTela] = React.useState<'historico' | 'cadastro'>('historico')
   const [salvando, setSalvando] = React.useState(false)
   const [importando, setImportando] = React.useState(false)
   const [arquivo, setArquivo] = React.useState<File | null>(null)
@@ -274,16 +278,17 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       const correspondeStatus = !statusFiltro || grupo.status === statusFiltro || grupo.linhas.some((item) => item.status_baixa === statusFiltro)
       const correspondeInicio = !dataInicio || grupo.dataFim >= dataInicio
       const correspondeFim = !dataFim || grupo.dataInicio <= dataFim
-      return correspondeTexto && correspondeStatus && correspondeInicio && correspondeFim
+      const correspondeMes = !mesFiltro || grupo.linhas.some((item) => item.data.startsWith(mesFiltro))
+      return correspondeTexto && correspondeStatus && correspondeInicio && correspondeFim && correspondeMes
     }).sort((a, b) => b.dataFim.localeCompare(a.dataFim) || a.numero_bobina.localeCompare(b.numero_bobina))
-  }, [registros, busca, statusFiltro, dataInicio, dataFim])
+  }, [registros, busca, statusFiltro, dataInicio, dataFim, mesFiltro])
 
   const porPagina = 30
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / porPagina))
+  const mesesDisponiveis = Array.from(new Set(registros.map((item) => item.data.slice(0, 7)))).sort().reverse()
   const paginaAtual = Math.min(pagina, totalPaginas - 1)
   const paginaRegistros = filtrados.slice(paginaAtual * porPagina, (paginaAtual + 1) * porPagina)
   const pendentes = registros.filter((item) => item.status_baixa === 'PENDENTE' || item.status_baixa === 'NAO_PROCESSADA').length
-  const consumidas = saldos.filter((item) => item.status === 'CONSUMIDA').length
   const saldoBobinaSelecionada = bobinaSelecionada ? saldos.find((item) => item.numero_bobina.replace(/\\D/g, '') === bobinaSelecionada.numero_bobina.replace(/\\D/g, '')) : undefined
 
   async function obterToken() {
@@ -405,7 +410,6 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       setBobinaSelecionada(null)
       setBuscaBobina('')
       setResultadosBobina([])
-      setMostrarCadastro(false)
       await carregar(true)
     } catch (error) {
       toast.error('Não foi possível registrar a produção.', {
@@ -485,12 +489,12 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             </button>
           </div>
           <nav aria-label="Menus da Rebobinadeira" className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-            <button type="button" onClick={() => setMostrarCadastro(true)} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110">
+            <button type="button" onClick={() => setTela('cadastro')} className={'inline-flex min-h-9 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition hover:brightness-110 ' + (tela === 'cadastro' ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-foreground hover:bg-accent')}>
               <Package className="size-4" /> Cadastrar bobina
             </button>
-            <span className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 text-sm font-semibold text-foreground">
+            <button type="button" onClick={() => setTela('historico')} className={'inline-flex min-h-9 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition ' + (tela === 'historico' ? 'border border-primary/30 bg-primary/10 text-foreground' : 'border border-border bg-card text-foreground hover:bg-accent')}>
               <History className="size-4" /> Histórico de produção
-            </span>
+            </button>
           </nav>
         </div>
       </header>
@@ -498,16 +502,13 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       <main className="mx-auto max-w-[96rem] space-y-6 px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rebobinadeira / Histórico</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight">Histórico de produção</h2>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rebobinadeira / {tela === 'cadastro' ? 'Cadastro' : 'Histórico'}</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">{tela === 'cadastro' ? 'Cadastrar bobina' : 'Histórico de produção'}</h2>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Os lançamentos da mesma bobina são agrupados. O histórico mantém cada produção individual nos detalhes, com período de permanência na máquina.
+              {tela === 'cadastro' ? 'Informe a produção e identifique a bobina pelo número de origem.' : 'Cada número identifica uma bobina física. Consulte os dados de origem e todos os lançamentos nos detalhes.'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setMostrarCadastro((v) => !v)} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110">
-              <Package className="size-4" /> Cadastrar bobina
-            </button>
             <button type="button" onClick={() => void carregar(true)} disabled={atualizando || carregando} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium transition hover:bg-accent disabled:opacity-50">
               <RefreshCw className={'size-4 ' + (atualizando ? 'animate-spin' : '')} /> Atualizar
             </button>
@@ -516,6 +517,8 @@ export function HistoricoProducao({ onChangeArea }: Props) {
 
         {erro && <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-900"><strong>Falha ao carregar:</strong> {erro}</div>}
 
+        {tela === 'historico' && (
+        <>
         <section className="rounded-xl border border-border bg-card p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -535,6 +538,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
           </div>
         </section>
 
+        </>)}
+
+        {tela === 'historico' && (
+        <>
         {alertas.length > 0 && (
           <section className="rounded-xl border-2 border-red-300 bg-red-50 p-4">
             <div className="flex items-center gap-2 text-red-950">
@@ -557,8 +564,12 @@ export function HistoricoProducao({ onChangeArea }: Props) {
           </section>
         )}
 
-        {mostrarCadastro && (
-          <section className="rounded-xl border border-border bg-card p-4">
+        </>)}
+
+        {tela === 'cadastro' && (
+          {tela === 'historico' && (
+        <>
+        <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div><h3 className="font-semibold">Registrar produção</h3><p className="text-xs text-muted-foreground">Se a bobina não estiver no estoque, o registro será salvo como pendente e gerará um alerta.</p></div>
               <button type="button" onClick={() => setMostrarCadastro(false)} aria-label="Fechar cadastro" className="rounded-lg p-2 transition hover:bg-accent"><X className="size-4" /></button>
@@ -631,24 +642,22 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             <div><h3 className="font-semibold">Bobinas no histórico</h3><p className="text-xs text-muted-foreground">Cada bobina aparece uma vez na lista. Abra os detalhes para consultar todos os lançamentos e estornar uma linha específica.</p></div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <label className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input value={busca} onChange={(e) => { setBusca(e.target.value); setPagina(0) }} placeholder="Buscar bobina, máquina ou produto" className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm" /></label>
-              <select value={statusFiltro} onChange={(e) => { setStatusFiltro(e.target.value); setPagina(0) }} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="">Todos os status</option><option value="CADASTRADA">Cadastrada</option><option value="EM_USO">Em uso</option><option value="PENDENTE">Pendente</option><option value="NAO_PROCESSADA">Não processada</option><option value="DEVOLVIDA_PARCIAL">Devolvida parcialmente</option><option value="CONSUMIDA">Consumida</option><option value="ESTORNADA">Estornada</option></select>
+              <select value={statusFiltro} onChange={(e) => { setStatusFiltro(e.target.value); setPagina(0) }} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="">Todos os status</option><option value="CADASTRADA">Cadastrada</option><option value="PENDENTE">Pendente</option><option value="DEVOLVIDA_PARCIAL">Devolvida Parcialmente</option></select>
+              <select value={mesFiltro} onChange={(e) => { setMesFiltro(e.target.value); setPagina(0) }} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="">Todos os meses</option>{mesesDisponiveis.map((mes) => <option key={mes} value={mes}>{new Date(mes + '-01T00:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</option>)}</select>
               <input type="date" value={dataInicio} onChange={(e) => { setDataInicio(e.target.value); setPagina(0) }} aria-label="Data inicial" className="h-10 rounded-lg border border-input bg-background px-3 text-sm" />
               <input type="date" value={dataFim} onChange={(e) => { setDataFim(e.target.value); setPagina(0) }} aria-label="Data final" className="h-10 rounded-lg border border-input bg-background px-3 text-sm" />
             </div>
           </div>
           {carregando ? <p className="p-10 text-center text-sm text-muted-foreground">Carregando histórico...</p> : paginaRegistros.length === 0 ? <p className="p-10 text-center text-sm text-muted-foreground">Nenhum lançamento encontrado com os filtros atuais.</p> : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1050px] text-left text-sm">
-                <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="px-4 py-3">Início</th><th className="px-4 py-3">Término</th><th className="px-4 py-3">Dias na máquina</th><th className="px-4 py-3">Bobina</th><th className="px-4 py-3">Máquina(s)</th><th className="px-4 py-3">Produto</th><th className="px-4 py-3">Lançamentos</th><th className="px-4 py-3">Metros consumidos</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Detalhes</th></tr></thead>
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="px-4 py-3">Data</th><th className="px-4 py-3">Bobina</th><th className="px-4 py-3">Produto</th><th className="px-4 py-3">Lançamentos</th><th className="px-4 py-3">Metros consumidos</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Detalhes</th></tr></thead>
                 <tbody className="divide-y divide-border">
                   {paginaRegistros.map((grupo) => (
                     <React.Fragment key={grupo.numero_normalizado}>
                       <tr className="hover:bg-muted/30">
-                        <td className="whitespace-nowrap px-4 py-3">{formatarData(grupo.dataInicio)}</td>
                         <td className="whitespace-nowrap px-4 py-3">{formatarData(grupo.dataFim)}</td>
-                        <td className="px-4 py-3 tabular-nums font-semibold">{grupo.diasNaMaquina}</td>
                         <td className="px-4 py-3 font-mono font-semibold">{grupo.numero_bobina}</td>
-                        <td className="px-4 py-3">{grupo.maquinas.join(', ') || '—'}</td>
                         <td className="px-4 py-3">{grupo.material} · {grupo.cor}</td>
                         <td className="px-4 py-3 tabular-nums">{grupo.linhas.length}</td>
                         <td className="px-4 py-3 tabular-nums">{formatar(grupo.metrosConsumidos, ' m')}</td>
@@ -660,6 +669,20 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                           <span><strong>Primeiro registro:</strong> {formatarData(grupo.dataInicio)}</span>
                           <span><strong>Último registro:</strong> {formatarData(grupo.dataFim)}</span>
                           <span><strong>Total de dias:</strong> {grupo.diasNaMaquina}</span>
+                          <span><strong>Máquinas:</strong> {grupo.maquinas.join(', ') || '—'}</span>
+                        </div>
+                        <div className="mb-3 grid gap-2 rounded-lg border border-border bg-background p-3 text-xs sm:grid-cols-3 lg:grid-cols-4">
+                          <span><strong>Material:</strong> {grupo.linhas.at(-1)?.material || '—'}</span>
+                          <span><strong>Largura:</strong> {formatar(grupo.linhas.at(-1)?.largura_jumbo_mm, ' mm')}</span>
+                          <span><strong>Peso original:</strong> {formatar(grupo.linhas.at(-1)?.peso_jumbo_kg, ' kg')}</span>
+                          <span><strong>Metragem original:</strong> {formatar(grupo.linhas.at(-1)?.metragem_bobina_m, ' m')}</span>
+                          <span><strong>Fornecedor filme:</strong> {grupo.linhas.at(-1)?.fornec_filme || '—'}</span>
+                          <span><strong>Lote cola:</strong> {grupo.linhas.at(-1)?.lote_cola || '—'}</span>
+                          <span><strong>Fornecedor cola:</strong> {grupo.linhas.at(-1)?.fornec_cola || '—'}</span>
+                          <span><strong>Medida:</strong> {grupo.linhas.at(-1)?.medida || '—'}</span>
+                          <span><strong>Cor:</strong> {grupo.linhas.at(-1)?.cor || '—'}</span>
+                          <span><strong>Linha:</strong> {grupo.linhas.at(-1)?.linha || '—'}</span>
+                          <span><strong>Cliente:</strong> {grupo.linhas.at(-1)?.cliente || '—'}</span>
                         </div>
                         <div className="overflow-x-auto"><table className="w-full min-w-[1500px] text-left text-xs">
                           <thead><tr className="text-muted-foreground"><th className="px-2 py-2">Data</th><th className="px-2 py-2">Máquina/turno</th><th className="px-2 py-2">Setup</th><th className="px-2 py-2">Medida/linha</th><th className="px-2 py-2">Caixas</th><th className="px-2 py-2">Pacotes</th><th className="px-2 py-2">Rolos</th><th className="px-2 py-2">Refugos</th><th className="px-2 py-2">Fitas</th><th className="px-2 py-2">Refilo kg</th><th className="px-2 py-2">Perda kg</th><th className="px-2 py-2">Metragem</th><th className="px-2 py-2">Devolvida</th><th className="px-2 py-2">Status</th><th className="px-2 py-2">Ação</th></tr></thead>
@@ -683,7 +706,9 @@ export function HistoricoProducao({ onChangeArea }: Props) {
 
 
 
-        <p className="text-xs leading-5 text-muted-foreground">A baixa usa a metragem única da linha; quando ela não existe, tenta a metragem da bobina e gera alerta se ambas estiverem vazias. O peso consumido é proporcional à metragem baixada em relação à metragem e ao peso líquido registrados na Cobrideira. A tolerância padrão é 10 metros. Nenhuma movimentação pode deixar o saldo negativo. O histórico e os estornos são preservados no banco.</p>
+        </>)}
+
+        <p className="text-xs leading-5 text-muted-foreground">A baixa é vinculada ao número da bobina e controlada pelo histórico de movimentações. Nenhuma movimentação pode deixar o saldo negativo.</p>
       </main>
     </div>
   )
