@@ -598,11 +598,6 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     setSalvando(true)
     try {
       const accessToken = await obterToken()
-      if (novoNumeroBobina.trim() !== bobinaEmEdicao.numero.trim()) {
-        await corrigirNumeroBobinaRebobinadeira({
-          data: { accessToken, producaoId: bobinaEmEdicao.id, novoNumero: novoNumeroBobina.trim() },
-        })
-      }
       await editarProducaoRebobinadeira({
         data: {
           accessToken,
@@ -634,6 +629,11 @@ export function HistoricoProducao({ onChangeArea }: Props) {
           },
         },
       })
+      if (novoNumeroBobina.trim() !== bobinaEmEdicao.numero.trim()) {
+        await corrigirNumeroBobinaRebobinadeira({
+          data: { accessToken, producaoId: bobinaEmEdicao.id, novoNumero: novoNumeroBobina.trim() },
+        })
+      }
       toast.success('Dados da produção atualizados.', {
         description: 'Os campos manuais foram salvos' + (novoNumeroBobina.trim() !== bobinaEmEdicao.numero.trim() ? ' e o número da bobina e o saldo foram corrigidos.' : '.'),
       })
