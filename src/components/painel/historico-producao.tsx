@@ -327,7 +327,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     }).filter((grupo) => {
       const correspondeTexto = !termo || [grupo.numero_bobina, grupo.material, grupo.cor, ...grupo.maquinas, ...grupo.linhas.map((item) => item.produto_codigo)]
         .some((valor) => String(valor ?? '').toLocaleLowerCase('pt-BR').includes(termo))
-      const normalizarStatus = (status: string) => status === 'EM_USO' || status === 'CONSUMIDA' ? 'CADASTRADA' : status === 'NAO_PROCESSADA' ? 'PENDENTE' : status
+      const normalizarStatus = (status: string) => status === 'EM_USO' || status === 'CONSUMIDA' || status === 'ESTORNADA' ? 'CADASTRADA' : status === 'NAO_PROCESSADA' ? 'PENDENTE' : status
       const correspondeStatus = !statusFiltro || normalizarStatus(grupo.status) === statusFiltro || grupo.linhas.some((item) => normalizarStatus(item.status_baixa) === statusFiltro)
       const correspondeInicio = !dataInicio || grupo.dataFim >= dataInicio
       const correspondeFim = !dataFim || grupo.dataInicio <= dataFim
