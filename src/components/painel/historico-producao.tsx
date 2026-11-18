@@ -426,8 +426,8 @@ export function HistoricoProducao({ onChangeArea }: Props) {
 
   async function salvarProducao(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!form.produto_codigo) {
-      toast.error('Selecione o produto correspondente no catálogo para classificar a produção.')
+    if (!form.produto_codigo || produtosExtras.some((item) => !item.produto_codigo)) {
+      toast.error('Selecione uma medida para cada produto da produção.')
       return
     }
     if (!form.material.trim() || !form.cor.trim()) {
@@ -445,51 +445,83 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     setSalvando(true)
     try {
       const accessToken = await obterToken()
-      const resultado = await registrarProducaoRebobinadeira({
-        data: {
-          accessToken,
-          registro: {
-            data: form.data,
-            maquina: form.maquina,
-            setup: form.setup,
-            numero_bobina: form.numero_bobina,
-            turno: null,
-            produto_codigo: form.produto_codigo,
-            material: form.material,
-            largura_jumbo_mm: parseNumero(form.largura_jumbo_mm),
-            peso_jumbo_kg: parseNumero(form.peso_jumbo_kg),
-            fornec_filme: form.fornec_filme,
-            lote_cola: form.lote_cola,
-            fornec_cola: form.fornec_cola,
-            medida: form.medida,
-            cor: form.cor,
-            linha: form.linha,
-            linha_detalhe: form.linha_detalhe,
-            cliente: form.cliente,
-            caixas: Number(form.caixas),
-            pcts: Number(form.pcts),
-            rolos: Number(form.rolos),
-            refugos: Number(form.refugos),
-            fitas_rebobinadas: Number(form.fitas_rebobinadas),
-            refilo_kg: Number(form.refilo_kg),
-            perda_producao_kg: Number(form.perda_producao_kg),
-            metragem_bobina_m: parseNumero(form.metragem_bobina_m),
-            metragem_unica_m: form.bobina_voltou_parcial ? parseNumero(form.metros_utilizados_m) : parseNumero(form.metragem_bobina_m),
-            bobina_voltou_parcial: form.bobina_voltou_parcial,
-            metragem_devolvida_m: form.bobina_voltou_parcial ? Math.max(0, Number(form.metragem_bobina_m) - Number(form.metros_utilizados_m)) : null,
-            observacoes: form.observacoes,
-          },
+      const itens = [
+        {
+          produto_codigo: form.produto_codigo,
+          medida: form.medida,
+          linha: form.linha,
+          linha_detalhe: form.linha_detalhe,
+          cliente: form.cliente,
+          caixas: form.caixas,
+          pcts: form.pcts,
+          rolos: form.rolos,
+          refugos: form.refugos,
+          fitas_rebobinadas: form.fitas_rebobinadas,
+          refilo_kg: form.refilo_kg,
+          perda_producao_kg: form.perda_producao_kg,
+          observacoes: form.observacoes,
         },
+        ...produtosExtras.map((item) => ({
+          ...item,
+          medida: produtos.find((p) => p.codigo === item.produto_codigo)?.descricao ?? item.produto_codigo,
+        })),
+      ]
+      const ids: number[] = []
+      for (let indice = 0; indice < itens.length; indice++) {
+        const item = itens[indice]!
+        const ultimo = indice === itens.length - 1
+        const resultado = await registrarProducaoRebobinadeira({
+          data: {
+            accessToken,
+            registro: {
+              data: form.data,
+              maquina: form.maquina,
+              setup: form.setup,
+              numero_bobina: form.numero_bobina,
+              turno: null,
+              produto_codigo: item.produto_codigo,
+              material: form.material,
+              largura_jumbo_mm: parseNumero(form.largura_jumbo_mm),
+              peso_jumbo_kg: parseNumero(form.peso_jumbo_kg),
+              fornec_filme: form.fornec_filme,
+              lote_cola: form.lote_cola,
+              fornec_cola: form.fornec_cola,
+              medida: item.medida,
+              cor: form.cor,
+              linha: item.linha,
+              linha_detalhe: item.linha_detalhe,
+              cliente: item.cliente,
+              caixas: Number(item.caixas),
+              pcts: Number(item.pcts),
+              rolos: Number(item.rolos),
+              refugos: Number(item.refugos),
+              fitas_rebobinadas: Number(item.fitas_rebobinadas),
+              refilo_kg: Number(item.refilo_kg),
+              perda_producao_kg: Number(item.perda_producao_kg),
+              metragem_bobina_m: parseNumero(form.metragem_bobina_m),
+              metragem_unica_m: form.bobina_voltou_parcial ? parseNumero(form.metros_utilizados_m) : parseNumero(form.metragem_bobina_m),
+              bobina_voltou_parcial: ultimo && form.bobina_voltou_parcial,
+              metragem_devolvida_m: ultimo && form.bobina_voltou_parcial
+                ? Math.max(0, Number(form.metragem_bobina_m) - Number(form.metros_utilizados_m))
+                : null,
+              observacoes: item.observacoes,
+            },
+          },
+        })
+        ids.push(resultado.id)
+      }
+      toast.success(ids.length > 1 ? 'Produções registradas.' : 'Produção registrada.', {
+        description: ids.length + ' produto(s) salvo(s) para a bobina ' + form.numero_bobina + '. O consumo físico foi controlado uma única vez.',
       })
-      toast.success('Produção registrada.', { description: 'Registro #' + resultado.id + ' salvo. A baixa foi processada ou ficou pendente com alerta.' })
       setForm((atual) => ({ ...atual, numero_bobina: '', produto_codigo: '', material: '', largura_jumbo_mm: '', peso_jumbo_kg: '', fornec_filme: '', lote_cola: '', fornec_cola: '', medida: '', cor: '', linha: 'PADRÃO', linha_detalhe: '', cliente: '', caixas: '0', pcts: '0', rolos: '0', refugos: '0', fitas_rebobinadas: '0', refilo_kg: '0', perda_producao_kg: '0', metragem_bobina_m: '', bobina_voltou_parcial: false, metros_utilizados_m: '', observacoes: '' }))
+      setProdutosExtras([])
       setBobinaSelecionada(null)
       setBuscaBobina('')
       setResultadosBobina([])
       await carregar(true)
     } catch (error) {
-      toast.error('Não foi possível registrar a produção.', {
-        description: error instanceof Error ? error.message : 'Verifique os campos e tente novamente.',
+      toast.error('Não foi possível concluir todos os produtos da produção.', {
+        description: error instanceof Error ? error.message : 'Verifique os campos e tente novamente. Se houve falha após um item, confira o histórico antes de reenviar.',
       })
     } finally {
       setSalvando(false)
