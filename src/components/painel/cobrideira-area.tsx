@@ -1633,7 +1633,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               </div>
             )}
             <div className="mb-4 flex flex-wrap items-center gap-3">
-              <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42]">
+              <label className="csv-import-control inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-white hover:bg-[#ff3b42]">
                 <FileUp className="size-4" /> Importar CSV
                 <input type="file" accept=".csv,text/csv,.txt" className="hidden" onChange={(e) => { void lerArquivoCSV(e.target.files?.[0]); e.currentTarget.value = '' }} />
               </label>
@@ -1865,7 +1865,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                                 <td className="px-3 py-3 text-xs text-muted-foreground">Cadastrada</td>
                               </tr>
                               {expandido && (
-                                <tr className="border-b border-border bg-muted/30">
+                                <tr className="border-b border-blue-300 bg-blue-50 text-blue-950">
                                   <td colSpan={9} className="px-4 py-4">
                                     <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                                       {detalhes.map(([rotulo, valor]) => <div key={rotulo} className="min-w-0"><dt className="text-xs text-muted-foreground">{rotulo}</dt><dd className="break-words text-sm font-medium">{valor || '—'}</dd></div>)}
