@@ -228,7 +228,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     perda_producao_kg: '0',
     metragem_bobina_m: '',
     bobina_voltou_parcial: false,
-    metragem_devolvida_m: '',
+    metros_utilizados_m: '',
     observacoes: '',
   })
 
@@ -262,7 +262,11 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       const numeros = [...new Set(producaoRows.map((item) => item.numero_bobina).filter(Boolean))]
       if (numeros.length) {
         const accessToken = await obterToken()
-        origensRows = await buscarDetalhesBobinasOrigemRebobinadeira({ data: { accessToken, numeros } }) as BobinaOrigemDetalhe[]
+        for (let inicio = 0; inicio < numeros.length; inicio += 900) {
+          const lote = numeros.slice(inicio, inicio + 900)
+          const parte = await buscarDetalhesBobinasOrigemRebobinadeira({ data: { accessToken, numeros: lote } }) as BobinaOrigemDetalhe[]
+          origensRows.push(...parte)
+        }
       }
     } catch (error) {
       erroOrigem = error instanceof Error ? error.message : 'Não foi possível carregar os dados de origem.'
@@ -354,7 +358,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   async function pesquisarBobina(termo: string) {
     setBuscaBobina(termo)
     if (bobinaSelecionada) {
-      setForm((atual) => ({ ...atual, numero_bobina: termo, produto_codigo: '', material: '', largura_jumbo_mm: '', peso_jumbo_kg: '', fornec_filme: '', lote_cola: '', fornec_cola: '', medida: '', cor: '', linha: 'PADRÃO', linha_detalhe: '', cliente: '', metragem_bobina_m: '', bobina_voltou_parcial: false, metragem_devolvida_m: '' }))
+      setForm((atual) => ({ ...atual, numero_bobina: termo, produto_codigo: '', material: '', largura_jumbo_mm: '', peso_jumbo_kg: '', fornec_filme: '', lote_cola: '', fornec_cola: '', medida: '', cor: '', linha: 'PADRÃO', linha_detalhe: '', cliente: '', metragem_bobina_m: '', bobina_voltou_parcial: false, metros_utilizados_m: '' }))
     } else {
       setForm((atual) => ({ ...atual, numero_bobina: termo }))
     }
@@ -398,7 +402,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       cliente: row.cliente ?? '',
       metragem_bobina_m: String(row.metragem_m ?? ''),
       bobina_voltou_parcial: false,
-      metragem_devolvida_m: '',
+      metros_utilizados_m: '',
     }))
   }
 
@@ -413,10 +417,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       return
     }
     if (form.bobina_voltou_parcial) {
-      const devolvida = parseNumero(form.metragem_devolvida_m)
+      const utilizada = parseNumero(form.metros_utilizados_m)
       const disponivel = parseNumero(form.metragem_bobina_m)
-      if (devolvida == null || devolvida <= 0 || disponivel == null || devolvida >= disponivel) {
-        toast.error('Informe a metragem devolvida, maior que zero e menor que a metragem da bobina.')
+      if (utilizada == null || utilizada <= 0 || disponivel == null || utilizada >= disponivel) {
+        toast.error('Informe os metros utilizados, maior que zero e menor que a metragem total da bobina.')
         return
       }
     }
@@ -431,7 +435,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             maquina: form.maquina,
             setup: form.setup,
             numero_bobina: form.numero_bobina,
-            turno: form.turno,
+            turno: null,
             produto_codigo: form.produto_codigo,
             material: form.material,
             largura_jumbo_mm: parseNumero(form.largura_jumbo_mm),
@@ -452,15 +456,15 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             refilo_kg: Number(form.refilo_kg),
             perda_producao_kg: Number(form.perda_producao_kg),
             metragem_bobina_m: parseNumero(form.metragem_bobina_m),
-            metragem_unica_m: parseNumero(form.metragem_bobina_m),
+            metragem_unica_m: form.bobina_voltou_parcial ? parseNumero(form.metros_utilizados_m) : parseNumero(form.metragem_bobina_m),
             bobina_voltou_parcial: form.bobina_voltou_parcial,
-            metragem_devolvida_m: form.bobina_voltou_parcial ? parseNumero(form.metragem_devolvida_m) : null,
+            metragem_devolvida_m: form.bobina_voltou_parcial ? Math.max(0, Number(form.metragem_bobina_m) - Number(form.metros_utilizados_m)) : null,
             observacoes: form.observacoes,
           },
         },
       })
       toast.success('Produção registrada.', { description: 'Registro #' + resultado.id + ' salvo. A baixa foi processada ou ficou pendente com alerta.' })
-      setForm((atual) => ({ ...atual, numero_bobina: '', produto_codigo: '', material: '', largura_jumbo_mm: '', peso_jumbo_kg: '', fornec_filme: '', lote_cola: '', fornec_cola: '', medida: '', cor: '', linha: 'PADRÃO', linha_detalhe: '', cliente: '', caixas: '0', pcts: '0', rolos: '0', refugos: '0', fitas_rebobinadas: '0', refilo_kg: '0', perda_producao_kg: '0', metragem_bobina_m: '', bobina_voltou_parcial: false, metragem_devolvida_m: '', observacoes: '' }))
+      setForm((atual) => ({ ...atual, numero_bobina: '', produto_codigo: '', material: '', largura_jumbo_mm: '', peso_jumbo_kg: '', fornec_filme: '', lote_cola: '', fornec_cola: '', medida: '', cor: '', linha: 'PADRÃO', linha_detalhe: '', cliente: '', caixas: '0', pcts: '0', rolos: '0', refugos: '0', fitas_rebobinadas: '0', refilo_kg: '0', perda_producao_kg: '0', metragem_bobina_m: '', bobina_voltou_parcial: false, metros_utilizados_m: '', observacoes: '' }))
       setBobinaSelecionada(null)
       setBuscaBobina('')
       setResultadosBobina([])
@@ -548,7 +552,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
           </div>
           <nav aria-label="Menus da Rebobinadeira" className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
             <button type="button" onClick={() => setTela('cadastro')} className={'inline-flex min-h-9 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition hover:brightness-110 ' + (tela === 'cadastro' ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-foreground hover:bg-accent')}>
-              <Package className="size-4" /> Cadastrar bobina
+              <Package className="size-4" /> Cadastrar produção
             </button>
             <button type="button" onClick={() => setTela('historico')} className={'inline-flex min-h-9 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition ' + (tela === 'historico' ? 'border border-primary/30 bg-primary/10 text-foreground' : 'border border-border bg-card text-foreground hover:bg-accent')}>
               <History className="size-4" /> Histórico de produção
@@ -561,7 +565,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rebobinadeira / {tela === 'cadastro' ? 'Cadastro' : 'Histórico'}</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight">{tela === 'cadastro' ? 'Cadastrar bobina' : 'Histórico de produção'}</h2>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">{tela === 'cadastro' ? 'Cadastrar produção' : 'Histórico de produção'}</h2>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
               {tela === 'cadastro' ? 'Informe a produção e identifique a bobina pelo número de origem.' : 'Cada número identifica uma bobina física. Consulte os dados de origem e todos os lançamentos nos detalhes.'}
             </p>
@@ -634,7 +638,6 @@ export function HistoricoProducao({ onChangeArea }: Props) {
               <label className="grid gap-1 text-sm"><span className="font-medium">Data</span><input required type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Máquina</span><select required value={form.maquina} onChange={(e) => setForm({ ...form, maquina: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3">{['M1','M2','M3','M4','M5','M6'].map((m) => <option key={m}>{m}</option>)}</select></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Setup</span><select value={form.setup ? 'SIM' : 'NÃO'} onChange={(e) => setForm({ ...form, setup: e.target.value === 'SIM' })} className="h-10 rounded-lg border border-input bg-background px-3"><option value="SIM">SIM</option><option value="NÃO">NÃO</option></select></label>
-              <label className="grid gap-1 text-sm"><span className="font-medium">Turno</span><select value={form.turno} onChange={(e) => setForm({ ...form, turno: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3"><option>1º TURNO</option><option>2º TURNO</option></select></label>
 
               <div className="relative grid gap-1 text-sm sm:col-span-2 lg:col-span-4">
                 <label className="font-medium" htmlFor="numero-bobina-rebobinadeira">Nº da bobina (pesquise pelo número)</label>
@@ -675,8 +678,8 @@ export function HistoricoProducao({ onChangeArea }: Props) {
               <label className="grid gap-1 text-sm"><span className="font-medium">Refilo (kg)</span><input required type="number" min="0" step="0.001" value={form.refilo_kg} onChange={(e) => setForm({ ...form, refilo_kg: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Perda de produção (kg)</span><input required type="number" min="0" step="0.001" value={form.perda_producao_kg} onChange={(e) => setForm({ ...form, perda_producao_kg: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Metragem da bobina (m)</span><input required readOnly={Boolean(bobinaSelecionada)} inputMode="decimal" value={form.metragem_bobina_m} onChange={(e) => setForm({ ...form, metragem_bobina_m: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
-              <label className="grid gap-1 text-sm"><span className="font-medium">Bobina voltou parcialmente?</span><select value={form.bobina_voltou_parcial ? 'SIM' : 'NÃO'} onChange={(e) => setForm({ ...form, bobina_voltou_parcial: e.target.value === 'SIM', metragem_devolvida_m: '' })} className="h-10 rounded-lg border border-input bg-background px-3"><option value="NÃO">NÃO</option><option value="SIM">SIM</option></select></label>
-              {form.bobina_voltou_parcial && <label className="grid gap-1 text-sm"><span className="font-medium">Metragem devolvida (m)</span><input required type="number" min="0.01" step="0.01" max={Math.max(0, Number(form.metragem_bobina_m || 0) - 0.01)} value={form.metragem_devolvida_m} onChange={(e) => setForm({ ...form, metragem_devolvida_m: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>}
+              <label className="grid gap-1 text-sm"><span className="font-medium">Bobina voltou parcialmente?</span><select value={form.bobina_voltou_parcial ? 'SIM' : 'NÃO'} onChange={(e) => setForm({ ...form, bobina_voltou_parcial: e.target.value === 'SIM', metros_utilizados_m: '' })} className="h-10 rounded-lg border border-input bg-background px-3"><option value="NÃO">NÃO</option><option value="SIM">SIM</option></select></label>
+              {form.bobina_voltou_parcial && <label className="grid gap-1 text-sm"><span className="font-medium">Metros utilizados (m)</span><input required type="number" min="0.01" step="0.01" max={Math.max(0, Number(form.metragem_bobina_m || 0) - 0.01)} value={form.metros_utilizados_m} onChange={(e) => setForm({ ...form, metros_utilizados_m: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>}
               <label className="grid gap-1 text-sm sm:col-span-2 lg:col-span-4"><span className="font-medium">Observações</span><textarea value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={2} className="rounded-lg border border-input bg-background px-3 py-2" /></label>
               <div className="flex flex-wrap justify-end gap-2 sm:col-span-2 lg:col-span-4">
                 <button type="button" onClick={() => setTela('historico')} className="min-h-10 rounded-lg border border-border px-4 text-sm font-medium transition hover:bg-accent">Cancelar</button>
@@ -733,7 +736,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                           <span><strong>Máquinas utilizadas:</strong> {grupo.maquinas.join(', ') || '—'}</span>
                           <span><strong>Saldo atual:</strong> {formatar(saldos.find((item) => item.numero_bobina === grupo.numero_bobina)?.saldo_metros, ' m')} · {formatar(saldos.find((item) => item.numero_bobina === grupo.numero_bobina)?.saldo_kg, ' kg')}</span>
                         </div>
-                        <div className="mb-3 rounded-lg border border-border bg-background p-3">
+                        <div className="mb-3 rounded-lg border border-sky-300 bg-sky-50 p-3 text-sky-950">
                           <div className="mb-2 font-semibold text-foreground">Identificação da bobina · dados da Cobrideira</div>
                           <div className="grid gap-x-4 gap-y-2 text-xs sm:grid-cols-3 lg:grid-cols-4">
                             <span><strong>Nº bobina:</strong> {origens[grupo.numero_normalizado]?.numero_bobina || grupo.numero_bobina}</span>
@@ -768,7 +771,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                             <span><strong>Operador:</strong> {origens[grupo.numero_normalizado]?.operador || '—'}</span>
                           </div>
                         </div>
-                        <div className="overflow-x-auto"><table className="w-full min-w-[1400px] text-left text-xs">
+                        <div className="overflow-x-auto rounded-lg border border-violet-300 bg-violet-50 p-2 text-violet-950"><table className="w-full min-w-[1400px] text-left text-xs">
                           <thead><tr className="text-muted-foreground"><th className="px-2 py-2">Data</th><th className="px-2 py-2">Máquina/turno</th><th className="px-2 py-2">Setup</th><th className="px-2 py-2">Medida/linha</th><th className="px-2 py-2">Caixas</th><th className="px-2 py-2">Pacotes</th><th className="px-2 py-2">Rolos</th><th className="px-2 py-2">Refugos</th><th className="px-2 py-2">Fitas</th><th className="px-2 py-2">Refilo kg</th><th className="px-2 py-2">Perda kg</th><th className="px-2 py-2">Metragem</th><th className="px-2 py-2">Devolvida</th><th className="px-2 py-2">Status</th></tr></thead>
                           <tbody>{grupo.linhas.map((item) => <React.Fragment key={item.id}>
                             <tr className="border-t border-border"><td className="px-2 py-2">{formatarData(item.data)}</td><td className="px-2 py-2">{item.maquina ?? '—'} · {item.turno ?? '—'}</td><td className="px-2 py-2">{item.setup ? 'SIM' : 'NÃO'}</td><td className="px-2 py-2">{item.medida ?? '—'} · {item.linha === 'KIT' ? item.linha_detalhe ?? 'KIT' : item.linha}</td><td className="px-2 py-2">{formatar(item.caixas)}</td><td className="px-2 py-2">{formatar(item.pcts)}</td><td className="px-2 py-2">{formatar(item.rolos)}</td><td className="px-2 py-2">{formatar(item.refugos)}</td><td className="px-2 py-2">{formatar(item.fitas_rebobinadas)}</td><td className="px-2 py-2">{formatar(item.refilo_kg)}</td><td className="px-2 py-2">{formatar(item.perda_producao_kg)}</td><td className="px-2 py-2">{formatar(item.metragem_bobina_m, ' m')}</td><td className="px-2 py-2">{formatar(item.metragem_devolvida_m, ' m')}</td><td className="px-2 py-2">{statusLabel(item.status_baixa)}</td></tr>
