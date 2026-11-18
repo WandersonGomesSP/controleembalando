@@ -257,7 +257,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
         material: ultima.material,
         cor: ultima.cor,
         status: ultima.status_baixa,
-        metrosConsumidos: ordenadas.reduce((soma, item) => soma + Number(item.metros_consumidos ?? 0), 0),
+        metrosConsumidos: ordenadas.reduce((soma, item) => soma + Number(item.metros_consumidos ?? item.metragem_unica_m ?? 0), 0),
         caixasTotal: ordenadas.reduce((soma, item) => soma + Number(item.caixas ?? 0), 0),
         pctsTotal: ordenadas.reduce((soma, item) => soma + Number(item.pcts ?? 0), 0),
         rolosTotal: ordenadas.reduce((soma, item) => soma + Number(item.rolos ?? 0), 0),
@@ -295,6 +295,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
 
   async function pesquisarBobina(termo: string) {
     setBuscaBobina(termo)
+    setForm((atual) => ({ ...atual, numero_bobina: termo }))
     setBobinaSelecionada(null)
     if (termo.trim().length < 2) {
       setResultadosBobina([])
@@ -570,7 +571,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                 <input id="numero-bobina-rebobinadeira" required value={buscaBobina} onChange={(e) => void pesquisarBobina(e.target.value)} className="h-10 rounded-lg border border-input bg-background px-3" placeholder="Digite pelo menos 2 caracteres" autoComplete="off" />
                 {buscandoBobina && <span className="text-xs text-muted-foreground">Pesquisando bobinas cadastradas...</span>}
                 {resultadosBobina.length > 0 && <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-card shadow-xl">{resultadosBobina.map((row) => <button key={row.numero_bobina + row.data} type="button" onClick={() => selecionarBobina(row)} className="flex w-full flex-col items-start border-b border-border px-3 py-2 text-left text-sm transition hover:bg-accent"><strong>{row.numero_bobina}</strong><span className="text-xs text-muted-foreground">{row.material} · {row.largura} mm · {row.metragem_m} m · {row.peso_kg} kg · {row.cor}</span></button>)}</div>}
-                {bobinaSelecionada ? <p className="text-xs text-emerald-700">Bobina localizada na Cobrideira. Dados de origem preenchidos automaticamente.</p> : form.numero_bobina.trim().length >= 2 && <p className="rounded-lg border border-red-300 bg-red-50 p-2 text-xs font-medium text-red-800">Bobina não cadastrada: a linha será salva como PENDENTE e ficará sinalizada para conciliação.</p>}
+                {bobinaSelecionada ? <p className="text-xs text-emerald-700">Bobina localizada na Cobrideira. Dados de origem preenchidos automaticamente.</p> : buscaBobina.trim().length >= 2 && !buscandoBobina && resultadosBobina.length === 0 && <p className="rounded-lg border border-red-300 bg-red-50 p-2 text-xs font-medium text-red-800">Bobina não cadastrada: a linha será salva como PENDENTE e ficará sinalizada para conciliação.</p>}
               </div>
 
               {bobinaSelecionada && <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3 text-xs sm:col-span-2 lg:col-span-4 sm:grid-cols-3 lg:grid-cols-4">
