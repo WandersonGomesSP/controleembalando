@@ -598,16 +598,21 @@ export const buscarDetalhesBobinasOrigemRebobinadeira = createServerFn({ method:
   }))
   .handler(async ({ data }) => {
     const { client } = await requireRebobinadeiraEditor(data.accessToken)
-    const codigos = [...new Set(data.numeros.flatMap((numero) => [numero.trim(), numero.replace(/\D/g, '')]).filter(Boolean))]
+    const desejadas = new Set(data.numeros.map((numero) => numero.replace(/\\D/g, '')).filter(Boolean))
     const resultados: Record<string, unknown>[] = []
-    for (let inicio = 0; inicio < codigos.length; inicio += 100) {
-      const lote = codigos.slice(inicio, inicio + 100)
+    // A Cobrideira tem pouco mais de mil registros; paginar a origem inteira evita falhas
+    // quando o número tem pontuação/zeros diferentes entre os dois setores.
+    for (let inicio = 0; ; inicio += 1000) {
       const { data: rows, error } = await client.schema('cobrideira').from('bobinas')
         .select('numero_bobina,cod_bob,data,aba,material,largura,micragem,peso_bruto,peso_final,peso_cilindro,peso_liquido,metragem,perda_kg,fornecedor_filme,vareta_g,kg_cola,lote_cola,codigo_interno,fornecedor_cola,turno,linha,cor_fundo,pigmento_kg,cor_mistura,pigmento_mistura,cliente,cor_impressao,emenda,codigo_emenda,operador')
-        .in('numero_bobina', lote)
         .order('data', { ascending: false })
+        .range(inicio, inicio + 999)
       if (error) throw new Error('Não foi possível carregar os dados completos da Cobrideira: ' + error.message)
-      resultados.push(...(rows ?? []))
+      for (const row of rows ?? []) {
+        const chave = String(row.numero_bobina ?? '').replace(/\\D/g, '')
+        if (desejadas.has(chave)) resultados.push(row)
+      }
+      if (!rows || rows.length < 1000) break
     }
     return resultados
   })
