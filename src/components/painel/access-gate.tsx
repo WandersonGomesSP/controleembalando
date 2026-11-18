@@ -50,7 +50,7 @@ const AREAS: {
   {
     id: 'rebobinadeira',
     name: 'Rebobinadeira',
-    description: 'Indicadores e controle da operação de rebobinamento',
+    description: 'Registro e histórico da produção de rebobinamento',
     icon: Boxes,
     available: true,
   },
