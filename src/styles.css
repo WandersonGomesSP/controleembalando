@@ -396,3 +396,27 @@ button:not([disabled]):active,
 [data-slot='select-content'] * {
   color: #ffffff !important;
 }
+
+
+/* Estados desabilitados continuam com a mesma identidade visual dos botões principais. */
+@layer base {
+  button:disabled {
+    background-color: #e3262e !important;
+    color: #ffffff !important;
+    border-color: #e3262e !important;
+    opacity: .58 !important;
+  }
+  button:disabled svg { color: #ffffff !important; }
+}
+
+/* Controles de importação CSV padronizados entre os setores. */
+.csv-import-control {
+  background-color: #e3262e !important;
+  color: #ffffff !important;
+  border-color: #e3262e !important;
+}
+.csv-import-control:hover {
+  background-color: #c91f27 !important;
+  color: #ffffff !important;
+}
+.csv-import-control svg { color: #ffffff !important; }
