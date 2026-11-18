@@ -170,6 +170,11 @@ type AlertaRebobinadeiraInput = {
   severidade?: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAIXA'
 }
 
+async function sha256Hex(valor: string) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(valor))
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
 async function registrarAlertasRebobinadeira(
   client: ReturnType<typeof createAdminClient>,
   alertas: AlertaRebobinadeiraInput[],
@@ -461,8 +466,23 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const hashArquivo = await sha256Hex(data.csv)
+    const { data: importacaoExistente, error: hashError } = await client.schema('rebobinadeira')
+      .from('importacao_log').select('id').eq('hash_arquivo', hashArquivo).maybeSingle()
+    if (hashError) throw new Error('Não foi possível verificar se o arquivo já foi importado: ' + hashError.message)
     const parsed = parseRebobinadeiraCsv(data.csv)
     if (parsed[0]?.fields[0]?.trim().toUpperCase().startsWith('DATA')) parsed.shift()
+    if (importacaoExistente) {
+      return {
+        lote_id: importacaoExistente.id,
+        recebidas: parsed.length,
+        validas: 0,
+        rejeitadas: 0,
+        gravadas: 0,
+        rejeicoes: [],
+        repetido: true,
+      }
+    }
 
     for (const row of parsed) {
       if (row.fields.length !== REBOBINadeira_CSV_COLUMNS.length) {
@@ -520,6 +540,7 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
         rejeitadas: rejeicoes.length,
         gravadas: 0,
         rejeicoes,
+        repetido: false,
       }
     }
 
@@ -549,7 +570,7 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
     const { error: logError } = await client
       .schema('rebobinadeira')
       .from('importacao_log')
-      .update({ nome_arquivo: data.nomeArquivo })
+      .update({ nome_arquivo: data.nomeArquivo, hash_arquivo: hashArquivo })
       .eq('id', loteId)
     if (logError) {
       await registrarAlertaRebobinadeira(client, { tipo: 'ERRO_LOG_IMPORTACAO', severidade: 'ALTA', mensagem: 'As bobinas foram importadas, mas o nome do arquivo não foi registrado no log.', detalhes: { arquivo: data.nomeArquivo, lote_id: loteId, erro: logError.message } })
@@ -563,6 +584,7 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
       rejeitadas: rejeicoes.length,
       gravadas: Number(gravadas ?? 0),
       rejeicoes,
+      repetido: false,
     }
   })
 
