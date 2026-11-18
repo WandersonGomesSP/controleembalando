@@ -120,6 +120,7 @@ function statusLabel(status: string) {
   if (status === 'EM_USO' || status === 'CONSUMIDA' || status === 'CADASTRADA') return 'Cadastrada'
   if (status === 'DEVOLVIDA_PARCIAL') return 'Devolvida Parcialmente'
   if (status === 'NAO_PROCESSADA') return 'Pendente'
+  if (status === 'ESTORNADA') return 'Cadastrada'
   return labels[status] ?? status
 }
 
