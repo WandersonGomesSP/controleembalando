@@ -665,6 +665,21 @@ export const registrarProducaoRebobinadeira = createServerFn({ method: 'POST' })
     return { id: Number(id) }
   })
 
+export const corrigirNumeroBobinaRebobinadeira = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({
+    producaoId: z.number().int().positive(),
+    novoNumero: z.string().trim().min(1).max(80),
+  }))
+  .handler(async ({ data }) => {
+    const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const { data: success, error } = await client.schema('rebobinadeira').rpc('corrigir_numero_bobina', {
+      p_producao_id: data.producaoId,
+      p_novo_numero: data.novoNumero,
+    })
+    if (error) throw new Error('Não foi possível corrigir o número da bobina: ' + error.message)
+    return { success: Boolean(success) }
+  })
+
 export const estornarProducaoRebobinadeira = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({
     producaoId: z.number().int().positive(),
