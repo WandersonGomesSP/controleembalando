@@ -20,6 +20,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import {
   corrigirNumeroBobinaRebobinadeira,
+  editarProducaoRebobinadeira,
   buscarDetalhesBobinasOrigemRebobinadeira,
   importarCsvRebobinadeira,
   registrarProducaoRebobinadeira,
@@ -507,6 +508,38 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     }
   }
 
+  function iniciarEdicao(item: ProducaoRow) {
+    setForm((atual) => ({
+      ...atual,
+      data: item.data,
+      maquina: item.maquina ?? 'M1',
+      setup: item.setup,
+      numero_bobina: item.numero_bobina,
+      produto_codigo: item.produto_codigo,
+      material: item.material,
+      largura_jumbo_mm: item.largura_jumbo_mm == null ? '' : String(item.largura_jumbo_mm),
+      peso_jumbo_kg: item.peso_jumbo_kg == null ? '' : String(item.peso_jumbo_kg),
+      fornec_filme: item.fornec_filme ?? '',
+      lote_cola: item.lote_cola ?? '',
+      fornec_cola: item.fornec_cola ?? '',
+      medida: item.medida ?? '',
+      cor: item.cor,
+      linha: item.linha as 'PADRÃO' | 'PERSONALIZADA' | 'KIT',
+      linha_detalhe: item.linha_detalhe ?? '',
+      cliente: item.cliente ?? '',
+      caixas: String(item.caixas ?? 0),
+      pcts: String(item.pcts ?? 0),
+      rolos: String(item.rolos ?? 0),
+      refugos: String(item.refugos ?? 0),
+      fitas_rebobinadas: String(item.fitas_rebobinadas ?? 0),
+      refilo_kg: String(item.refilo_kg ?? 0),
+      perda_producao_kg: String(item.perda_producao_kg ?? 0),
+      observacoes: item.observacoes ?? '',
+    }))
+    setBobinaEmEdicao({ id: item.id, numero: item.numero_bobina })
+    setNovoNumeroBobina(item.numero_bobina)
+  }
+
   async function salvarCorrecaoNumero() {
     if (!bobinaEmEdicao) return
     if (!novoNumeroBobina.trim()) {
@@ -516,18 +549,51 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     setSalvando(true)
     try {
       const accessToken = await obterToken()
-      await corrigirNumeroBobinaRebobinadeira({
-        data: { accessToken, producaoId: bobinaEmEdicao.id, novoNumero: novoNumeroBobina.trim() },
+      if (novoNumeroBobina.trim() !== bobinaEmEdicao.numero.trim()) {
+        await corrigirNumeroBobinaRebobinadeira({
+          data: { accessToken, producaoId: bobinaEmEdicao.id, novoNumero: novoNumeroBobina.trim() },
+        })
+      }
+      await editarProducaoRebobinadeira({
+        data: {
+          accessToken,
+          producaoId: bobinaEmEdicao.id,
+          registro: {
+            data: form.data,
+            maquina: form.maquina,
+            setup: form.setup,
+            produto_codigo: form.produto_codigo,
+            material: form.material,
+            largura_jumbo_mm: parseNumero(form.largura_jumbo_mm),
+            peso_jumbo_kg: parseNumero(form.peso_jumbo_kg),
+            fornec_filme: form.fornec_filme,
+            lote_cola: form.lote_cola,
+            fornec_cola: form.fornec_cola,
+            medida: form.medida,
+            cor: form.cor,
+            linha: form.linha,
+            linha_detalhe: form.linha_detalhe,
+            cliente: form.cliente,
+            caixas: Number(form.caixas),
+            pcts: Number(form.pcts),
+            rolos: Number(form.rolos),
+            refugos: Number(form.refugos),
+            fitas_rebobinadas: Number(form.fitas_rebobinadas),
+            refilo_kg: Number(form.refilo_kg),
+            perda_producao_kg: Number(form.perda_producao_kg),
+            observacoes: form.observacoes,
+          },
+        },
       })
-      toast.success('Número da bobina corrigido.', {
-        description: 'O saldo do número antigo foi recomposto e os movimentos foram transferidos para o número correto.',
+      toast.success('Dados da produção atualizados.', {
+        description: 'Os campos manuais foram salvos' + (novoNumeroBobina.trim() !== bobinaEmEdicao.numero.trim() ? ' e o número da bobina e o saldo foram corrigidos.' : '.'),
       })
       setBobinaEmEdicao(null)
       setNovoNumeroBobina('')
       await carregar(true)
     } catch (error) {
-      toast.error('Não foi possível corrigir o número da bobina.', {
-        description: error instanceof Error ? error.message : 'Confira o número e tente novamente.',
+      toast.error('Não foi possível salvar a edição.', {
+        description: error instanceof Error ? error.message : 'Confira os campos e tente novamente.',
       })
     } finally {
       setSalvando(false)
@@ -724,7 +790,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                         <td className="px-4 py-3 tabular-nums">{formatar(grupo.metrosConsumidos, ' m')}</td>
                         <td className="px-4 py-3"><span className={'inline-flex rounded-full border px-2 py-1 text-xs font-semibold ' + statusClass(grupo.status)}>{statusLabel(grupo.status)}</span></td>
                         <td className="px-4 py-3"><button type="button" onClick={() => setDetalheAberto(detalheAberto === grupo.numero_normalizado ? null : grupo.numero_normalizado)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent">{detalheAberto === grupo.numero_normalizado ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />} {detalheAberto === grupo.numero_normalizado ? 'Fechar' : 'Detalhes'}</button></td>
-                        <td className="px-4 py-3"><button type="button" onClick={() => { setBobinaEmEdicao({ id: grupo.linhas[0]!.id, numero: grupo.numero_bobina }); setNovoNumeroBobina(grupo.numero_bobina) }} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent"><Pencil className="size-3" /> Editar</button></td>
+                        <td className="px-4 py-3"><button type="button" onClick={() => iniciarEdicao(grupo.linhas.at(-1)!)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent"><Pencil className="size-3" /> Editar</button></td>
                       </tr>
                       {detalheAberto === grupo.numero_normalizado && <tr className="bg-muted/20"><td colSpan={8} className="px-4 py-3">
                         <div className="mb-3 grid gap-2 text-xs sm:grid-cols-3">
