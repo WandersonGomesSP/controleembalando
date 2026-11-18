@@ -32,7 +32,7 @@ function formatar(valor: number | null | undefined, casas = false) {
 }
 
 export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
-  return <HistoricoProducao onChangeArea={onChangeArea} onBack={() => {}} isDeveloper={isDeveloper} />
+  return <HistoricoProducao onChangeArea={onChangeArea} isDeveloper={isDeveloper} />
 }
 
 export function EstoqueMinimoCobrideira({ isDeveloper }: { isDeveloper: boolean }) { return <EstoqueMinimoView onChangeArea={() => {}} isDeveloper={isDeveloper} embedded /> }
