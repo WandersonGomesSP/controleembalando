@@ -964,3 +964,8 @@ begin
   return new;
 end;
 $function$;
+
+
+-- Preferência de avisos por produto fica no banco, compartilhada entre usuários/dispositivos.
+alter table rebobinadeira.produtos_jumbo
+  add column if not exists alerta_estoque_baixo_ativo boolean not null default true;
