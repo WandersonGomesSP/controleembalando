@@ -348,9 +348,9 @@ export function HistoricoProducao({ onChangeArea, onBack }: Props) {
               <ArrowLeft className="size-4" /> Trocar de setor
             </button>
           </div>
-          <nav aria-label="Indicadores" className="flex items-center gap-2 border-t border-border pt-3">
-            <button type="button" onClick={onBack} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium transition hover:bg-accent">
-              <ChartIcon /> Estoque Mínimo
+          <nav aria-label="Menus da Rebobinadeira" className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+            <button type="button" onClick={() => setMostrarCadastro(true)} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110">
+              <Package className="size-4" /> Cadastrar bobina
             </button>
             <span className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 text-sm font-semibold text-foreground">
               <History className="size-4" /> Histórico de produção
@@ -374,7 +374,7 @@ export function HistoricoProducao({ onChangeArea, onBack }: Props) {
               <SlidersHorizontal className="size-4" /> Ajustar saldo
             </button>
             <button type="button" onClick={() => setMostrarCadastro((v) => !v)} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110">
-              <Plus className="size-4" /> Nova produção
+              <Package className="size-4" /> Cadastrar bobina
             </button>
             <button type="button" onClick={() => void carregar(true)} disabled={atualizando || carregando} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium transition hover:bg-accent disabled:opacity-50">
               <RefreshCw className={'size-4 ' + (atualizando ? 'animate-spin' : '')} /> Atualizar
