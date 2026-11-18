@@ -20,6 +20,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import {
   corrigirNumeroBobinaRebobinadeira,
+  buscarDetalhesBobinasOrigemRebobinadeira,
   importarCsvRebobinadeira,
   registrarProducaoRebobinadeira,
   buscarBobinasOrigemRebobinadeira,
@@ -48,6 +49,39 @@ type BobinaOrigem = {
   cor: string
   linha: string
   cliente: string
+}
+
+type BobinaOrigemDetalhe = {
+  numero_bobina: string
+  cod_bob: string | null
+  data: string
+  aba: string | null
+  material: string
+  largura: number
+  micragem: number
+  peso_bruto: number | null
+  peso_final: number | null
+  peso_cilindro: number | null
+  peso_liquido: number | null
+  metragem: number
+  perda_kg: number | null
+  fornecedor_filme: string | null
+  vareta_g: number | null
+  kg_cola: number | null
+  lote_cola: string | null
+  codigo_interno: string | null
+  fornecedor_cola: string | null
+  turno: string | null
+  linha: string | null
+  cor_fundo: string | null
+  pigmento_kg: number | null
+  cor_mistura: string | null
+  pigmento_mistura: string | null
+  cliente: string | null
+  cor_impressao: string | null
+  emenda: boolean | null
+  codigo_emenda: string | null
+  operador: string | null
 }
 
 type ProducaoRow = {
@@ -144,6 +178,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const [registros, setRegistros] = React.useState<ProducaoRow[]>([])
   const [alertas, setAlertas] = React.useState<RebobinadeiraAlertaBobinaRow[]>([])
   const [saldos, setSaldos] = React.useState<RebobinadeiraSaldoBobinaRow[]>([])
+  const [origens, setOrigens] = React.useState<Record<string, BobinaOrigemDetalhe>>({})
   const [produtos, setProdutos] = React.useState<RebobinadeiraProdutoRow[]>([])
   const [carregando, setCarregando] = React.useState(true)
   const [atualizando, setAtualizando] = React.useState(false)
@@ -221,7 +256,18 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       producaoRows.push(...((data ?? []) as ProducaoRow[]))
       if (!data || data.length < 1000) break
     }
-    const falhas = [erroProducao, alertasResult.error?.message, saldosResult.error?.message, produtosResult.error?.message].filter(Boolean)
+    let origensRows: BobinaOrigemDetalhe[] = []
+    let erroOrigem: string | null = null
+    try {
+      const numeros = [...new Set(producaoRows.map((item) => item.numero_bobina).filter(Boolean))]
+      if (numeros.length) {
+        const accessToken = await obterToken()
+        origensRows = await buscarDetalhesBobinasOrigemRebobinadeira({ data: { accessToken, numeros } }) as BobinaOrigemDetalhe[]
+      }
+    } catch (error) {
+      erroOrigem = error instanceof Error ? error.message : 'Não foi possível carregar os dados de origem.'
+    }
+    const falhas = [erroProducao, erroOrigem, alertasResult.error?.message, saldosResult.error?.message, produtosResult.error?.message].filter(Boolean)
     if (falhas.length) {
       const mensagem = falhas.join(' · ')
       setErro(mensagem || 'Não foi possível carregar os dados do histórico.')
@@ -230,6 +276,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       setRegistros(producaoRows)
       setAlertas((alertasResult.data ?? []) as RebobinadeiraAlertaBobinaRow[])
       setSaldos((saldosResult.data ?? []) as RebobinadeiraSaldoBobinaRow[])
+      setOrigens(Object.fromEntries(origensRows.map((row) => [row.numero_bobina.replace(/\\D/g, ''), row])))
       setProdutos((produtosResult.data ?? []) as RebobinadeiraProdutoRow[])
     }
     setCarregando(false)
@@ -681,18 +728,40 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                           <span><strong>Total de dias:</strong> {grupo.diasNaMaquina}</span>
                           <span><strong>Máquinas:</strong> {grupo.maquinas.join(', ') || '—'}</span>
                         </div>
-                        <div className="mb-3 grid gap-2 rounded-lg border border-border bg-background p-3 text-xs sm:grid-cols-3 lg:grid-cols-4">
-                          <span><strong>Material:</strong> {grupo.linhas.at(-1)?.material || '—'}</span>
-                          <span><strong>Largura:</strong> {formatar(grupo.linhas.at(-1)?.largura_jumbo_mm, ' mm')}</span>
-                          <span><strong>Peso original:</strong> {formatar(grupo.linhas.at(-1)?.peso_jumbo_kg, ' kg')}</span>
-                          <span><strong>Metragem original:</strong> {formatar(grupo.linhas.at(-1)?.metragem_bobina_m, ' m')}</span>
-                          <span><strong>Fornecedor filme:</strong> {grupo.linhas.at(-1)?.fornec_filme || '—'}</span>
-                          <span><strong>Lote cola:</strong> {grupo.linhas.at(-1)?.lote_cola || '—'}</span>
-                          <span><strong>Fornecedor cola:</strong> {grupo.linhas.at(-1)?.fornec_cola || '—'}</span>
-                          <span><strong>Medida:</strong> {grupo.linhas.at(-1)?.medida || '—'}</span>
-                          <span><strong>Cor:</strong> {grupo.linhas.at(-1)?.cor || '—'}</span>
-                          <span><strong>Linha:</strong> {grupo.linhas.at(-1)?.linha || '—'}</span>
-                          <span><strong>Cliente:</strong> {grupo.linhas.at(-1)?.cliente || '—'}</span>
+                        <div className="mb-3 rounded-lg border border-border bg-background p-3">
+                          <div className="mb-2 font-semibold text-foreground">Identificação da bobina · dados da Cobrideira</div>
+                          <div className="grid gap-x-4 gap-y-2 text-xs sm:grid-cols-3 lg:grid-cols-4">
+                            <span><strong>Nº bobina:</strong> {origens[grupo.numero_normalizado]?.numero_bobina || grupo.numero_bobina}</span>
+                            <span><strong>Código bobina:</strong> {origens[grupo.numero_normalizado]?.cod_bob || '—'}</span>
+                            <span><strong>Data Cobrideira:</strong> {formatarData(origens[grupo.numero_normalizado]?.data ?? null)}</span>
+                            <span><strong>Aba/período:</strong> {origens[grupo.numero_normalizado]?.aba || '—'}</span>
+                            <span><strong>Material:</strong> {origens[grupo.numero_normalizado]?.material || grupo.linhas.at(-1)?.material || '—'}</span>
+                            <span><strong>Largura:</strong> {formatar(origens[grupo.numero_normalizado]?.largura ?? grupo.linhas.at(-1)?.largura_jumbo_mm, ' mm')}</span>
+                            <span><strong>Micragem:</strong> {formatar(origens[grupo.numero_normalizado]?.micragem, ' µ')}</span>
+                            <span><strong>Peso bruto:</strong> {formatar(origens[grupo.numero_normalizado]?.peso_bruto, ' kg')}</span>
+                            <span><strong>Peso final:</strong> {formatar(origens[grupo.numero_normalizado]?.peso_final, ' kg')}</span>
+                            <span><strong>Peso cilindro:</strong> {formatar(origens[grupo.numero_normalizado]?.peso_cilindro, ' kg')}</span>
+                            <span><strong>Peso líquido:</strong> {formatar(origens[grupo.numero_normalizado]?.peso_liquido ?? grupo.linhas.at(-1)?.peso_jumbo_kg, ' kg')}</span>
+                            <span><strong>Metragem original:</strong> {formatar(origens[grupo.numero_normalizado]?.metragem ?? grupo.linhas.at(-1)?.metragem_bobina_m, ' m')}</span>
+                            <span><strong>Perda Cobrideira:</strong> {formatar(origens[grupo.numero_normalizado]?.perda_kg, ' kg')}</span>
+                            <span><strong>Fornecedor filme:</strong> {origens[grupo.numero_normalizado]?.fornecedor_filme || grupo.linhas.at(-1)?.fornec_filme || '—'}</span>
+                            <span><strong>Vareta:</strong> {formatar(origens[grupo.numero_normalizado]?.vareta_g, ' g')}</span>
+                            <span><strong>Cola:</strong> {formatar(origens[grupo.numero_normalizado]?.kg_cola, ' kg')}</span>
+                            <span><strong>Lote cola:</strong> {origens[grupo.numero_normalizado]?.lote_cola || grupo.linhas.at(-1)?.lote_cola || '—'}</span>
+                            <span><strong>Fornecedor cola:</strong> {origens[grupo.numero_normalizado]?.fornecedor_cola || grupo.linhas.at(-1)?.fornec_cola || '—'}</span>
+                            <span><strong>Código interno:</strong> {origens[grupo.numero_normalizado]?.codigo_interno || '—'}</span>
+                            <span><strong>Turno Cobrideira:</strong> {origens[grupo.numero_normalizado]?.turno || '—'}</span>
+                            <span><strong>Linha:</strong> {origens[grupo.numero_normalizado]?.linha || grupo.linhas.at(-1)?.linha || '—'}</span>
+                            <span><strong>Cor fundo:</strong> {origens[grupo.numero_normalizado]?.cor_fundo || grupo.linhas.at(-1)?.cor || '—'}</span>
+                            <span><strong>Pigmento:</strong> {formatar(origens[grupo.numero_normalizado]?.pigmento_kg, ' kg')}</span>
+                            <span><strong>Cor mistura:</strong> {origens[grupo.numero_normalizado]?.cor_mistura || '—'}</span>
+                            <span><strong>Pigmento mistura:</strong> {origens[grupo.numero_normalizado]?.pigmento_mistura || '—'}</span>
+                            <span><strong>Cliente:</strong> {origens[grupo.numero_normalizado]?.cliente || grupo.linhas.at(-1)?.cliente || '—'}</span>
+                            <span><strong>Cor impressão:</strong> {origens[grupo.numero_normalizado]?.cor_impressao || '—'}</span>
+                            <span><strong>Emenda:</strong> {origens[grupo.numero_normalizado]?.emenda == null ? '—' : origens[grupo.numero_normalizado]?.emenda ? 'SIM' : 'NÃO'}</span>
+                            <span><strong>Código emenda:</strong> {origens[grupo.numero_normalizado]?.codigo_emenda || '—'}</span>
+                            <span><strong>Operador:</strong> {origens[grupo.numero_normalizado]?.operador || '—'}</span>
+                          </div>
                         </div>
                         <div className="overflow-x-auto"><table className="w-full min-w-[1400px] text-left text-xs">
                           <thead><tr className="text-muted-foreground"><th className="px-2 py-2">Data</th><th className="px-2 py-2">Máquina/turno</th><th className="px-2 py-2">Setup</th><th className="px-2 py-2">Medida/linha</th><th className="px-2 py-2">Caixas</th><th className="px-2 py-2">Pacotes</th><th className="px-2 py-2">Rolos</th><th className="px-2 py-2">Refugos</th><th className="px-2 py-2">Fitas</th><th className="px-2 py-2">Refilo kg</th><th className="px-2 py-2">Perda kg</th><th className="px-2 py-2">Metragem</th><th className="px-2 py-2">Devolvida</th><th className="px-2 py-2">Status</th></tr></thead>
