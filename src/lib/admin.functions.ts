@@ -598,7 +598,7 @@ export const buscarDetalhesBobinasOrigemRebobinadeira = createServerFn({ method:
   }))
   .handler(async ({ data }) => {
     const { client } = await requireRebobinadeiraEditor(data.accessToken)
-    const codigos = [...new Set(data.numeros.flatMap((numero) => [numero.trim(), numero.replace(/\\D/g, '')]).filter(Boolean))]
+    const codigos = [...new Set(data.numeros.flatMap((numero) => [numero.trim(), numero.replace(/\D/g, '')]).filter(Boolean))]
     const resultados: Record<string, unknown>[] = []
     for (let inicio = 0; inicio < codigos.length; inicio += 100) {
       const lote = codigos.slice(inicio, inicio + 100)
@@ -645,7 +645,7 @@ export const adicionarMedidaRebobinadeira = createServerFn({ method: 'POST' })
   }))
   .handler(async ({ data }) => {
     const { client } = await requireRebobinadeiraEditor(data.accessToken)
-    const descricao = data.descricao.replace(/\\s+/g, ' ').trim()
+    const descricao = data.descricao.replace(/\s+/g, ' ').trim()
     const codigo = 'MEDIDA|' + descricao
     const { data: produto, error } = await client.schema('rebobinadeira').from('produtos_jumbo')
       .upsert({
