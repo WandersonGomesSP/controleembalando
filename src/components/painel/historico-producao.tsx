@@ -302,7 +302,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       setRegistros(producaoRows)
       setAlertas((alertasResult.data ?? []) as RebobinadeiraAlertaBobinaRow[])
       setSaldos((saldosResult.data ?? []) as RebobinadeiraSaldoBobinaRow[])
-      setOrigens(Object.fromEntries(origensRows.map((row) => [row.numero_bobina.replace(/\D/g, ''), row])))
+      setOrigens(origensRows.reduce<Record<string, BobinaOrigemDetalhe>>((mapa, row) => { const chave = row.numero_bobina.replace(/\D/g, ''); if (!mapa[chave]) mapa[chave] = row; return mapa }, {}))
       setProdutos((produtosResult.data ?? []) as RebobinadeiraProdutoRow[])
       const falhasAuxiliares = [alertasResult.error?.message, saldosResult.error?.message, produtosResult.error?.message].filter(Boolean)
       if (falhasAuxiliares.length) toast.warning('Alguns indicadores auxiliares não puderam ser atualizados.', { description: falhasAuxiliares.join(' · ') })
