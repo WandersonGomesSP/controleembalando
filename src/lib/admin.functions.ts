@@ -598,7 +598,7 @@ export const buscarDetalhesBobinasOrigemRebobinadeira = createServerFn({ method:
   }))
   .handler(async ({ data }) => {
     const { client } = await requireRebobinadeiraEditor(data.accessToken)
-    const desejadas = new Set(data.numeros.map((numero) => numero.replace(/\\D/g, '')).filter(Boolean))
+    const desejadas = new Set(data.numeros.map((numero) => numero.replace(/\D/g, '')).filter(Boolean))
     const resultados: Record<string, unknown>[] = []
     // A Cobrideira tem pouco mais de mil registros; paginar a origem inteira evita falhas
     // quando o número tem pontuação/zeros diferentes entre os dois setores.
@@ -609,7 +609,7 @@ export const buscarDetalhesBobinasOrigemRebobinadeira = createServerFn({ method:
         .range(inicio, inicio + 999)
       if (error) throw new Error('Não foi possível carregar os dados completos da Cobrideira: ' + error.message)
       for (const row of rows ?? []) {
-        const chave = String(row.numero_bobina ?? '').replace(/\\D/g, '')
+        const chave = String(row.numero_bobina ?? '').replace(/\D/g, '')
         if (desejadas.has(chave)) resultados.push(row)
       }
       if (!rows || rows.length < 1000) break
