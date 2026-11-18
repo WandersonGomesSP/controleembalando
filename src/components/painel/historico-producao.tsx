@@ -152,6 +152,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     setup: false,
     numero_bobina: '',
     turno: '1º TURNO',
+    produto_codigo: '',
     material: '',
     largura_jumbo_mm: '',
     peso_jumbo_kg: '',
@@ -265,6 +266,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const pendentes = registros.filter((item) => item.status_baixa === 'PENDENTE' || item.status_baixa === 'NAO_PROCESSADA').length
   const consumidas = saldos.filter((item) => item.status === 'CONSUMIDA').length
   const saldoBobinaSelecionada = bobinaSelecionada ? saldos.find((item) => item.numero_bobina.replace(/\\D/g, '') === bobinaSelecionada.numero_bobina.replace(/\\D/g, '')) : undefined
+  const produtoSelecionado = produtos.find((item) => item.codigo === form.produto_codigo)
 
   async function obterToken() {
     const { data, error } = await supabase.auth.getSession()
@@ -301,6 +303,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     setForm((atual) => ({
       ...atual,
       numero_bobina: row.numero_bobina,
+      produto_codigo: produtos.find((p) => p.material === row.material && p.cor === row.cor && Number(p.largura_jumbo_mm) === Number(row.largura))?.codigo ?? '',
       material: row.material ?? '',
       largura_jumbo_mm: String(row.largura ?? ''),
       peso_jumbo_kg: String(row.peso_kg ?? ''),
@@ -319,6 +322,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
 
   async function salvarProducao(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!form.produto_codigo) {
+      toast.error('Selecione o produto correspondente no catálogo para classificar a produção.')
+      return
+    }
     if (!form.material.trim() || !form.cor.trim()) {
       toast.error('Preencha material e cor da bobina.')
       return
@@ -343,7 +350,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             setup: form.setup,
             numero_bobina: form.numero_bobina,
             turno: form.turno,
-            produto_codigo: bobinaSelecionada ? (produtos.find((p) => p.material === bobinaSelecionada.material && p.cor === bobinaSelecionada.cor && Number(p.largura_jumbo_mm) === Number(bobinaSelecionada.largura))?.codigo ?? 'PENDENTE') : 'PENDENTE',
+            produto_codigo: form.produto_codigo,
             material: form.material,
             largura_jumbo_mm: parseNumero(form.largura_jumbo_mm),
             peso_jumbo_kg: parseNumero(form.peso_jumbo_kg),
@@ -371,7 +378,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
         },
       })
       toast.success('Produção registrada.', { description: 'Registro #' + resultado.id + ' salvo. A baixa foi processada ou ficou pendente com alerta.' })
-      setForm((atual) => ({ ...atual, numero_bobina: '', material: '', largura_jumbo_mm: '', peso_jumbo_kg: '', fornec_filme: '', lote_cola: '', fornec_cola: '', medida: '', cor: '', linha: 'PADRÃO', linha_detalhe: '', cliente: '', caixas: '0', pcts: '0', rolos: '0', refugos: '0', fitas_rebobinadas: '0', refilo_kg: '0', perda_producao_kg: '0', metragem_bobina_m: '', bobina_voltou_parcial: false, metragem_devolvida_m: '', observacoes: '' }))
+      setForm((atual) => ({ ...atual, numero_bobina: '', produto_codigo: '', material: '', largura_jumbo_mm: '', peso_jumbo_kg: '', fornec_filme: '', lote_cola: '', fornec_cola: '', medida: '', cor: '', linha: 'PADRÃO', linha_detalhe: '', cliente: '', caixas: '0', pcts: '0', rolos: '0', refugos: '0', fitas_rebobinadas: '0', refilo_kg: '0', perda_producao_kg: '0', metragem_bobina_m: '', bobina_voltou_parcial: false, metragem_devolvida_m: '', observacoes: '' }))
       setBobinaSelecionada(null)
       setBuscaBobina('')
       setResultadosBobina([])
@@ -558,6 +565,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                 <span><strong>Lote cola:</strong> {bobinaSelecionada.lote_cola || '—'}</span>
               </div>}
 
+              {(!bobinaSelecionada || !form.produto_codigo) && <label className="grid gap-1 text-sm sm:col-span-2"><span className="font-medium">Produto de referência (classificação dos indicadores)</span><select required value={form.produto_codigo} onChange={(e) => setForm({ ...form, produto_codigo: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3"><option value="">Selecione o produto</option>{produtos.map((p) => <option key={p.codigo} value={p.codigo}>{p.descricao}</option>)}</select></label>}
               <label className="grid gap-1 text-sm"><span className="font-medium">Material</span><input required readOnly={Boolean(bobinaSelecionada)} value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Largura da bobina (mm)</span><input required readOnly={Boolean(bobinaSelecionada)} inputMode="decimal" value={form.largura_jumbo_mm} onChange={(e) => setForm({ ...form, largura_jumbo_mm: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Peso da bobina (kg)</span><input required readOnly={Boolean(bobinaSelecionada)} inputMode="decimal" value={form.peso_jumbo_kg} onChange={(e) => setForm({ ...form, peso_jumbo_kg: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
