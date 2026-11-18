@@ -70,6 +70,18 @@ type ProducaoRow = {
   metros_consumidos: number | null
   peso_consumido_kg: number | null
   observacoes: string | null
+  medida: string | null
+  cliente: string | null
+  caixas: number | null
+  pcts: number | null
+  rolos: number | null
+  refugos: number | null
+  fitas_rebobinadas: number | null
+  refilo_kg: number | null
+  perda_producao_kg: number | null
+  metragem_devolvida_m: number | null
+  bobina_voltou_parcial: boolean
+  linha_detalhe: string | null
 }
 
 const numero = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
@@ -194,7 +206,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     let erroProducao: string | null = null
     for (let inicio = 0; ; inicio += 1000) {
       const { data, error } = await supabase.schema('rebobinadeira').from('bobinas')
-        .select('id,numero_bobina,numero_normalizado,data,maquina,setup,turno,material,produto_codigo,largura_jumbo_mm,peso_jumbo_kg,cor,linha,metragem_bobina_m,metragem_unica_m,status_baixa,metros_consumidos,peso_consumido_kg,observacoes')
+        .select('id,numero_bobina,numero_normalizado,data,maquina,setup,turno,material,produto_codigo,largura_jumbo_mm,peso_jumbo_kg,fornec_filme,lote_cola,fornec_cola,medida,cor,linha,linha_detalhe,cliente,caixas,pcts,rolos,refugos,fitas_rebobinadas,refilo_kg,perda_producao_kg,metragem_bobina_m,metragem_unica_m,metragem_devolvida_m,bobina_voltou_parcial,status_baixa,metros_consumidos,peso_consumido_kg,observacoes')
         .order('data', { ascending: false }).order('id', { ascending: false })
         .range(inicio, inicio + 999)
       if (error) { erroProducao = error.message; break }
@@ -245,7 +257,14 @@ export function HistoricoProducao({ onChangeArea }: Props) {
         material: ultima.material,
         cor: ultima.cor,
         status: ultima.status_baixa,
-        metrosConsumidos: ordenadas.reduce((soma, item) => soma + Number(item.metros_consumidos ?? item.metragem_unica_m ?? 0), 0),
+        metrosConsumidos: ordenadas.reduce((soma, item) => soma + Number(item.metros_consumidos ?? 0), 0),
+        caixasTotal: ordenadas.reduce((soma, item) => soma + Number(item.caixas ?? 0), 0),
+        pctsTotal: ordenadas.reduce((soma, item) => soma + Number(item.pcts ?? 0), 0),
+        rolosTotal: ordenadas.reduce((soma, item) => soma + Number(item.rolos ?? 0), 0),
+        refugosTotal: ordenadas.reduce((soma, item) => soma + Number(item.refugos ?? 0), 0),
+        fitasTotal: ordenadas.reduce((soma, item) => soma + Number(item.fitas_rebobinadas ?? 0), 0),
+        refiloTotal: ordenadas.reduce((soma, item) => soma + Number(item.refilo_kg ?? 0), 0),
+        perdaTotal: ordenadas.reduce((soma, item) => soma + Number(item.perda_producao_kg ?? 0), 0),
         linhas: ordenadas,
       }
       return grupo
@@ -638,10 +657,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                           <span><strong>Último registro:</strong> {formatarData(grupo.dataFim)}</span>
                           <span><strong>Total de dias:</strong> {grupo.diasNaMaquina}</span>
                         </div>
-                        <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-xs">
-                          <thead><tr className="text-muted-foreground"><th className="px-2 py-2">Data</th><th className="px-2 py-2">Máquina/turno</th><th className="px-2 py-2">Setup</th><th className="px-2 py-2">Metros</th><th className="px-2 py-2">Baixa</th><th className="px-2 py-2">Status</th><th className="px-2 py-2">Ação</th></tr></thead>
+                        <div className="overflow-x-auto"><table className="w-full min-w-[1500px] text-left text-xs">
+                          <thead><tr className="text-muted-foreground"><th className="px-2 py-2">Data</th><th className="px-2 py-2">Máquina/turno</th><th className="px-2 py-2">Setup</th><th className="px-2 py-2">Medida/linha</th><th className="px-2 py-2">Caixas</th><th className="px-2 py-2">Pacotes</th><th className="px-2 py-2">Rolos</th><th className="px-2 py-2">Refugos</th><th className="px-2 py-2">Fitas</th><th className="px-2 py-2">Refilo kg</th><th className="px-2 py-2">Perda kg</th><th className="px-2 py-2">Metragem</th><th className="px-2 py-2">Devolvida</th><th className="px-2 py-2">Status</th><th className="px-2 py-2">Ação</th></tr></thead>
                           <tbody>{grupo.linhas.map((item) => <React.Fragment key={item.id}>
-                            <tr className="border-t border-border"><td className="px-2 py-2">{formatarData(item.data)}</td><td className="px-2 py-2">{item.maquina ?? '—'} · {item.turno ?? '—'}</td><td className="px-2 py-2">{item.setup ? 'SIM' : 'NÃO'}</td><td className="px-2 py-2">{formatar(item.metragem_unica_m ?? item.metragem_bobina_m, ' m')}</td><td className="px-2 py-2">{formatar(item.metros_consumidos, ' m')}</td><td className="px-2 py-2">{statusLabel(item.status_baixa)}</td><td className="px-2 py-2">{item.status_baixa !== 'ESTORNADA' && <button type="button" onClick={() => setEstornoAberto(estornoAberto === item.id ? null : item.id)} className="inline-flex items-center gap-1 rounded-md border border-red-300 px-2 py-1 text-red-800 hover:bg-red-50"><RotateCcw className="size-3" /> Estornar</button>}</td></tr>
+                            <tr className="border-t border-border"><td className="px-2 py-2">{formatarData(item.data)}</td><td className="px-2 py-2">{item.maquina ?? '—'} · {item.turno ?? '—'}</td><td className="px-2 py-2">{item.setup ? 'SIM' : 'NÃO'}</td><td className="px-2 py-2">{item.medida ?? '—'} · {item.linha === 'KIT' ? item.linha_detalhe ?? 'KIT' : item.linha}</td><td className="px-2 py-2">{formatar(item.caixas)}</td><td className="px-2 py-2">{formatar(item.pcts)}</td><td className="px-2 py-2">{formatar(item.rolos)}</td><td className="px-2 py-2">{formatar(item.refugos)}</td><td className="px-2 py-2">{formatar(item.fitas_rebobinadas)}</td><td className="px-2 py-2">{formatar(item.refilo_kg)}</td><td className="px-2 py-2">{formatar(item.perda_producao_kg)}</td><td className="px-2 py-2">{formatar(item.metragem_bobina_m, ' m')}</td><td className="px-2 py-2">{formatar(item.metragem_devolvida_m, ' m')}</td><td className="px-2 py-2">{statusLabel(item.status_baixa)}</td><td className="px-2 py-2">{item.status_baixa !== 'ESTORNADA' && <button type="button" onClick={() => setEstornoAberto(estornoAberto === item.id ? null : item.id)} className="inline-flex items-center gap-1 rounded-md border border-red-300 px-2 py-1 text-red-800 hover:bg-red-50"><RotateCcw className="size-3" /> Estornar</button>}</td></tr>
                             {estornoAberto === item.id && <tr className="bg-red-50"><td colSpan={7} className="px-2 py-2"><div className="flex flex-col gap-2 sm:flex-row"><input value={motivoEstorno[item.id] ?? ''} onChange={(e) => setMotivoEstorno((estado) => ({ ...estado, [item.id]: e.target.value }))} placeholder="Motivo obrigatório do estorno" className="h-9 flex-1 rounded-lg border border-red-200 bg-white px-3 text-sm" /><button type="button" disabled={salvando} onClick={() => void estornar(item.id)} className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-red-700 px-3 text-xs font-semibold text-white hover:bg-red-800 disabled:opacity-50">Confirmar estorno</button><button type="button" onClick={() => setEstornoAberto(null)} className="min-h-9 rounded-lg border border-red-200 px-3 text-xs hover:bg-red-100">Cancelar</button></div></td></tr>}
                           </React.Fragment>)}</tbody>
                         </table></div>
