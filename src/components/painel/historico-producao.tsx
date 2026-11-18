@@ -206,6 +206,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const [dataInicio, setDataInicio] = React.useState('')
   const [dataFim, setDataFim] = React.useState('')
   const [mesFiltro, setMesFiltro] = React.useState('')
+  const [periodoUtilizacao, setPeriodoUtilizacao] = React.useState('7')
   const [pagina, setPagina] = React.useState(0)
   const [detalheAberto, setDetalheAberto] = React.useState<string | null>(null)
   const [tela, setTela] = React.useState<'historico' | 'cadastro'>('historico')
@@ -294,16 +295,17 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       erroOrigem = error instanceof Error ? error.message : 'Não foi possível carregar os dados de origem.'
     }
     const falhas = [erroProducao, alertasResult.error?.message, saldosResult.error?.message, produtosResult.error?.message].filter(Boolean)
-    if (falhas.length) {
-      const mensagem = falhas.join(' · ')
-      setErro(mensagem || 'Não foi possível carregar os dados do histórico.')
-      toast.error('Falha ao carregar o histórico de produção.', { description: mensagem })
+    if (erroProducao) {
+      setErro(erroProducao)
+      toast.error('Falha ao carregar os lançamentos de produção.', { description: erroProducao })
     } else {
       setRegistros(producaoRows)
       setAlertas((alertasResult.data ?? []) as RebobinadeiraAlertaBobinaRow[])
       setSaldos((saldosResult.data ?? []) as RebobinadeiraSaldoBobinaRow[])
       setOrigens(Object.fromEntries(origensRows.map((row) => [row.numero_bobina.replace(/\\D/g, ''), row])))
       setProdutos((produtosResult.data ?? []) as RebobinadeiraProdutoRow[])
+      const falhasAuxiliares = [alertasResult.error?.message, saldosResult.error?.message, produtosResult.error?.message].filter(Boolean)
+      if (falhasAuxiliares.length) toast.warning('Alguns indicadores auxiliares não puderam ser atualizados.', { description: falhasAuxiliares.join(' · ') })
     }
     if (erroOrigem) toast.warning('Dados completos da Cobrideira indisponíveis.', { description: erroOrigem })
     setCarregando(false)
@@ -380,7 +382,21 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const paginaAtual = Math.min(pagina, totalPaginas - 1)
   const paginaRegistros = filtrados.slice(paginaAtual * porPagina, (paginaAtual + 1) * porPagina)
   const pendentes = registros.filter((item) => item.status_baixa === 'PENDENTE' || item.status_baixa === 'NAO_PROCESSADA').length
-  const consumidas = saldos.filter((item) => item.status === 'CONSUMIDA').length
+  const consumidas = React.useMemo(() => {
+    const hoje = new Date()
+    const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+    const dias = periodoUtilizacao === '7' ? 7 : periodoUtilizacao === '30' ? 30 : periodoUtilizacao === '90' ? 90 : periodoUtilizacao === '180' ? 180 : periodoUtilizacao === '365' ? 365 : null
+    if (dias !== null) inicio.setDate(inicio.getDate() - (dias - 1))
+    const unicas = new Set<string>()
+    for (const item of registros) {
+      const metros = Number(item.metros_consumidos ?? item.metragem_unica_m ?? 0)
+      if (metros <= 0) continue
+      const dataRegistro = new Date(item.data + 'T00:00:00')
+      if (inicio && dias !== null && dataRegistro < inicio) continue
+      unicas.add(item.numero_normalizado || item.numero_bobina.replace(/\\D/g, ''))
+    }
+    return unicas.size
+  }, [registros, periodoUtilizacao])
   const saldoBobinaSelecionada = bobinaSelecionada ? saldos.find((item) => item.numero_bobina.replace(/\\D/g, '') === bobinaSelecionada.numero_bobina.replace(/\\D/g, '')) : undefined
 
   async function obterToken() {
@@ -687,17 +703,17 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             </button>
           </div>
           <nav aria-label="Menus da Rebobinadeira" className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-            <button type="button" onClick={() => setTela('cadastro')} className={'inline-flex min-h-9 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition hover:brightness-110 ' + (tela === 'cadastro' ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-foreground hover:bg-accent')}>
+            <button type="button" onClick={() => setTela('cadastro')} className={'inline-flex min-h-9 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition hover:brightness-110 ' + (tela === 'cadastro' ? 'border border-[#c91f28] bg-[#e3262e] text-white' : 'border border-[#e3262e] bg-white text-[#c91f28] hover:bg-red-50')}>
               <Package className="size-4" /> Cadastrar produção
             </button>
-            <button type="button" onClick={() => setTela('historico')} className={'inline-flex min-h-9 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition ' + (tela === 'historico' ? 'border border-primary/30 bg-primary/10 text-foreground' : 'border border-border bg-card text-foreground hover:bg-accent')}>
+            <button type="button" onClick={() => setTela('historico')} className={'inline-flex min-h-9 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition ' + (tela === 'historico' ? 'border border-[#c91f28] bg-[#e3262e] text-white' : 'border border-[#e3262e] bg-white text-[#c91f28] hover:bg-red-50')}>
               <History className="size-4" /> Histórico de produção
             </button>
           </nav>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[96rem] space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto w-full max-w-[96rem] space-y-6 px-3 py-4 sm:px-3 sm:py-5">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rebobinadeira / {tela === 'cadastro' ? 'Cadastro' : 'Histórico'}</p>
@@ -707,7 +723,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-{tela === 'historico' && (<button type="button" onClick={() => void carregar(true)} disabled={atualizando || carregando} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium transition hover:bg-accent disabled:opacity-50">
+{tela === 'historico' && (<button type="button" onClick={() => void carregar(true)} disabled={atualizando || carregando} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#c91f28] bg-[#e3262e] px-3 text-sm font-semibold text-white transition hover:bg-[#c91f28] disabled:opacity-50">
               <RefreshCw className={'size-4 ' + (atualizando ? 'animate-spin' : '')} /> Atualizar
             </button>)}
           </div>
@@ -725,10 +741,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <input key={inputArquivoKey} type="file" accept=".csv,text/csv" className="sr-only" id="historico-rebobinadeira-csv" onChange={(event) => setArquivo(event.target.files?.[0] ?? null)} />
-              <label htmlFor="historico-rebobinadeira-csv" className="csv-import-control inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium transition hover:bg-accent">
+              <label htmlFor="historico-rebobinadeira-csv" className="csv-import-control inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-white transition hover:bg-[#c91f28]">
                 <FileUp className="size-4" /> {arquivo ? arquivo.name : 'Selecionar CSV'}
               </label>
-              <button type="button" onClick={() => void importarArquivo()} disabled={!arquivo || importando} className="csv-import-control inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50">
+              <button type="button" onClick={() => void importarArquivo()} disabled={!arquivo || importando} className="csv-import-control inline-flex h-10 items-center gap-2 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-white transition hover:bg-[#c91f28] disabled:opacity-50">
                 {importando ? <RefreshCw className="size-4 animate-spin" /> : <FileUp className="size-4" />}
                 {importando ? 'Importando...' : 'Importar'}
               </button>
@@ -852,7 +868,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
         <div className="grid gap-3 sm:grid-cols-3">
           <article className="rounded-xl border border-border bg-card p-4"><div className="flex items-center gap-2 text-sm text-muted-foreground"><ClipboardList className="size-4" /> Lançamentos no histórico</div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(registros.length)}</p></article>
           <article className="rounded-xl border border-border bg-card p-4"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Bell className="size-4" /> Alertas em aberto</div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(alertas.length)}</p></article>
-          <article className="rounded-xl border border-border bg-card p-4"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Package className="size-4" /> Bobinas consumidas</div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(consumidas)}</p><p className="mt-1 text-xs text-muted-foreground">{pendentes} lançamento(s) pendente(s) de conciliação</p></article>
+          <article className="rounded-xl border border-border bg-card p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Package className="size-4" /> Bobinas utilizadas</div><select aria-label="Período de utilização das bobinas" value={periodoUtilizacao} onChange={(event) => setPeriodoUtilizacao(event.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs"><option value="7">Últimos 7 dias</option><option value="30">Último mês</option><option value="90">Último trimestre</option><option value="180">Últimos 6 meses</option><option value="365">Último ano</option><option value="todos">Todo o período</option></select></div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(consumidas)}</p></article>
         </div>
 
         <section className="overflow-hidden rounded-xl border border-border bg-card">
