@@ -183,6 +183,7 @@ export type RebobinadeiraProdutoRow = {
   tipo_produto: string
   lead_time_dias: number | null
   ajuste_estoque_percentual: number
+  alerta_estoque_baixo_ativo: boolean
   piso_minimo_jumbos: number
   ativo: boolean
   criado_em: string
