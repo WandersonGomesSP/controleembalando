@@ -36,12 +36,7 @@ const numero = (v: number | null | undefined) => Number(v ?? 0)
 const fmt = (v: number | null | undefined, casas = 0) => numero(v).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
 const categorias: Categoria[] = ['BOPP', 'CREPE', 'KRAFT', 'DUPLA FACE']
 const fmtMedida = (v: number | null | undefined) => v == null ? '—' : Number(v).toFixed(2)
-const ALERTAS_ESTOQUE_STORAGE_KEY = 'controleembalando-estoque-alertas-desativados'
 const chaveAlertaEstoque = (valor: string) => valor.trim().toLocaleLowerCase('pt-BR')
-function lerAlertasEstoqueDesativados(): string[] {
-  try { const valor = JSON.parse(localStorage.getItem(ALERTAS_ESTOQUE_STORAGE_KEY) ?? '[]'); return Array.isArray(valor) ? valor.filter((item): item is string => typeof item === 'string') : [] } catch { return [] }
-}
-
 function normalizarCabecalho(valor: string) {
   return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
     .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
@@ -146,7 +141,6 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
   const [usosPorProduto, setUsosPorProduto] = React.useState<Record<string, number>>({})
   const [alertasDesativados, setAlertasDesativados] = React.useState<string[]>([])
   const [paginaAlertas, setPaginaAlertas] = React.useState(0)
-  React.useEffect(() => { setAlertasDesativados(lerAlertasEstoqueDesativados()) }, [])
   const [lixeira, setLixeira] = React.useState<BobinaLixeira[]>([])
   const [aba, setAba] = React.useState<'ATIVAS' | 'LIXEIRA'>('ATIVAS')
   const [carregando, setCarregando] = React.useState(true)
@@ -172,8 +166,9 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
         dataLimite.setDate(dataLimite.getDate() - 90)
         const desde = dataLimite.toISOString().slice(0, 10)
         const { data: produtos, error: produtosError } = await supabase.schema('rebobinadeira')
-          .from('produtos_jumbo').select('codigo, descricao').eq('ativo', true)
+          .from('produtos_jumbo').select('codigo, descricao, alerta_estoque_baixo_ativo').eq('ativo', true)
         if (produtosError) throw produtosError
+        setAlertasDesativados((produtos ?? []).filter((p) => p.alerta_estoque_baixo_ativo === false).map((p) => chaveAlertaEstoque(p.descricao)))
         const descricaoPorCodigo = new Map((produtos ?? []).map((p) => [p.codigo, p.descricao]))
         const usos = new Map<string, Set<string>>()
         for (let inicio = 0; ; inicio += 1000) {
