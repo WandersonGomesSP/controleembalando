@@ -594,11 +594,11 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
 
 export const buscarDetalhesBobinasOrigemRebobinadeira = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({
-    numeros: z.array(z.string().trim().min(1).max(80)).max(1000),
+    numeros: z.array(z.string().trim().min(1).max(80)).max(10000),
   }))
   .handler(async ({ data }) => {
     const { client } = await requireRebobinadeiraEditor(data.accessToken)
-    const codigos = [...new Set(data.numeros)]
+    const codigos = [...new Set(data.numeros.flatMap((numero) => [numero.trim(), numero.replace(/\\D/g, '')]).filter(Boolean))]
     const resultados: Record<string, unknown>[] = []
     for (let inicio = 0; inicio < codigos.length; inicio += 100) {
       const lote = codigos.slice(inicio, inicio + 100)
