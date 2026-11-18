@@ -422,6 +422,8 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     setResultadosBobina([])
     const linha = row.linha?.toLocaleUpperCase('pt-BR').includes('KIT') ? 'KIT'
       : row.linha?.toLocaleUpperCase('pt-BR').includes('PERSONALIZ') ? 'PERSONALIZADA' : 'PADRÃO'
+    const saldoAtual = saldos.find((item) => item.numero_bobina.replace(/\\D/g, '') === row.numero_bobina.replace(/\\D/g, ''))
+    const metragemDisponivel = Number(saldoAtual?.saldo_metros ?? row.metragem_m)
     setForm((atual) => ({
       ...atual,
       numero_bobina: row.numero_bobina,
@@ -436,7 +438,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       linha,
       linha_detalhe: linha === 'KIT' ? (row.linha ?? '') : '',
       cliente: row.cliente ?? '',
-      metragem_bobina_m: String(row.metragem_m ?? ''),
+      metragem_bobina_m: String(metragemDisponivel || row.metragem_m || ''),
       bobina_voltou_parcial: false,
       metros_utilizados_m: '',
     }))
@@ -832,7 +834,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
               <label className="grid gap-1 text-sm"><span className="font-medium">Fitas rebobinadas</span><input required type="number" min="0" step="0.01" value={form.fitas_rebobinadas} onChange={(e) => setForm({ ...form, fitas_rebobinadas: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Refilo (kg)</span><input required type="number" min="0" step="0.001" value={form.refilo_kg} onChange={(e) => setForm({ ...form, refilo_kg: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Perda de produção (kg)</span><input required type="number" min="0" step="0.001" value={form.perda_producao_kg} onChange={(e) => setForm({ ...form, perda_producao_kg: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
-{!bobinaSelecionada && (<label className="grid gap-1 text-sm"><span className="font-medium">Metragem da bobina (m)</span><input required readOnly={Boolean(bobinaSelecionada)} inputMode="decimal" value={form.metragem_bobina_m} onChange={(e) => setForm({ ...form, metragem_bobina_m: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>)}
+{!bobinaSelecionada && (<label className="grid gap-1 text-sm"><span className="font-medium">Metragem disponível para utilização (m)</span><input required readOnly={Boolean(bobinaSelecionada)} inputMode="decimal" value={form.metragem_bobina_m} onChange={(e) => setForm({ ...form, metragem_bobina_m: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>)}
               <label className="grid gap-1 text-sm"><span className="font-medium">Bobina voltou parcialmente?</span><select value={form.bobina_voltou_parcial ? 'SIM' : 'NÃO'} onChange={(e) => setForm({ ...form, bobina_voltou_parcial: e.target.value === 'SIM', metros_utilizados_m: '' })} className="h-10 rounded-lg border border-input bg-background px-3"><option value="NÃO">NÃO</option><option value="SIM">SIM</option></select></label>
               {form.bobina_voltou_parcial && <label className="grid gap-1 text-sm"><span className="font-medium">Metros utilizados (m)</span><input required type="number" min="0.01" step="0.01" max={Math.max(0, Number(form.metragem_bobina_m || 0) - 0.01)} value={form.metros_utilizados_m} onChange={(e) => setForm({ ...form, metros_utilizados_m: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>}
               <label className="grid gap-1 text-sm sm:col-span-2 lg:col-span-4"><span className="font-medium">Observações</span><textarea value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={2} className="rounded-lg border border-input bg-background px-3 py-2" /></label>
