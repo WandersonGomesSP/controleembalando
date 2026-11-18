@@ -418,7 +418,7 @@ export type Database = {
       alertas_bobinas: Table<RebobinadeiraAlertaBobinaRow>
       configuracoes_bobinas: Table<{ id: number; tolerancia_metros: number; atualizado_em: string }>
       staging_planilha: Table<{ id: number; lote_id: string; linha_csv: number }>
-      importacao_log: Table<{ id: string; origem: string; nome_arquivo: string | null; linhas_recebidas: number; linhas_gravadas: number; status: string | null; criado_em: string }>
+      importacao_log: Table<{ id: string; origem: string; nome_arquivo: string | null; linhas_recebidas: number; linhas_gravadas: number; status: string | null; criado_em: string; hash_arquivo: string | null }>
     }
     Views: {
       vw_estoque_minimo: {
