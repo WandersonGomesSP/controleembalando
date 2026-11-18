@@ -22,6 +22,7 @@ import {
   estornarProducaoRebobinadeira,
   importarCsvRebobinadeira,
   registrarProducaoRebobinadeira,
+  buscarBobinasOrigemRebobinadeira,
 } from '@/lib/admin.functions'
 import type {
   RebobinadeiraAlertaBobinaRow,
@@ -32,6 +33,21 @@ import type {
 type Props = {
   onChangeArea: () => void
   isDeveloper: boolean
+}
+
+type BobinaOrigem = {
+  numero_bobina: string
+  data: string
+  material: string
+  largura: number
+  peso_kg: number
+  metragem_m: number
+  fornecedor_filme: string
+  lote_cola: string
+  fornecedor_cola: string
+  cor: string
+  linha: string
+  cliente: string
 }
 
 type ProducaoRow = {
@@ -123,6 +139,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const [salvando, setSalvando] = React.useState(false)
   const [importando, setImportando] = React.useState(false)
   const [arquivo, setArquivo] = React.useState<File | null>(null)
+  const [buscaBobina, setBuscaBobina] = React.useState('')
+  const [resultadosBobina, setResultadosBobina] = React.useState<BobinaOrigem[]>([])
+  const [bobinaSelecionada, setBobinaSelecionada] = React.useState<BobinaOrigem | null>(null)
+  const [buscandoBobina, setBuscandoBobina] = React.useState(false)
   const [inputArquivoKey, setInputArquivoKey] = React.useState(0)
   const [motivoEstorno, setMotivoEstorno] = React.useState<Record<number, string>>({})
   const [estornoAberto, setEstornoAberto] = React.useState<number | null>(null)
@@ -132,10 +152,28 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     setup: false,
     numero_bobina: '',
     turno: '1º TURNO',
-    produto_codigo: '',
+    produto_codigo: 'PENDENTE',
+    material: '',
+    largura_jumbo_mm: '',
     peso_jumbo_kg: '',
+    fornec_filme: '',
+    lote_cola: '',
+    fornec_cola: '',
+    medida: '',
+    cor: '',
+    linha: 'PADRÃO',
+    linha_detalhe: '',
+    cliente: '',
+    caixas: '0',
+    pcts: '0',
+    rolos: '0',
+    refugos: '0',
+    fitas_rebobinadas: '0',
+    refilo_kg: '0',
+    perda_producao_kg: '0',
     metragem_bobina_m: '',
-    metragem_unica_m: '',
+    bobina_voltou_parcial: false,
+    metragem_devolvida_m: '',
     observacoes: '',
   })
 
@@ -228,6 +266,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const pendentes = registros.filter((item) => item.status_baixa === 'PENDENTE' || item.status_baixa === 'NAO_PROCESSADA').length
   const consumidas = saldos.filter((item) => item.status === 'CONSUMIDA').length
   const produtoSelecionado = produtos.find((item) => item.codigo === form.produto_codigo)
+  const saldoBobinaSelecionada = bobinaSelecionada ? saldos.find((item) => item.numero_bobina.replace(/\\D/g, '') === bobinaSelecionada.numero_bobina.replace(/\\D/g, '')) : undefined
 
   async function obterToken() {
     const { data, error } = await supabase.auth.getSession()
@@ -235,11 +274,64 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     return data.session.access_token
   }
 
+  async function pesquisarBobina(termo: string) {
+    setBuscaBobina(termo)
+    setBobinaSelecionada(null)
+    if (termo.trim().length < 2) {
+      setResultadosBobina([])
+      return
+    }
+    setBuscandoBobina(true)
+    try {
+      const accessToken = await obterToken()
+      const rows = await buscarBobinasOrigemRebobinadeira({ data: { accessToken, termo: termo.trim() } })
+      setResultadosBobina(rows as BobinaOrigem[])
+    } catch (error) {
+      setResultadosBobina([])
+      toast.error('Falha na busca de bobinas.', { description: error instanceof Error ? error.message : 'Tente novamente.' })
+    } finally {
+      setBuscandoBobina(false)
+    }
+  }
+
+  function selecionarBobina(row: BobinaOrigem) {
+    setBobinaSelecionada(row)
+    setBuscaBobina(row.numero_bobina)
+    setResultadosBobina([])
+    const linha = row.linha?.toLocaleUpperCase('pt-BR').includes('KIT') ? 'KIT'
+      : row.linha?.toLocaleUpperCase('pt-BR').includes('PERSONALIZ') ? 'PERSONALIZADA' : 'PADRÃO'
+    setForm((atual) => ({
+      ...atual,
+      numero_bobina: row.numero_bobina,
+      material: row.material ?? '',
+      largura_jumbo_mm: String(row.largura ?? ''),
+      peso_jumbo_kg: String(row.peso_kg ?? ''),
+      fornec_filme: row.fornecedor_filme ?? '',
+      lote_cola: row.lote_cola ?? '',
+      fornec_cola: row.fornecedor_cola ?? '',
+      cor: row.cor ?? '',
+      linha,
+      linha_detalhe: linha === 'KIT' ? (row.linha ?? '') : '',
+      cliente: row.cliente ?? '',
+      metragem_bobina_m: String(row.metragem_m ?? ''),
+      bobina_voltou_parcial: false,
+      metragem_devolvida_m: '',
+    }))
+  }
+
   async function salvarProducao(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!form.produto_codigo) {
-      toast.error('Selecione um produto cadastrado.')
+    if (!form.material.trim() || !form.cor.trim()) {
+      toast.error('Preencha material e cor da bobina.')
       return
+    }
+    if (form.bobina_voltou_parcial) {
+      const devolvida = parseNumero(form.metragem_devolvida_m)
+      const disponivel = parseNumero(form.metragem_bobina_m)
+      if (devolvida == null || devolvida <= 0 || disponivel == null || devolvida >= disponivel) {
+        toast.error('Informe a metragem devolvida, maior que zero e menor que a metragem da bobina.')
+        return
+      }
     }
     setSalvando(true)
     try {
@@ -253,16 +345,38 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             setup: form.setup,
             numero_bobina: form.numero_bobina,
             turno: form.turno,
-            produto_codigo: form.produto_codigo,
+            produto_codigo: bobinaSelecionada ? (produtos.find((p) => p.material === bobinaSelecionada.material && p.cor === bobinaSelecionada.cor && Number(p.largura_jumbo_mm) === Number(bobinaSelecionada.largura))?.codigo ?? 'PENDENTE') : 'PENDENTE',
+            material: form.material,
+            largura_jumbo_mm: parseNumero(form.largura_jumbo_mm),
             peso_jumbo_kg: parseNumero(form.peso_jumbo_kg),
+            fornec_filme: form.fornec_filme,
+            lote_cola: form.lote_cola,
+            fornec_cola: form.fornec_cola,
+            medida: form.medida,
+            cor: form.cor,
+            linha: form.linha,
+            linha_detalhe: form.linha_detalhe,
+            cliente: form.cliente,
+            caixas: Number(form.caixas),
+            pcts: Number(form.pcts),
+            rolos: Number(form.rolos),
+            refugos: Number(form.refugos),
+            fitas_rebobinadas: Number(form.fitas_rebobinadas),
+            refilo_kg: Number(form.refilo_kg),
+            perda_producao_kg: Number(form.perda_producao_kg),
             metragem_bobina_m: parseNumero(form.metragem_bobina_m),
-            metragem_unica_m: parseNumero(form.metragem_unica_m),
+            metragem_unica_m: parseNumero(form.metragem_bobina_m),
+            bobina_voltou_parcial: form.bobina_voltou_parcial,
+            metragem_devolvida_m: form.bobina_voltou_parcial ? parseNumero(form.metragem_devolvida_m) : null,
             observacoes: form.observacoes,
           },
         },
       })
       toast.success('Produção registrada.', { description: 'Registro #' + resultado.id + ' salvo. A baixa foi processada ou ficou pendente com alerta.' })
-      setForm((atual) => ({ ...atual, numero_bobina: '', peso_jumbo_kg: '', metragem_bobina_m: '', metragem_unica_m: '', observacoes: '' }))
+      setForm((atual) => ({ ...atual, numero_bobina: '', material: '', largura_jumbo_mm: '', peso_jumbo_kg: '', fornec_filme: '', lote_cola: '', fornec_cola: '', medida: '', cor: '', linha: 'PADRÃO', linha_detalhe: '', cliente: '', caixas: '0', pcts: '0', rolos: '0', refugos: '0', fitas_rebobinadas: '0', refilo_kg: '0', perda_producao_kg: '0', metragem_bobina_m: '', bobina_voltou_parcial: false, metragem_devolvida_m: '', observacoes: '' }))
+      setBobinaSelecionada(null)
+      setBuscaBobina('')
+      setResultadosBobina([])
       setMostrarCadastro(false)
       await carregar(true)
     } catch (error) {
@@ -423,16 +537,51 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             </div>
             <form onSubmit={(event) => void salvarProducao(event)} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label className="grid gap-1 text-sm"><span className="font-medium">Data</span><input required type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
-              <label className="grid gap-1 text-sm"><span className="font-medium">Máquina</span><input required value={form.maquina} onChange={(e) => setForm({ ...form, maquina: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" placeholder="M1" /></label>
-              <label className="grid gap-1 text-sm"><span className="font-medium">Nº da bobina</span><input required value={form.numero_bobina} onChange={(e) => setForm({ ...form, numero_bobina: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" placeholder="Número da etiqueta" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Máquina</span><select required value={form.maquina} onChange={(e) => setForm({ ...form, maquina: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3">{['M1','M2','M3','M4','M5','M6'].map((m) => <option key={m}>{m}</option>)}</select></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Setup</span><select value={form.setup ? 'SIM' : 'NÃO'} onChange={(e) => setForm({ ...form, setup: e.target.value === 'SIM' })} className="h-10 rounded-lg border border-input bg-background px-3"><option value="SIM">SIM</option><option value="NÃO">NÃO</option></select></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Turno</span><select value={form.turno} onChange={(e) => setForm({ ...form, turno: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3"><option>1º TURNO</option><option>2º TURNO</option></select></label>
-              <label className="grid gap-1 text-sm sm:col-span-2"><span className="font-medium">Produto cadastrado</span><select required value={form.produto_codigo} onChange={(e) => setForm({ ...form, produto_codigo: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3"><option value="">Selecione o produto</option>{produtos.map((p) => <option key={p.codigo} value={p.codigo}>{p.descricao}</option>)}</select></label>
-              <label className="grid gap-1 text-sm"><span className="font-medium">Peso da bobina (kg)</span><input inputMode="decimal" value={form.peso_jumbo_kg} onChange={(e) => setForm({ ...form, peso_jumbo_kg: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" placeholder="Opcional" /></label>
-              <label className="grid gap-1 text-sm"><span className="font-medium">Metragem da bobina (m)</span><input inputMode="decimal" value={form.metragem_bobina_m} onChange={(e) => setForm({ ...form, metragem_bobina_m: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" placeholder="Metragem informada" /></label>
-              <label className="grid gap-1 text-sm"><span className="font-medium">Metragem utilizada (m)</span><input inputMode="decimal" value={form.metragem_unica_m} onChange={(e) => setForm({ ...form, metragem_unica_m: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" placeholder="Deixe vazio para gerar alerta" /></label>
-              <label className="flex items-center gap-3 rounded-lg border border-border px-3 py-2 text-sm"><input type="checkbox" checked={form.setup} onChange={(e) => setForm({ ...form, setup: e.target.checked })} className="size-5" /><span><strong>Setup = SIM</strong><span className="block text-xs text-muted-foreground">Também consome a bobina.</span></span></label>
-              <label className="grid gap-1 text-sm sm:col-span-2 lg:col-span-4"><span className="font-medium">Observações</span><input value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
-              {produtoSelecionado && <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-4">Produto selecionado: {produtoSelecionado.material} · {produtoSelecionado.cor} · {produtoSelecionado.largura_jumbo_mm ?? '—'} mm · {produtoSelecionado.tipo_produto}</p>}
+
+              <div className="relative grid gap-1 text-sm sm:col-span-2 lg:col-span-4">
+                <label className="font-medium" htmlFor="numero-bobina-rebobinadeira">Nº da bobina (pesquise pelo número)</label>
+                <input id="numero-bobina-rebobinadeira" required value={buscaBobina} onChange={(e) => void pesquisarBobina(e.target.value)} className="h-10 rounded-lg border border-input bg-background px-3" placeholder="Digite pelo menos 2 caracteres" autoComplete="off" />
+                {buscandoBobina && <span className="text-xs text-muted-foreground">Pesquisando bobinas cadastradas...</span>}
+                {resultadosBobina.length > 0 && <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-card shadow-xl">{resultadosBobina.map((row) => <button key={row.numero_bobina + row.data} type="button" onClick={() => selecionarBobina(row)} className="flex w-full flex-col items-start border-b border-border px-3 py-2 text-left text-sm transition hover:bg-accent"><strong>{row.numero_bobina}</strong><span className="text-xs text-muted-foreground">{row.material} · {row.largura} mm · {row.metragem_m} m · {row.peso_kg} kg · {row.cor}</span></button>)}</div>}
+                {bobinaSelecionada ? <p className="text-xs text-emerald-700">Bobina localizada na Cobrideira. Dados de origem preenchidos automaticamente.</p> : form.numero_bobina.trim().length >= 2 && <p className="rounded-lg border border-red-300 bg-red-50 p-2 text-xs font-medium text-red-800">Bobina não cadastrada: a linha será salva como PENDENTE e ficará sinalizada para conciliação.</p>}
+              </div>
+
+              {bobinaSelecionada && <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3 text-xs sm:col-span-2 lg:col-span-4 sm:grid-cols-3 lg:grid-cols-4">
+                <span><strong>Material:</strong> {bobinaSelecionada.material}</span>
+                <span><strong>Largura:</strong> {formatar(bobinaSelecionada.largura, ' mm')}</span>
+                <span><strong>Peso original:</strong> {formatar(bobinaSelecionada.peso_kg, ' kg')}</span>
+                <span><strong>Metragem original:</strong> {formatar(bobinaSelecionada.metragem_m, ' m')}</span>
+                <span><strong>Saldo atual:</strong> {formatar(saldoBobinaSelecionada?.saldo_metros ?? bobinaSelecionada.metragem_m, ' m')} · {formatar(saldoBobinaSelecionada?.saldo_kg ?? bobinaSelecionada.peso_kg, ' kg')}</span>
+                <span><strong>Status:</strong> {saldoBobinaSelecionada?.status ?? 'CADASTRADA'}</span>
+                <span><strong>Fornecedor filme:</strong> {bobinaSelecionada.fornecedor_filme || '—'}</span>
+                <span><strong>Lote cola:</strong> {bobinaSelecionada.lote_cola || '—'}</span>
+              </div>}
+
+              <label className="grid gap-1 text-sm"><span className="font-medium">Material</span><input required readOnly={Boolean(bobinaSelecionada)} value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Largura da bobina (mm)</span><input required readOnly={Boolean(bobinaSelecionada)} inputMode="decimal" value={form.largura_jumbo_mm} onChange={(e) => setForm({ ...form, largura_jumbo_mm: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Peso da bobina (kg)</span><input required readOnly={Boolean(bobinaSelecionada)} inputMode="decimal" value={form.peso_jumbo_kg} onChange={(e) => setForm({ ...form, peso_jumbo_kg: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Fornecedor do filme</span><input readOnly={Boolean(bobinaSelecionada)} value={form.fornec_filme} onChange={(e) => setForm({ ...form, fornec_filme: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Lote da cola</span><input readOnly={Boolean(bobinaSelecionada)} value={form.lote_cola} onChange={(e) => setForm({ ...form, lote_cola: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Fornecedor da cola</span><input readOnly={Boolean(bobinaSelecionada)} value={form.fornec_cola} onChange={(e) => setForm({ ...form, fornec_cola: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Medida (ex.: 48x50)</span><input required value={form.medida} onChange={(e) => setForm({ ...form, medida: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" placeholder="48x50" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Cor</span><input required readOnly={Boolean(bobinaSelecionada)} value={form.cor} onChange={(e) => setForm({ ...form, cor: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Linha</span><select value={form.linha} onChange={(e) => setForm({ ...form, linha: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3"><option value="PADRÃO">Padrão</option><option value="PERSONALIZADA">Personalizada</option><option value="KIT">Kit</option></select></label>
+              {form.linha === 'KIT' && <label className="grid gap-1 text-sm"><span className="font-medium">Identificação do Kit</span><input required value={form.linha_detalhe} onChange={(e) => setForm({ ...form, linha_detalhe: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" placeholder="Descreva o kit" /></label>}
+              <label className="grid gap-1 text-sm"><span className="font-medium">Cliente</span><input readOnly={Boolean(bobinaSelecionada)} value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Caixas</span><input required type="number" min="0" step="1" value={form.caixas} onChange={(e) => setForm({ ...form, caixas: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Pacotes (pcts)</span><input required type="number" min="0" step="1" value={form.pcts} onChange={(e) => setForm({ ...form, pcts: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Rolos</span><input required type="number" min="0" step="1" value={form.rolos} onChange={(e) => setForm({ ...form, rolos: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Refugos</span><input required type="number" min="0" step="0.01" value={form.refugos} onChange={(e) => setForm({ ...form, refugos: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Fitas rebobinadas</span><input required type="number" min="0" step="0.01" value={form.fitas_rebobinadas} onChange={(e) => setForm({ ...form, fitas_rebobinadas: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Refilo (kg)</span><input required type="number" min="0" step="0.001" value={form.refilo_kg} onChange={(e) => setForm({ ...form, refilo_kg: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Perda de produção (kg)</span><input required type="number" min="0" step="0.001" value={form.perda_producao_kg} onChange={(e) => setForm({ ...form, perda_producao_kg: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Metragem da bobina (m)</span><input required readOnly={Boolean(bobinaSelecionada)} inputMode="decimal" value={form.metragem_bobina_m} onChange={(e) => setForm({ ...form, metragem_bobina_m: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3 read-only:bg-muted" /></label>
+              <label className="grid gap-1 text-sm"><span className="font-medium">Bobina voltou parcialmente?</span><select value={form.bobina_voltou_parcial ? 'SIM' : 'NÃO'} onChange={(e) => setForm({ ...form, bobina_voltou_parcial: e.target.value === 'SIM', metragem_devolvida_m: '' })} className="h-10 rounded-lg border border-input bg-background px-3"><option value="NÃO">NÃO</option><option value="SIM">SIM</option></select></label>
+              {form.bobina_voltou_parcial && <label className="grid gap-1 text-sm"><span className="font-medium">Metragem devolvida (m)</span><input required type="number" min="0.01" step="0.01" max={Math.max(0, Number(form.metragem_bobina_m || 0) - 0.01)} value={form.metragem_devolvida_m} onChange={(e) => setForm({ ...form, metragem_devolvida_m: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>}
+              <label className="grid gap-1 text-sm sm:col-span-2 lg:col-span-4"><span className="font-medium">Observações</span><textarea value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={2} className="rounded-lg border border-input bg-background px-3 py-2" /></label>
               <div className="flex flex-wrap justify-end gap-2 sm:col-span-2 lg:col-span-4">
                 <button type="button" onClick={() => setMostrarCadastro(false)} className="min-h-10 rounded-lg border border-border px-4 text-sm font-medium transition hover:bg-accent">Cancelar</button>
                 <button type="submit" disabled={salvando} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50"><Save className="size-4" /> {salvando ? 'Salvando...' : 'Salvar produção'}</button>
