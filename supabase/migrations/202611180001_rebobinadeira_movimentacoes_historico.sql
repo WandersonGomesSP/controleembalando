@@ -669,3 +669,193 @@ select
 from calculos;
 
 grant select on rebobinadeira.vw_estoque_minimo to authenticated, service_role;
+
+
+create or replace function rebobinadeira.registrar_producao(p_registro jsonb)
+returns bigint
+language plpgsql
+set search_path to ''
+as $function$
+declare
+  novo_id bigint;
+  numero text;
+  normalizado text;
+  codigo_produto text;
+begin
+  if p_registro is null or jsonb_typeof(p_registro) <> 'object' then
+    raise exception 'Dados da produção inválidos.';
+  end if;
+
+  numero := nullif(btrim(p_registro->>'numero_bobina'), '');
+  normalizado := rebobinadeira.normaliza_numero(numero);
+  if numero is null or normalizado is null then
+    raise exception 'Informe um número de bobina válido.';
+  end if;
+  if nullif(btrim(p_registro->>'data'), '') is null then
+    raise exception 'Informe a data da produção.';
+  end if;
+  if nullif(btrim(p_registro->>'produto_codigo'), '') is null then
+    raise exception 'Selecione um produto cadastrado.';
+  end if;
+
+  codigo_produto := btrim(p_registro->>'produto_codigo');
+  if not exists (select 1 from rebobinadeira.produtos_jumbo where codigo = codigo_produto and ativo) then
+    raise exception 'O produto selecionado não existe ou está inativo.';
+  end if;
+
+  insert into rebobinadeira.bobinas (
+    numero_bobina, numero_normalizado, data, maquina, setup, turno,
+    material, produto_codigo, largura_jumbo_mm, peso_jumbo_kg,
+    cor, linha, metragem_bobina_m, metragem_unica_m,
+    observacoes
+  )
+  select
+    numero,
+    normalizado,
+    (p_registro->>'data')::date,
+    nullif(btrim(p_registro->>'maquina'), ''),
+    coalesce((p_registro->>'setup')::boolean, false),
+    nullif(btrim(p_registro->>'turno'), ''),
+    p.material,
+    p.codigo,
+    p.largura_jumbo_mm,
+    nullif(p_registro->>'peso_jumbo_kg','')::numeric,
+    p.cor,
+    p.tipo_produto,
+    nullif(p_registro->>'metragem_bobina_m','')::numeric,
+    nullif(p_registro->>'metragem_unica_m','')::numeric,
+    nullif(btrim(p_registro->>'observacoes'), '')
+  from rebobinadeira.produtos_jumbo p
+  where p.codigo = codigo_produto
+  returning id into novo_id;
+
+  return novo_id;
+end;
+$function$;
+
+create or replace function rebobinadeira.estornar_producao(p_producao_id bigint, p_motivo text)
+returns boolean
+language plpgsql
+set search_path to ''
+as $function$
+declare
+  p rebobinadeira.bobinas%rowtype;
+  movimento record;
+begin
+  if nullif(btrim(p_motivo), '') is null then
+    raise exception 'Informe o motivo do estorno.';
+  end if;
+
+  select * into p
+  from rebobinadeira.bobinas
+  where id = p_producao_id
+  for update;
+
+  if not found then
+    raise exception 'Registro de produção não encontrado.';
+  end if;
+  if p.status_baixa = 'ESTORNADA' then
+    raise exception 'Esta produção já foi estornada.';
+  end if;
+
+  for movimento in
+    select m.*
+    from rebobinadeira.movimentacoes_bobinas m
+    where m.producao_id = p_producao_id
+      and m.tipo_movimento in ('CONSUMO','DEVOLUCAO')
+      and not exists (
+        select 1
+        from rebobinadeira.movimentacoes_bobinas e
+        where e.chave_origem = 'ESTORNO:' || p_producao_id::text || ':' || m.id::text
+      )
+  loop
+    insert into rebobinadeira.movimentacoes_bobinas (
+      numero_bobina, numero_normalizado, tipo_movimento,
+      metragem_delta_m, peso_delta_kg, producao_id,
+      chave_origem, observacoes
+    )
+    values (
+      movimento.numero_bobina, movimento.numero_normalizado, 'ESTORNO',
+      -movimento.metragem_delta_m, -movimento.peso_delta_kg, p_producao_id,
+      'ESTORNO:' || p_producao_id::text || ':' || movimento.id::text,
+      'Estorno da movimentação ' || movimento.id::text || '. Motivo: ' || btrim(p_motivo)
+    );
+  end loop;
+
+  update rebobinadeira.bobinas
+  set status_baixa = 'ESTORNADA'
+  where id = p_producao_id;
+
+  update rebobinadeira.alertas_bobinas
+  set status = 'RESOLVIDO', resolvido_em = now()
+  where producao_id = p_producao_id and status = 'ABERTO';
+
+  return true;
+end;
+$function$;
+
+create or replace function rebobinadeira.ajuste_manual(
+  p_numero_bobina text,
+  p_metros_delta numeric,
+  p_peso_delta numeric,
+  p_motivo text
+)
+returns boolean
+language plpgsql
+set search_path to ''
+as $function$
+declare
+  c cobrideira.bobinas%rowtype;
+  normalizado text;
+  saldo_metros numeric(14,2);
+  saldo_peso numeric(14,3);
+begin
+  if nullif(btrim(p_motivo), '') is null then
+    raise exception 'Informe o motivo do ajuste.';
+  end if;
+  if coalesce(p_metros_delta,0) = 0 and coalesce(p_peso_delta,0) = 0 then
+    raise exception 'Informe uma diferença de metragem ou peso.';
+  end if;
+
+  normalizado := rebobinadeira.normaliza_numero(p_numero_bobina);
+  select * into c
+  from cobrideira.bobinas
+  where rebobinadeira.normaliza_numero(numero_bobina) = normalizado
+  for update;
+
+  if not found then
+    raise exception 'Bobina não encontrada no estoque ativo da Cobrideira.';
+  end if;
+
+  select coalesce(sum(metragem_delta_m),0), coalesce(sum(peso_delta_kg),0)
+  into saldo_metros, saldo_peso
+  from rebobinadeira.movimentacoes_bobinas
+  where numero_normalizado = normalizado;
+
+  if saldo_metros + coalesce(p_metros_delta,0) < 0
+     or saldo_peso + coalesce(p_peso_delta,0) < 0 then
+    raise exception 'O ajuste deixaria o saldo negativo. Nenhuma alteração foi feita.';
+  end if;
+
+  insert into rebobinadeira.movimentacoes_bobinas (
+    numero_bobina, numero_normalizado, tipo_movimento,
+    metragem_delta_m, peso_delta_kg, chave_origem, observacoes
+  )
+  values (
+    c.numero_bobina, normalizado, 'AJUSTE',
+    coalesce(p_metros_delta,0), coalesce(p_peso_delta,0),
+    'AJUSTE_MANUAL:' || gen_random_uuid()::text,
+    btrim(p_motivo)
+  );
+
+  if coalesce(p_metros_delta,0) > 0 or coalesce(p_peso_delta,0) > 0 then
+    perform rebobinadeira.reprocessar_pendentes(c.numero_bobina);
+  end if;
+
+  return true;
+end;
+$function$;
+
+grant execute on function rebobinadeira.registrar_producao(jsonb) to service_role;
+grant execute on function rebobinadeira.estornar_producao(bigint,text) to service_role;
+grant execute on function rebobinadeira.ajuste_manual(text,numeric,numeric,text) to service_role;
