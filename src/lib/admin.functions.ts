@@ -507,6 +507,66 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
     }
   })
 
+export const registrarProducaoRebobinadeira = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({
+    registro: z.object({
+      data: isoDate,
+      maquina: z.string().trim().min(1).max(40),
+      setup: z.boolean().default(false),
+      numero_bobina: z.string().trim().min(1).max(80),
+      turno: z.enum(['1º TURNO', '2º TURNO']),
+      produto_codigo: z.string().trim().min(1).max(180),
+      peso_jumbo_kg: z.number().positive().nullable().optional(),
+      metragem_bobina_m: z.number().positive().nullable().optional(),
+      metragem_unica_m: z.number().positive().nullable().optional(),
+      observacoes: z.string().max(1000).optional().default(''),
+    }),
+  }))
+  .handler(async ({ data }) => {
+    const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const { data: id, error } = await client.schema('rebobinadeira').rpc('registrar_producao', {
+      p_registro: data.registro,
+    })
+    if (error) throw new Error('Não foi possível registrar a produção: ' + error.message)
+    return { id: Number(id) }
+  })
+
+export const estornarProducaoRebobinadeira = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({
+    producaoId: z.number().int().positive(),
+    motivo: z.string().trim().min(3).max(500),
+  }))
+  .handler(async ({ data }) => {
+    const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const { data: success, error } = await client.schema('rebobinadeira').rpc('estornar_producao', {
+      p_producao_id: data.producaoId,
+      p_motivo: data.motivo,
+    })
+    if (error) throw new Error('Não foi possível estornar a produção: ' + error.message)
+    return { success: Boolean(success) }
+  })
+
+export const ajustarSaldoBobinaRebobinadeira = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({
+    numeroBobina: z.string().trim().min(1).max(80),
+    metrosDelta: z.number().min(-1000000).max(1000000).default(0),
+    pesoDelta: z.number().min(-100000).max(100000).default(0),
+    motivo: z.string().trim().min(3).max(500),
+  }).refine((value) => value.metrosDelta !== 0 || value.pesoDelta !== 0, {
+    message: 'Informe uma diferença de metragem ou peso.',
+  }))
+  .handler(async ({ data }) => {
+    const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const { data: success, error } = await client.schema('rebobinadeira').rpc('ajuste_manual', {
+      p_numero_bobina: data.numeroBobina,
+      p_metros_delta: data.metrosDelta,
+      p_peso_delta: data.pesoDelta,
+      p_motivo: data.motivo,
+    })
+    if (error) throw new Error('Não foi possível ajustar o saldo da bobina: ' + error.message)
+    return { success: Boolean(success) }
+  })
+
 export const listDeveloperData = createServerFn({ method: 'POST' })
   .validator(tokenInput)
   .handler(async ({ data }) => {
