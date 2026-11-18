@@ -985,3 +985,12 @@ grant execute on function rebobinadeira.registrar_producao(jsonb) to service_rol
 grant execute on function rebobinadeira.estornar_producao(bigint,text) to service_role;
 grant execute on function rebobinadeira.ajuste_manual(text,numeric,numeric,text) to service_role;
 grant execute on function rebobinadeira.processar_lote(uuid) to service_role;
+
+
+-- Evita que o mesmo arquivo inteiro seja processado novamente, mesmo se as linhas forem reordenadas.
+alter table rebobinadeira.importacao_log
+  add column if not exists hash_arquivo text;
+
+create unique index if not exists importacao_log_hash_arquivo_unique
+  on rebobinadeira.importacao_log (hash_arquivo)
+  where hash_arquivo is not null;
