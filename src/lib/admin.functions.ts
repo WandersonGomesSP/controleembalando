@@ -639,6 +639,37 @@ export const buscarBobinasOrigemRebobinadeira = createServerFn({ method: 'POST' 
     }))
   })
 
+export const adicionarMedidaRebobinadeira = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({
+    descricao: z.string().trim().min(1).max(80),
+  }))
+  .handler(async ({ data }) => {
+    const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const descricao = data.descricao.replace(/\\s+/g, ' ').trim()
+    const codigo = 'MEDIDA|' + descricao
+    const { data: produto, error } = await client.schema('rebobinadeira').from('produtos_jumbo')
+      .upsert({
+        codigo,
+        descricao,
+        material: 'MEDIDA',
+        cor: 'SEM COR',
+        tipo_produto: 'PADRÃO',
+        piso_minimo_jumbos: 1,
+        ativo: false,
+        ajuste_estoque_percentual: 0,
+        alerta_estoque_baixo_ativo: false,
+      }, { onConflict: 'codigo', ignoreDuplicates: true })
+      .select('codigo,descricao,material,cor,largura_jumbo_mm,tipo_produto,lead_time_dias,piso_minimo_jumbos,ativo,ajuste_estoque_percentual,alerta_estoque_baixo_ativo')
+      .maybeSingle()
+    if (error) throw new Error('Não foi possível adicionar a medida: ' + error.message)
+    if (produto) return produto
+    const { data: existente, error: erroBusca } = await client.schema('rebobinadeira').from('produtos_jumbo')
+      .select('codigo,descricao,material,cor,largura_jumbo_mm,tipo_produto,lead_time_dias,piso_minimo_jumbos,ativo,ajuste_estoque_percentual,alerta_estoque_baixo_ativo')
+      .eq('codigo', codigo).single()
+    if (erroBusca || !existente) throw new Error('Não foi possível confirmar a medida cadastrada.')
+    return existente
+  })
+
 export const registrarProducaoRebobinadeira = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({
     registro: z.object({
