@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   Bell,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   ClipboardList,
@@ -109,7 +108,7 @@ function severidadeClass(severidade: string) {
       : 'border-border bg-muted text-foreground'
 }
 
-export function HistoricoProducao({ onChangeArea, onBack, isDeveloper }: Props) {
+export function HistoricoProducao({ onChangeArea, onBack }: Props) {
   const [registros, setRegistros] = React.useState<ProducaoRow[]>([])
   const [alertas, setAlertas] = React.useState<RebobinadeiraAlertaBobinaRow[]>([])
   const [saldos, setSaldos] = React.useState<RebobinadeiraSaldoBobinaRow[]>([])
