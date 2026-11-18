@@ -212,6 +212,48 @@ export type RebobinadeiraEstoqueMinimoRow = {
   estoque_minimo_kg: number
 }
 
+export type RebobinadeiraSaldoBobinaRow = {
+  numero_bobina: string
+  data: string | null
+  material: string | null
+  largura_mm: number | null
+  micragem: number | null
+  metragem_inicial_m: number | null
+  peso_inicial_kg: number | null
+  saldo_metros: number
+  saldo_kg: number
+  status: 'CADASTRADA' | 'EM_USO' | 'DEVOLVIDA_PARCIAL' | 'CONSUMIDA' | 'LIXEIRA'
+}
+
+export type RebobinadeiraAlertaBobinaRow = {
+  id: number
+  tipo: string
+  severidade: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAIXA'
+  status: 'ABERTO' | 'RESOLVIDO'
+  numero_bobina: string | null
+  numero_normalizado: string | null
+  producao_id: number | null
+  mensagem: string
+  detalhes: Record<string, unknown>
+  criado_em: string
+  resolvido_em: string | null
+  resolvido_por: string | null
+}
+
+export type RebobinadeiraMovimentoBobinaRow = {
+  id: number
+  numero_bobina: string
+  numero_normalizado: string
+  tipo_movimento: 'ENTRADA' | 'CONSUMO' | 'DEVOLUCAO' | 'AJUSTE' | 'ESTORNO'
+  metragem_delta_m: number
+  peso_delta_kg: number
+  producao_id: number | null
+  chave_origem: string
+  observacoes: string | null
+  criado_por: string | null
+  criado_em: string
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -355,6 +397,9 @@ export type Database = {
         numero_bobina: string
         numero_normalizado: string
         data: string
+        maquina: string | null
+        setup: boolean
+        turno: string | null
         material: string
         produto_codigo: string
         largura_jumbo_mm: number | null
@@ -362,7 +407,15 @@ export type Database = {
         cor: string
         linha: string
         metragem_bobina_m: number | null
+        metragem_unica_m: number | null
+        status_baixa: string
+        metros_consumidos: number | null
+        peso_consumido_kg: number | null
+        observacoes: string | null
       }>
+      movimentacoes_bobinas: Table<RebobinadeiraMovimentoBobinaRow>
+      alertas_bobinas: Table<RebobinadeiraAlertaBobinaRow>
+      configuracoes_bobinas: Table<{ id: number; tolerancia_metros: number; atualizado_em: string }>
       staging_planilha: Table<{ id: number; lote_id: string; linha_csv: number }>
       importacao_log: Table<{ id: string; origem: string; nome_arquivo: string | null; linhas_recebidas: number; linhas_gravadas: number; status: string | null; criado_em: string }>
     }
@@ -371,9 +424,16 @@ export type Database = {
         Row: RebobinadeiraEstoqueMinimoRow
         Relationships: []
       }
+      vw_saldo_bobinas: {
+        Row: RebobinadeiraSaldoBobinaRow
+        Relationships: []
+      }
     }
     Functions: {
       processar_lote: { Args: { p_lote: string }; Returns: number }
+      registrar_producao: { Args: { p_registro: Record<string, unknown> }; Returns: number }
+      estornar_producao: { Args: { p_producao_id: number; p_motivo: string }; Returns: boolean }
+      ajuste_manual: { Args: { p_numero_bobina: string; p_metros_delta: number; p_peso_delta: number; p_motivo: string }; Returns: boolean }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
