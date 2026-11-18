@@ -66,8 +66,8 @@ create index if not exists alertas_bobinas_numero_idx
   on rebobinadeira.alertas_bobinas (numero_normalizado, status);
 
 create unique index if not exists alertas_bobinas_aberto_unique
-  on rebobinadeira.alertas_bobinas (coalesce(producao_id, 0), coalesce(numero_normalizado, ''), tipo)
-  where status = 'ABERTO';
+  on rebobinadeira.alertas_bobinas (producao_id, tipo)
+  where status = 'ABERTO' and producao_id is not null;
 
 create table if not exists rebobinadeira.configuracoes_bobinas (
   id smallint primary key default 1 check (id = 1),
