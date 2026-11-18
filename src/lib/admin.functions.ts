@@ -592,6 +592,33 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
     }
   })
 
+export const buscarBobinasOrigemRebobinadeira = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ termo: z.string().trim().min(1).max(80) }))
+  .handler(async ({ data }) => {
+    const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const termo = data.termo.trim()
+    const { data: rows, error } = await client.schema('cobrideira').from('bobinas')
+      .select('numero_bobina,data,material,largura,peso_liquido,peso_final,metragem,fornecedor_filme,lote_cola,fornecedor_cola,cor_fundo,linha,cliente')
+      .ilike('numero_bobina', '%' + termo + '%')
+      .order('data', { ascending: false })
+      .limit(15)
+    if (error) throw new Error('Não foi possível pesquisar bobinas cadastradas: ' + error.message)
+    return (rows ?? []).map((row) => ({
+      numero_bobina: row.numero_bobina,
+      data: row.data,
+      material: row.material,
+      largura: Number(row.largura),
+      peso_kg: Number(row.peso_liquido ?? row.peso_final),
+      metragem_m: Number(row.metragem),
+      fornecedor_filme: row.fornecedor_filme,
+      lote_cola: row.lote_cola,
+      fornecedor_cola: row.fornecedor_cola,
+      cor: row.cor_fundo,
+      linha: row.linha,
+      cliente: row.cliente,
+    }))
+  })
+
 export const registrarProducaoRebobinadeira = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({
     registro: z.object({
@@ -604,6 +631,24 @@ export const registrarProducaoRebobinadeira = createServerFn({ method: 'POST' })
       peso_jumbo_kg: z.number().positive().nullable().optional(),
       metragem_bobina_m: z.number().positive().nullable().optional(),
       metragem_unica_m: z.number().positive().nullable().optional(),
+      material: z.string().trim().min(1).max(120),
+      largura_jumbo_mm: z.number().positive().nullable().optional(),
+      fornec_filme: z.string().max(180).nullable().optional(),
+      lote_cola: z.string().max(120).nullable().optional(),
+      fornec_cola: z.string().max(180).nullable().optional(),
+      medida: z.string().max(80).nullable().optional(),
+      cor: z.string().trim().min(1).max(100),
+      linha: z.enum(['PADRÃO', 'PERSONALIZADA', 'KIT']),
+      cliente: z.string().max(180).nullable().optional(),
+      caixas: z.number().int().min(0).max(1000000),
+      pcts: z.number().int().min(0).max(1000000),
+      rolos: z.number().int().min(0).max(1000000),
+      refugos: z.number().min(0).max(1000000),
+      fitas_rebobinadas: z.number().min(0).max(1000000),
+      refilo_kg: z.number().min(0).max(1000000),
+      perda_producao_kg: z.number().min(0).max(1000000),
+      bobina_voltou_parcial: z.boolean(),
+      metragem_devolvida_m: z.number().min(0).nullable().optional(),
       observacoes: z.string().max(1000).optional().default(''),
     }),
   }))
