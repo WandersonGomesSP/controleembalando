@@ -33,7 +33,6 @@ import type {
 
 type Props = {
   onChangeArea: () => void
-  onBack: () => void
   isDeveloper: boolean
 }
 
@@ -108,7 +107,7 @@ function severidadeClass(severidade: string) {
       : 'border-border bg-muted text-foreground'
 }
 
-export function HistoricoProducao({ onChangeArea, onBack }: Props) {
+export function HistoricoProducao({ onChangeArea }: Props) {
   const [registros, setRegistros] = React.useState<ProducaoRow[]>([])
   const [alertas, setAlertas] = React.useState<RebobinadeiraAlertaBobinaRow[]>([])
   const [saldos, setSaldos] = React.useState<RebobinadeiraSaldoBobinaRow[]>([])
@@ -121,7 +120,7 @@ export function HistoricoProducao({ onChangeArea, onBack }: Props) {
   const [dataInicio, setDataInicio] = React.useState('')
   const [dataFim, setDataFim] = React.useState('')
   const [pagina, setPagina] = React.useState(0)
-  const [detalheAberto, setDetalheAberto] = React.useState<number | null>(null)
+  const [detalheAberto, setDetalheAberto] = React.useState<string | null>(null)
   const [mostrarCadastro, setMostrarCadastro] = React.useState(false)
   const [mostrarAjuste, setMostrarAjuste] = React.useState(false)
   const [salvando, setSalvando] = React.useState(false)
@@ -182,16 +181,44 @@ export function HistoricoProducao({ onChangeArea, onBack }: Props) {
   React.useEffect(() => { void carregar() }, [carregar])
 
   const filtrados = React.useMemo(() => {
+    const mapa = new Map<string, ProducaoRow[]>()
+    for (const item of registros) {
+      const chave = item.numero_normalizado || item.numero_bobina.replace(/\\D/g, '')
+      const grupo = mapa.get(chave) ?? []
+      grupo.push(item)
+      mapa.set(chave, grupo)
+    }
     const termo = busca.trim().toLocaleLowerCase('pt-BR')
-    return registros.filter((item) => {
-      const correspondeTexto = !termo || [
-        item.numero_bobina, item.maquina, item.material, item.cor, item.linha, item.produto_codigo,
-      ].some((valor) => String(valor ?? '').toLocaleLowerCase('pt-BR').includes(termo))
-      const correspondeStatus = !statusFiltro || item.status_baixa === statusFiltro
-      const correspondeInicio = !dataInicio || item.data >= dataInicio
-      const correspondeFim = !dataFim || item.data <= dataFim
+    return Array.from(mapa.entries()).map(([chave, linhas]) => {
+      const ordenadas = [...linhas].sort((a, b) => a.data.localeCompare(b.data) || a.id - b.id)
+      const primeira = ordenadas[0]!
+      const ultima = ordenadas[ordenadas.length - 1]!
+      const dataInicioGrupo = primeira.data
+      const dataFimGrupo = ultima.data
+      const diasNaMaquina = Math.max(1, Math.floor((new Date(dataFimGrupo + 'T00:00:00').getTime() - new Date(dataInicioGrupo + 'T00:00:00').getTime()) / 86400000) + 1)
+      const maquinas = Array.from(new Set(ordenadas.map((item) => item.maquina).filter((v): v is string => Boolean(v))))
+      const grupo = {
+        numero_normalizado: chave,
+        numero_bobina: primeira.numero_bobina,
+        dataInicio: dataInicioGrupo,
+        dataFim: dataFimGrupo,
+        diasNaMaquina,
+        maquinas,
+        material: ultima.material,
+        cor: ultima.cor,
+        status: ultima.status_baixa,
+        metrosConsumidos: ordenadas.reduce((soma, item) => soma + Number(item.metros_consumidos ?? item.metragem_unica_m ?? 0), 0),
+        linhas: ordenadas,
+      }
+      return grupo
+    }).filter((grupo) => {
+      const correspondeTexto = !termo || [grupo.numero_bobina, grupo.material, grupo.cor, ...grupo.maquinas, ...grupo.linhas.map((item) => item.produto_codigo)]
+        .some((valor) => String(valor ?? '').toLocaleLowerCase('pt-BR').includes(termo))
+      const correspondeStatus = !statusFiltro || grupo.status === statusFiltro || grupo.linhas.some((item) => item.status_baixa === statusFiltro)
+      const correspondeInicio = !dataInicio || grupo.dataFim >= dataInicio
+      const correspondeFim = !dataFim || grupo.dataInicio <= dataFim
       return correspondeTexto && correspondeStatus && correspondeInicio && correspondeFim
-    })
+    }).sort((a, b) => b.dataFim.localeCompare(a.dataFim) || a.numero_bobina.localeCompare(b.numero_bobina))
   }, [registros, busca, statusFiltro, dataInicio, dataFim])
 
   const porPagina = 30
@@ -341,7 +368,7 @@ export function HistoricoProducao({ onChangeArea, onBack }: Props) {
               <img src="/embalando-logo.svg" alt="Embalando Fitas Adesivas" className="h-12 w-48 object-contain" />
               <div>
                 <h1 className="text-lg font-semibold leading-tight">Rebobinadeira</h1>
-                <p className="text-xs text-muted-foreground">Histórico de produção e movimentações de bobinas</p>
+                <p className="text-xs text-muted-foreground">Registro e histórico de produção</p>
               </div>
             </div>
             <button type="button" onClick={onChangeArea} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-black bg-black px-3 text-xs font-semibold text-white transition hover:bg-zinc-800">
@@ -365,8 +392,7 @@ export function HistoricoProducao({ onChangeArea, onBack }: Props) {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rebobinadeira / Histórico</p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight">Histórico de produção</h2>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Cada linha representa um lançamento. A mesma bobina pode aparecer várias vezes, e cada lançamento gera sua própria movimentação.
-              Setup também consome a bobina.
+              Os lançamentos da mesma bobina são agrupados. O histórico mantém cada produção individual nos detalhes, com período de permanência na máquina.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -472,7 +498,7 @@ export function HistoricoProducao({ onChangeArea, onBack }: Props) {
 
         <section className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="flex flex-col gap-3 border-b border-border p-4">
-            <div><h3 className="font-semibold">Lançamentos de produção</h3><p className="text-xs text-muted-foreground">A listagem preserva todas as linhas; números de bobina repetidos não são descartados.</p></div>
+            <div><h3 className="font-semibold">Bobinas no histórico</h3><p className="text-xs text-muted-foreground">Cada bobina aparece uma vez na lista. Abra os detalhes para consultar todos os lançamentos e estornar uma linha específica.</p></div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <label className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input value={busca} onChange={(e) => { setBusca(e.target.value); setPagina(0) }} placeholder="Buscar bobina, máquina ou produto" className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm" /></label>
               <select value={statusFiltro} onChange={(e) => { setStatusFiltro(e.target.value); setPagina(0) }} className="h-10 rounded-lg border border-input bg-background px-3 text-sm"><option value="">Todos os status</option><option value="PENDENTE">Pendente</option><option value="NAO_PROCESSADA">Não processada</option><option value="DEVOLVIDA_PARCIAL">Devolvida parcialmente</option><option value="CONSUMIDA">Consumida</option><option value="ESTORNADA">Estornada</option></select>
@@ -483,23 +509,36 @@ export function HistoricoProducao({ onChangeArea, onBack }: Props) {
           {carregando ? <p className="p-10 text-center text-sm text-muted-foreground">Carregando histórico...</p> : paginaRegistros.length === 0 ? <p className="p-10 text-center text-sm text-muted-foreground">Nenhum lançamento encontrado com os filtros atuais.</p> : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1050px] text-left text-sm">
-                <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="px-4 py-3">Data</th><th className="px-4 py-3">Bobina</th><th className="px-4 py-3">Máquina</th><th className="px-4 py-3">Setup</th><th className="px-4 py-3">Produto</th><th className="px-4 py-3">Metros lançados</th><th className="px-4 py-3">Baixa realizada</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Ações</th></tr></thead>
+                <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="px-4 py-3">Início</th><th className="px-4 py-3">Término</th><th className="px-4 py-3">Dias na máquina</th><th className="px-4 py-3">Bobina</th><th className="px-4 py-3">Máquina(s)</th><th className="px-4 py-3">Produto</th><th className="px-4 py-3">Lançamentos</th><th className="px-4 py-3">Metros consumidos</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Detalhes</th></tr></thead>
                 <tbody className="divide-y divide-border">
-                  {paginaRegistros.map((item) => (
-                    <React.Fragment key={item.id}>
+                  {paginaRegistros.map((grupo) => (
+                    <React.Fragment key={grupo.numero_normalizado}>
                       <tr className="hover:bg-muted/30">
-                        <td className="whitespace-nowrap px-4 py-3">{formatarData(item.data)}</td>
-                        <td className="px-4 py-3 font-mono font-semibold">{item.numero_bobina}</td>
-                        <td className="px-4 py-3">{item.maquina ?? '—'} · {item.turno ?? '—'}</td>
-                        <td className="px-4 py-3">{item.setup ? 'SIM' : 'NÃO'}</td>
-                        <td className="px-4 py-3">{item.material} · {item.cor}</td>
-                        <td className="px-4 py-3 tabular-nums">{formatar(item.metragem_unica_m ?? item.metragem_bobina_m, ' m')}</td>
-                        <td className="px-4 py-3 tabular-nums">{formatar(item.metros_consumidos, ' m')}</td>
-                        <td className="px-4 py-3"><span className={'inline-flex rounded-full border px-2 py-1 text-xs font-semibold ' + statusClass(item.status_baixa)}>{statusLabel(item.status_baixa)}</span></td>
-                        <td className="px-4 py-3"><div className="flex items-center gap-2"><button type="button" onClick={() => setDetalheAberto(detalheAberto === item.id ? null : item.id)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent">{detalheAberto === item.id ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />} Detalhes</button>{item.status_baixa !== 'ESTORNADA' && <button type="button" onClick={() => setEstornoAberto(estornoAberto === item.id ? null : item.id)} className="inline-flex items-center gap-1 rounded-md border border-red-300 px-2 py-1.5 text-xs text-red-800 hover:bg-red-50"><RotateCcw className="size-3" /> Estornar</button>}</div></td>
+                        <td className="whitespace-nowrap px-4 py-3">{formatarData(grupo.dataInicio)}</td>
+                        <td className="whitespace-nowrap px-4 py-3">{formatarData(grupo.dataFim)}</td>
+                        <td className="px-4 py-3 tabular-nums font-semibold">{grupo.diasNaMaquina}</td>
+                        <td className="px-4 py-3 font-mono font-semibold">{grupo.numero_bobina}</td>
+                        <td className="px-4 py-3">{grupo.maquinas.join(', ') || '—'}</td>
+                        <td className="px-4 py-3">{grupo.material} · {grupo.cor}</td>
+                        <td className="px-4 py-3 tabular-nums">{grupo.linhas.length}</td>
+                        <td className="px-4 py-3 tabular-nums">{formatar(grupo.metrosConsumidos, ' m')}</td>
+                        <td className="px-4 py-3"><span className={'inline-flex rounded-full border px-2 py-1 text-xs font-semibold ' + statusClass(grupo.status)}>{statusLabel(grupo.status)}</span></td>
+                        <td className="px-4 py-3"><button type="button" onClick={() => setDetalheAberto(detalheAberto === grupo.numero_normalizado ? null : grupo.numero_normalizado)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent">{detalheAberto === grupo.numero_normalizado ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />} {detalheAberto === grupo.numero_normalizado ? 'Fechar' : 'Ver lançamentos'}</button></td>
                       </tr>
-                      {detalheAberto === item.id && <tr className="bg-muted/20"><td colSpan={9} className="px-4 py-3 text-xs"><div className="grid gap-2 sm:grid-cols-3"><span><strong>ID:</strong> {item.id}</span><span><strong>Nº normalizado:</strong> {item.numero_normalizado}</span><span><strong>Produto:</strong> {item.produto_codigo}</span><span><strong>Metragem bobina:</strong> {formatar(item.metragem_bobina_m, ' m')}</span><span><strong>Peso jumbo:</strong> {formatar(item.peso_jumbo_kg, ' kg')}</span><span><strong>Peso baixado:</strong> {formatar(item.peso_consumido_kg, ' kg')}</span></div>{item.observacoes && <p className="mt-2"><strong>Observações:</strong> {item.observacoes}</p>}</td></tr>}
-                      {estornoAberto === item.id && <tr className="bg-red-50"><td colSpan={9} className="px-4 py-3"><div className="flex flex-col gap-2 sm:flex-row"><input value={motivoEstorno[item.id] ?? ''} onChange={(e) => setMotivoEstorno((estado) => ({ ...estado, [item.id]: e.target.value }))} placeholder="Motivo obrigatório do estorno" className="h-10 flex-1 rounded-lg border border-red-200 bg-white px-3 text-sm" /><button type="button" disabled={salvando} onClick={() => void estornar(item.id)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50"><RotateCcw className="size-4" /> Confirmar estorno</button><button type="button" onClick={() => setEstornoAberto(null)} className="min-h-10 rounded-lg border border-red-200 px-3 text-sm hover:bg-red-100">Cancelar</button></div></td></tr>}
+                      {detalheAberto === grupo.numero_normalizado && <tr className="bg-muted/20"><td colSpan={10} className="px-4 py-3">
+                        <div className="mb-3 grid gap-2 text-xs sm:grid-cols-3">
+                          <span><strong>Primeiro registro:</strong> {formatarData(grupo.dataInicio)}</span>
+                          <span><strong>Último registro:</strong> {formatarData(grupo.dataFim)}</span>
+                          <span><strong>Total de dias:</strong> {grupo.diasNaMaquina}</span>
+                        </div>
+                        <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-xs">
+                          <thead><tr className="text-muted-foreground"><th className="px-2 py-2">Data</th><th className="px-2 py-2">Máquina/turno</th><th className="px-2 py-2">Setup</th><th className="px-2 py-2">Metros</th><th className="px-2 py-2">Baixa</th><th className="px-2 py-2">Status</th><th className="px-2 py-2">Ação</th></tr></thead>
+                          <tbody>{grupo.linhas.map((item) => <React.Fragment key={item.id}>
+                            <tr className="border-t border-border"><td className="px-2 py-2">{formatarData(item.data)}</td><td className="px-2 py-2">{item.maquina ?? '—'} · {item.turno ?? '—'}</td><td className="px-2 py-2">{item.setup ? 'SIM' : 'NÃO'}</td><td className="px-2 py-2">{formatar(item.metragem_unica_m ?? item.metragem_bobina_m, ' m')}</td><td className="px-2 py-2">{formatar(item.metros_consumidos, ' m')}</td><td className="px-2 py-2">{statusLabel(item.status_baixa)}</td><td className="px-2 py-2">{item.status_baixa !== 'ESTORNADA' && <button type="button" onClick={() => setEstornoAberto(estornoAberto === item.id ? null : item.id)} className="inline-flex items-center gap-1 rounded-md border border-red-300 px-2 py-1 text-red-800 hover:bg-red-50"><RotateCcw className="size-3" /> Estornar</button>}</td></tr>
+                            {estornoAberto === item.id && <tr className="bg-red-50"><td colSpan={7} className="px-2 py-2"><div className="flex flex-col gap-2 sm:flex-row"><input value={motivoEstorno[item.id] ?? ''} onChange={(e) => setMotivoEstorno((estado) => ({ ...estado, [item.id]: e.target.value }))} placeholder="Motivo obrigatório do estorno" className="h-9 flex-1 rounded-lg border border-red-200 bg-white px-3 text-sm" /><button type="button" disabled={salvando} onClick={() => void estornar(item.id)} className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-red-700 px-3 text-xs font-semibold text-white hover:bg-red-800 disabled:opacity-50">Confirmar estorno</button><button type="button" onClick={() => setEstornoAberto(null)} className="min-h-9 rounded-lg border border-red-200 px-3 text-xs hover:bg-red-100">Cancelar</button></div></td></tr>}
+                          </React.Fragment>)}</tbody>
+                        </table></div>
+                      </td></tr>}
                     </React.Fragment>
                   ))}
                 </tbody>
