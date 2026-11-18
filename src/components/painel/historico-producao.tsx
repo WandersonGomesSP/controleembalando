@@ -124,7 +124,7 @@ function statusLabel(status: string) {
 }
 
 function statusClass(status: string) {
-  if (status === 'CONSUMIDA' || status === 'ESTORNADA' || status === 'CADASTRADA' || status === 'EM_USO') return 'border-emerald-300 bg-emerald-50 text-emerald-800'
+  if (status === 'CONSUMIDA' || status === 'CADASTRADA' || status === 'EM_USO') return 'border-emerald-300 bg-emerald-50 text-emerald-800'
   if (status === 'PENDENTE' || status === 'NAO_PROCESSADA' || status === 'LIXEIRA') return 'border-red-300 bg-red-50 text-red-800'
   if (status === 'DEVOLVIDA_PARCIAL') return 'border-amber-300 bg-amber-50 text-amber-800'
   if (status === 'EM_USO') return 'border-blue-300 bg-blue-50 text-blue-800'
@@ -278,7 +278,8 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     }).filter((grupo) => {
       const correspondeTexto = !termo || [grupo.numero_bobina, grupo.material, grupo.cor, ...grupo.maquinas, ...grupo.linhas.map((item) => item.produto_codigo)]
         .some((valor) => String(valor ?? '').toLocaleLowerCase('pt-BR').includes(termo))
-      const correspondeStatus = !statusFiltro || grupo.status === statusFiltro || grupo.linhas.some((item) => item.status_baixa === statusFiltro)
+      const normalizarStatus = (status: string) => status === 'EM_USO' || status === 'CONSUMIDA' ? 'CADASTRADA' : status === 'NAO_PROCESSADA' ? 'PENDENTE' : status
+      const correspondeStatus = !statusFiltro || normalizarStatus(grupo.status) === statusFiltro || grupo.linhas.some((item) => normalizarStatus(item.status_baixa) === statusFiltro)
       const correspondeInicio = !dataInicio || grupo.dataFim >= dataInicio
       const correspondeFim = !dataFim || grupo.dataInicio <= dataFim
       const correspondeMes = !mesFiltro || grupo.linhas.some((item) => item.data.startsWith(mesFiltro))
