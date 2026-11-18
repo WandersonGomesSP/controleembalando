@@ -496,6 +496,7 @@ begin
       or upper(coalesce(s.material, '')) like '%DUPLA FACE%'
       or upper(coalesce(s.material, '')) like '%KRAFT%'
     )
+  order by to_date(trim(s.data_texto), 'DD/MM/YYYY'), s.linha_csv
   on conflict (hash_linha) do nothing;
 
   get diagnostics n = row_count;
