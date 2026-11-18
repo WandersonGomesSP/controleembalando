@@ -859,3 +859,108 @@ $function$;
 grant execute on function rebobinadeira.registrar_producao(jsonb) to service_role;
 grant execute on function rebobinadeira.estornar_producao(bigint,text) to service_role;
 grant execute on function rebobinadeira.ajuste_manual(text,numeric,numeric,text) to service_role;
+
+
+-- Falhas de integração não podem apagar o lançamento: deixam a produção pendente e geram alerta.
+create or replace function rebobinadeira.trg_processar_consumo_rebobinadeira()
+returns trigger
+language plpgsql
+set search_path to ''
+as $function$
+declare
+  mensagem text;
+  codigo text;
+begin
+  begin
+    perform rebobinadeira.processar_consumo_producao(new.id);
+  exception when others then
+    get stacked diagnostics mensagem = message_text, codigo = returned_sqlstate;
+    update rebobinadeira.bobinas set status_baixa = 'PENDENTE' where id = new.id;
+    insert into rebobinadeira.alertas_bobinas
+      (tipo, severidade, numero_bobina, numero_normalizado, producao_id, mensagem, detalhes)
+    values
+      ('ERRO_PROCESSAMENTO_BAIXA', 'CRITICA', new.numero_bobina, new.numero_normalizado, new.id,
+       'A produção foi salva, mas ocorreu um erro ao processar a baixa da bobina.',
+       jsonb_build_object('erro', mensagem, 'codigo', codigo))
+    on conflict do nothing;
+  end;
+  return new;
+end;
+$function$;
+
+create or replace function rebobinadeira.trg_registrar_entrada_cobrideira()
+returns trigger
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+  mensagem text;
+  codigo text;
+begin
+  begin
+    insert into rebobinadeira.movimentacoes_bobinas
+      (numero_bobina, numero_normalizado, tipo_movimento, metragem_delta_m,
+       peso_delta_kg, chave_origem, observacoes)
+    values
+      (new.numero_bobina, rebobinadeira.normaliza_numero(new.numero_bobina), 'ENTRADA',
+       new.metragem, coalesce(new.peso_liquido, 0),
+       'ENTRADA_COBRIDEIRA:' || new.numero_bobina,
+       'Entrada inicial originada do cadastro da Cobrideira.')
+    on conflict (chave_origem) do nothing;
+
+    perform rebobinadeira.reprocessar_pendentes(new.numero_bobina);
+  exception when others then
+    get stacked diagnostics mensagem = message_text, codigo = returned_sqlstate;
+    insert into rebobinadeira.alertas_bobinas
+      (tipo, severidade, numero_bobina, numero_normalizado, mensagem, detalhes)
+    values
+      ('ERRO_ENTRADA_COBRIDEIRA', 'CRITICA', new.numero_bobina,
+       rebobinadeira.normaliza_numero(new.numero_bobina),
+       'A bobina foi cadastrada na Cobrideira, mas não foi possível atualizar o saldo da Rebobinadeira.',
+       jsonb_build_object('erro', mensagem, 'codigo', codigo))
+    on conflict do nothing;
+  end;
+  return new;
+end;
+$function$;
+
+create or replace function rebobinadeira.trg_ajustar_entrada_cobrideira()
+returns trigger
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+  mensagem text;
+  codigo text;
+begin
+  begin
+    if old.metragem is distinct from new.metragem
+       or old.peso_liquido is distinct from new.peso_liquido then
+      insert into rebobinadeira.movimentacoes_bobinas
+        (numero_bobina, numero_normalizado, tipo_movimento, metragem_delta_m,
+         peso_delta_kg, chave_origem, observacoes)
+      values
+        (new.numero_bobina, rebobinadeira.normaliza_numero(new.numero_bobina), 'AJUSTE',
+         coalesce(new.metragem, 0) - coalesce(old.metragem, 0),
+         coalesce(new.peso_liquido, 0) - coalesce(old.peso_liquido, 0),
+         'AJUSTE_COBRIDEIRA:' || new.numero_bobina || ':' || gen_random_uuid()::text,
+         'Ajuste de metragem/peso originado de alteração no cadastro da Cobrideira.');
+    end if;
+
+    perform rebobinadeira.reprocessar_pendentes(new.numero_bobina);
+  exception when others then
+    get stacked diagnostics mensagem = message_text, codigo = returned_sqlstate;
+    insert into rebobinadeira.alertas_bobinas
+      (tipo, severidade, numero_bobina, numero_normalizado, mensagem, detalhes)
+    values
+      ('ERRO_AJUSTE_COBRIDEIRA', 'CRITICA', new.numero_bobina,
+       rebobinadeira.normaliza_numero(new.numero_bobina),
+       'A alteração da bobina na Cobrideira não foi totalmente sincronizada com o saldo da Rebobinadeira.',
+       jsonb_build_object('erro', mensagem, 'codigo', codigo))
+    on conflict do nothing;
+  end;
+  return new;
+end;
+$function$;
