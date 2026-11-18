@@ -381,6 +381,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       setForm((atual) => ({ ...atual, numero_bobina: termo }))
     }
     setBobinaSelecionada(null)
+    setProdutosExtras([])
     if (termo.trim().length < 2) {
       setResultadosBobina([])
       return
@@ -399,6 +400,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   }
 
   function selecionarBobina(row: BobinaOrigem) {
+    setProdutosExtras([])
     setBobinaSelecionada(row)
     setBuscaBobina(row.numero_bobina)
     setResultadosBobina([])
@@ -558,6 +560,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   }
 
   function iniciarEdicao(item: ProducaoRow) {
+    setProdutosExtras([])
     setForm((atual) => ({
       ...atual,
       data: item.data,
