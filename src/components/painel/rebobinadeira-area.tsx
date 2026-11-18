@@ -11,15 +11,18 @@ import {
   FileUp,
   Bell,
   BellOff,
+  History,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { importarCsvRebobinadeira } from '@/lib/admin.functions'
+import { HistoricoProducao } from '@/components/painel/historico-producao'
 import type { RebobinadeiraEstoqueMinimoRow } from '@/lib/database.types'
 
 type Props = {
   onChangeArea: () => void
   isDeveloper: boolean
+  onOpenHistorico?: () => void
 }
 
 const numero = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
@@ -35,11 +38,16 @@ function formatar(valor: number | null | undefined, casas = false) {
   return (casas ? numero : inteiro).format(Number(valor))
 }
 
-export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) { return <EstoqueMinimoView onChangeArea={onChangeArea} isDeveloper={isDeveloper} /> }
+export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
+  const [secao, setSecao] = React.useState<'estoque-minimo' | 'historico'>('estoque-minimo')
+  return secao === 'historico'
+    ? <HistoricoProducao onChangeArea={onChangeArea} onBack={() => setSecao('estoque-minimo')} isDeveloper={isDeveloper} />
+    : <EstoqueMinimoView onChangeArea={onChangeArea} isDeveloper={isDeveloper} onOpenHistorico={() => setSecao('historico')} />
+}
 
 export function EstoqueMinimoCobrideira({ isDeveloper }: { isDeveloper: boolean }) { return <EstoqueMinimoView onChangeArea={() => {}} isDeveloper={isDeveloper} embedded /> }
 
-function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Props & { embedded?: boolean }) {
+function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpenHistorico }: Props & { embedded?: boolean }) {
   const [registros, setRegistros] = React.useState<RebobinadeiraEstoqueMinimoRow[]>([])
   const [leadTimes, setLeadTimes] = React.useState<Record<string, string>>({})
   const [ajustes, setAjustes] = React.useState<Record<string, number>>({})
@@ -215,6 +223,11 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false }: Prop
             <span className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 text-sm font-medium text-foreground">
               <PackageCheck className="size-4" /> Estoque Mínimo
             </span>
+            {onOpenHistorico && (
+              <button type="button" onClick={onOpenHistorico} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium transition hover:bg-accent">
+                <History className="size-4" /> Histórico de produção
+              </button>
+            )}
           </nav>
         </div>
       </header>}
