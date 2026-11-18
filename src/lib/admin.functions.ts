@@ -161,6 +161,48 @@ async function requireRebobinadeiraEditor(accessToken: string) {
   return { client, user: data.user }
 }
 
+type AlertaRebobinadeiraInput = {
+  tipo: string
+  mensagem: string
+  numeroBobina?: string | null
+  producaoId?: number | null
+  detalhes?: Record<string, unknown>
+  severidade?: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAIXA'
+}
+
+async function registrarAlertasRebobinadeira(
+  client: ReturnType<typeof createAdminClient>,
+  alertas: AlertaRebobinadeiraInput[],
+) {
+  if (!alertas.length) return
+  try {
+    const { error } = await client.schema('rebobinadeira').from('alertas_bobinas').insert(
+      alertas.map((alerta) => {
+        const numero = alerta.numeroBobina?.trim() || null
+        return {
+          tipo: alerta.tipo,
+          severidade: alerta.severidade ?? 'ALTA',
+          numero_bobina: numero,
+          numero_normalizado: numero ? numero.replace(/[^0-9]/g, '') : null,
+          producao_id: alerta.producaoId ?? null,
+          mensagem: alerta.mensagem,
+          detalhes: alerta.detalhes ?? {},
+        }
+      }),
+    )
+    if (error) console.error('Falha ao persistir alertas da Rebobinadeira:', error.message)
+  } catch (error) {
+    console.error('Não foi possível persistir alertas da Rebobinadeira:', error)
+  }
+}
+
+async function registrarAlertaRebobinadeira(
+  client: ReturnType<typeof createAdminClient>,
+  alerta: AlertaRebobinadeiraInput,
+) {
+  await registrarAlertasRebobinadeira(client, [alerta])
+}
+
 const REBOBINadeira_CSV_COLUMNS = [
   'data_texto', 'maquina', 'setup', 'numero_bobina', 'turno_texto',
   'material', 'largura_bobina_texto', 'peso_bobina_texto', 'fornec_filme',
@@ -424,13 +466,19 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
 
     for (const row of parsed) {
       if (row.fields.length !== REBOBINadeira_CSV_COLUMNS.length) {
-        throw new Error(
-          `Linha ${row.line}: esperado 31 colunas, mas foram encontradas ${row.fields.length}. Nenhum dado foi gravado.`,
-        )
+        const mensagem = 'Linha ' + row.line + ': esperado 31 colunas, mas foram encontradas ' + row.fields.length + '. Nenhum dado foi gravado.'
+        await registrarAlertaRebobinadeira(client, {
+          tipo: 'IMPORTACAO_COLUNAS_INVALIDAS',
+          severidade: 'CRITICA',
+          numeroBobina: row.fields[3] ?? null,
+          mensagem,
+          detalhes: { arquivo: data.nomeArquivo, linha: row.line, colunas_recebidas: row.fields.length, colunas_esperadas: REBOBINadeira_CSV_COLUMNS.length },
+        })
+        throw new Error(mensagem)
       }
     }
 
-    const rejeicoes: { linha: number; motivo: string }[] = []
+    const rejeicoes: { linha: number; motivo: string; numero_bobina?: string }[] = []
     const validas: Record<string, unknown>[] = []
     for (const row of parsed) {
       const fields = row.fields.map((value) => value.trim())
@@ -442,7 +490,7 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
       if (!material) motivos.push('Material não informado.')
       if (!materialSemLargura && !fields[6]) motivos.push('Largura do jumbo não informada.')
       if (motivos.length) {
-        rejeicoes.push({ linha: row.line, motivo: motivos.join(' ') })
+        rejeicoes.push({ linha: row.line, motivo: motivos.join(' '), numero_bobina: fields[3] ?? '' })
         continue
       }
       const record: Record<string, unknown> = {
@@ -455,6 +503,14 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
       if (!String(record.linha ?? '').trim()) record.linha = 'PADRÃO'
       validas.push(record)
     }
+
+    await registrarAlertasRebobinadeira(client, rejeicoes.map((item) => ({
+      tipo: 'IMPORTACAO_LINHA_REJEITADA',
+      severidade: 'ALTA' as const,
+      numeroBobina: item.numero_bobina,
+      mensagem: 'Linha ' + item.linha + ' rejeitada na importação: ' + item.motivo,
+      detalhes: { arquivo: data.nomeArquivo, linha: item.linha, motivo: item.motivo },
+    })))
 
     if (!validas.length) {
       return {
@@ -477,6 +533,7 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
         .insert(batch as never)
       if (error) {
         await client.schema('rebobinadeira').from('staging_planilha').delete().eq('lote_id', loteId)
+        await registrarAlertaRebobinadeira(client, { tipo: 'ERRO_PREPARACAO_IMPORTACAO', severidade: 'CRITICA', mensagem: 'Falha ao preparar o CSV da Rebobinadeira.', detalhes: { arquivo: data.nomeArquivo, erro: error.message } })
         throw new Error(`Falha ao preparar a importação: ${error.message}`)
       }
     }
@@ -485,6 +542,7 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
       .schema('rebobinadeira')
       .rpc('processar_lote', { p_lote: loteId })
     if (processError) {
+      await registrarAlertaRebobinadeira(client, { tipo: 'ERRO_PROCESSAMENTO_IMPORTACAO', severidade: 'CRITICA', mensagem: 'Falha ao processar o lote da Rebobinadeira.', detalhes: { arquivo: data.nomeArquivo, lote_id: loteId, erro: processError.message } })
       throw new Error(`Falha ao processar o lote. Os dados temporários foram preservados para diagnóstico: ${processError.message}`)
     }
 
@@ -494,6 +552,7 @@ export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
       .update({ nome_arquivo: data.nomeArquivo })
       .eq('id', loteId)
     if (logError) {
+      await registrarAlertaRebobinadeira(client, { tipo: 'ERRO_LOG_IMPORTACAO', severidade: 'ALTA', mensagem: 'As bobinas foram importadas, mas o nome do arquivo não foi registrado no log.', detalhes: { arquivo: data.nomeArquivo, lote_id: loteId, erro: logError.message } })
       throw new Error(`As bobinas foram importadas, mas não foi possível registrar o nome do arquivo: ${logError.message}`)
     }
 
@@ -527,7 +586,10 @@ export const registrarProducaoRebobinadeira = createServerFn({ method: 'POST' })
     const { data: id, error } = await client.schema('rebobinadeira').rpc('registrar_producao', {
       p_registro: data.registro,
     })
-    if (error) throw new Error('Não foi possível registrar a produção: ' + error.message)
+    if (error) {
+      await registrarAlertaRebobinadeira(client, { tipo: 'ERRO_REGISTRO_PRODUCAO', severidade: 'CRITICA', numeroBobina: data.registro.numero_bobina, mensagem: 'Falha ao registrar uma produção manual.', detalhes: { erro: error.message, registro: data.registro } })
+      throw new Error('Não foi possível registrar a produção: ' + error.message)
+    }
     return { id: Number(id) }
   })
 
@@ -542,7 +604,10 @@ export const estornarProducaoRebobinadeira = createServerFn({ method: 'POST' })
       p_producao_id: data.producaoId,
       p_motivo: data.motivo,
     })
-    if (error) throw new Error('Não foi possível estornar a produção: ' + error.message)
+    if (error) {
+      await registrarAlertaRebobinadeira(client, { tipo: 'ERRO_ESTORNO_PRODUCAO', severidade: 'CRITICA', producaoId: data.producaoId, mensagem: 'Falha ao estornar uma produção.', detalhes: { erro: error.message, motivo: data.motivo } })
+      throw new Error('Não foi possível estornar a produção: ' + error.message)
+    }
     return { success: Boolean(success) }
   })
 
@@ -563,7 +628,10 @@ export const ajustarSaldoBobinaRebobinadeira = createServerFn({ method: 'POST' }
       p_peso_delta: data.pesoDelta,
       p_motivo: data.motivo,
     })
-    if (error) throw new Error('Não foi possível ajustar o saldo da bobina: ' + error.message)
+    if (error) {
+      await registrarAlertaRebobinadeira(client, { tipo: 'ERRO_AJUSTE_MANUAL', severidade: 'CRITICA', numeroBobina: data.numeroBobina, mensagem: 'Falha ao registrar ajuste manual de saldo.', detalhes: { erro: error.message, motivo: data.motivo } })
+      throw new Error('Não foi possível ajustar o saldo da bobina: ' + error.message)
+    }
     return { success: Boolean(success) }
   })
 
