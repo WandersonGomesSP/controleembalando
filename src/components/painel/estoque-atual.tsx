@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, Weight, Ruler, Boxes, FileUp, Bell, AlertTriangle } from 'lucide-react'
+import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, Weight, Ruler, Boxes, FileUp, Bell, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import {
@@ -36,6 +36,11 @@ const numero = (v: number | null | undefined) => Number(v ?? 0)
 const fmt = (v: number | null | undefined, casas = 0) => numero(v).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
 const categorias: Categoria[] = ['BOPP', 'CREPE', 'KRAFT', 'DUPLA FACE']
 const fmtMedida = (v: number | null | undefined) => v == null ? '—' : Number(v).toFixed(2)
+const ALERTAS_ESTOQUE_STORAGE_KEY = 'controleembalando-estoque-alertas-desativados'
+const chaveAlertaEstoque = (valor: string) => valor.trim().toLocaleLowerCase('pt-BR')
+function lerAlertasEstoqueDesativados(): string[] {
+  try { const valor = JSON.parse(localStorage.getItem(ALERTAS_ESTOQUE_STORAGE_KEY) ?? '[]'); return Array.isArray(valor) ? valor.filter((item): item is string => typeof item === 'string') : [] } catch { return [] }
+}
 
 function normalizarCabecalho(valor: string) {
   return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
@@ -139,6 +144,8 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
   const [bobinas, setBobinas] = React.useState<BobinaEstoque[]>([])
   const [resumos, setResumos] = React.useState<ResumoProduto[]>([])
   const [usosPorProduto, setUsosPorProduto] = React.useState<Record<string, number>>({})
+  const [alertasDesativados] = React.useState<string[]>(lerAlertasEstoqueDesativados)
+  const [paginaAlertas, setPaginaAlertas] = React.useState(0)
   const [lixeira, setLixeira] = React.useState<BobinaLixeira[]>([])
   const [aba, setAba] = React.useState<'ATIVAS' | 'LIXEIRA'>('ATIVAS')
   const [carregando, setCarregando] = React.useState(true)
@@ -223,11 +230,6 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
       metros: resumos.filter((r) => /^KRAFT LISA\b/i.test(r.medida_produto)).reduce((s, r) => s + numero(r.metragem_disponivel_m), 0),
     },
   ]
-  const totalResumoKg = resumos.reduce((s, r) => s + numero(r.peso_estoque_kg), 0)
-  const totalResumoM = resumos.reduce((s, r) => s + numero(r.metragem_disponivel_m), 0)
-  const diferencaKg = totalResumoKg - totalKg
-  const diferencaM = totalResumoM - totalM
-  const temDivergencia = Math.abs(diferencaKg) > 0.1 || Math.abs(diferencaM) > 1
   const maxKg = Math.max(1, ...resumos.map((r) => numero(r.peso_estoque_kg)))
 
   function abrirNovo() { setEditando(null); setForm({ ...vazio }); setFormAberto(true) }
@@ -362,34 +364,33 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
       </div>
 
       {aba === 'ATIVAS' && (() => {
-        const alertas = resumos.filter((r) => numero(r.estoque_minimo_semanal_m) > 0 && numero(r.metragem_disponivel_m) < numero(r.estoque_minimo_semanal_m))
+        const alertas = resumos.filter((r) => numero(r.estoque_minimo_semanal_m) > 0 && numero(r.metragem_disponivel_m) < numero(r.estoque_minimo_semanal_m) && !alertasDesativados.includes(chaveAlertaEstoque(r.medida_produto)))
+        const porPagina = 4
+        const totalPaginas = Math.ceil(alertas.length / porPagina)
+        const inicio = paginaAlertas * porPagina
+        const visiveis = alertas.slice(inicio, inicio + porPagina)
         return (
           <section className="overflow-hidden rounded-xl border border-amber-200 bg-amber-50">
-            <div className="flex items-center gap-2 border-b border-amber-200 px-4 py-3 text-sm font-bold text-amber-950">
+            <div className="flex flex-wrap items-center gap-2 border-b border-amber-200 px-4 py-3 text-sm font-bold text-amber-950">
               <Bell className="size-4" /> Avisos de estoque baixo
               <span className="ml-auto rounded-full bg-amber-200 px-2.5 py-0.5 text-xs">{alertas.length} {alertas.length === 1 ? 'produto' : 'produtos'}</span>
             </div>
-            {alertas.length === 0 ? (
-              <p className="px-4 py-3 text-sm text-amber-900">Nenhum produto abaixo do mínimo de metragem neste momento.</p>
-            ) : (
+            {alertas.length === 0 ? <p className="px-4 py-3 text-sm text-amber-900">Nenhum produto abaixo do mínimo de metragem com notificação ativa.</p> : <>
               <div className="divide-y divide-amber-200">
-                {alertas.map((r) => (
-                  <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-                    <div className="flex min-w-0 items-start gap-2">
-                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700" />
-                      <div className="min-w-0">
-                        <div className="text-sm font-bold text-amber-950">{r.medida_produto}</div>
-                        <div className="text-xs text-amber-900">Atual: {fmt(r.metragem_disponivel_m)} m · mínimo: {fmt(r.estoque_minimo_semanal_m)} m</div>
-                      </div>
-                    </div>
-                    <div className="text-right text-xs text-amber-900">
-                      <div className="font-bold">{usosPorProduto[r.medida_produto] ?? 0} utilizações</div>
-                      <div>nos últimos 90 dias</div>
-                    </div>
-                  </div>
-                ))}
+                {visiveis.map((r) => <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                  <div className="flex min-w-0 items-start gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700" /><div className="min-w-0">
+                    <div className="text-sm font-bold text-amber-950">{r.medida_produto}</div>
+                    <div className="text-xs text-amber-900">Atual: {fmt(r.metragem_disponivel_m)} m · mínimo: {fmt(r.estoque_minimo_semanal_m)} m</div>
+                  </div></div>
+                  <div className="text-right text-xs text-amber-900"><div className="font-bold">{usosPorProduto[r.medida_produto] ?? 0} utilizações</div><div>nos últimos 90 dias</div></div>
+                </div>)}
               </div>
-            )}
+              {totalPaginas > 1 && <div className="flex items-center justify-between border-t border-amber-200 px-4 py-2">
+                <button type="button" onClick={() => setPaginaAlertas((p) => (p - 1 + totalPaginas) % totalPaginas)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-amber-950 hover:bg-amber-100"><ChevronLeft className="size-4" /> Anterior</button>
+                <span className="text-xs text-amber-900">{inicio + 1}–{Math.min(inicio + porPagina, alertas.length)} de {alertas.length} · página {paginaAlertas + 1}/{totalPaginas}</span>
+                <button type="button" onClick={() => setPaginaAlertas((p) => (p + 1) % totalPaginas)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-amber-950 hover:bg-amber-100">Próximos <ChevronRight className="size-4" /></button>
+              </div>}
+            </>}
           </section>
         )
       })()}
@@ -405,7 +406,6 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
         <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2 text-sm text-slate-500"><Package className="size-4"/> Produtos monitorados</div><div className="mt-2 text-2xl font-bold text-slate-900">{fmt(resumos.length)}</div></div>
       </div>
 
-      {temDivergencia && <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><div className="font-bold">Conferência pendente entre planilha e bobinas individuais</div><p className="mt-1">A planilha-resumo registra {fmt(totalResumoKg, 1)} kg e {fmt(totalResumoM)} m; a soma das bobinas detalhadas registra {fmt(totalKg, 1)} kg e {fmt(totalM)} m. Diferença: {fmt(diferencaKg, 1)} kg e {fmt(diferencaM)} m. Mantive os dois conjuntos de dados sem ajustar ou apagar nada automaticamente.</p></div>}
 
       <div className="grid gap-3 lg:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-white p-4">
