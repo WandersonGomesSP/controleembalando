@@ -14,13 +14,11 @@ import {
   RotateCcw,
   Save,
   Search,
-  SlidersHorizontal,
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import {
-  ajustarSaldoBobinaRebobinadeira,
   estornarProducaoRebobinadeira,
   importarCsvRebobinadeira,
   registrarProducaoRebobinadeira,
@@ -122,7 +120,6 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const [pagina, setPagina] = React.useState(0)
   const [detalheAberto, setDetalheAberto] = React.useState<string | null>(null)
   const [mostrarCadastro, setMostrarCadastro] = React.useState(false)
-  const [mostrarAjuste, setMostrarAjuste] = React.useState(false)
   const [salvando, setSalvando] = React.useState(false)
   const [importando, setImportando] = React.useState(false)
   const [arquivo, setArquivo] = React.useState<File | null>(null)
@@ -141,12 +138,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     metragem_unica_m: '',
     observacoes: '',
   })
-  const [ajuste, setAjuste] = React.useState({
-    numeroBobina: '',
-    metrosDelta: '',
-    pesoDelta: '',
-    motivo: '',
-  })
+
 
   const carregar = React.useCallback(async (silencioso = false) => {
     if (silencioso) setAtualizando(true)
@@ -326,39 +318,6 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     }
   }
 
-  async function salvarAjuste(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const metrosDelta = parseNumero(ajuste.metrosDelta) ?? 0
-    const pesoDelta = parseNumero(ajuste.pesoDelta) ?? 0
-    if (metrosDelta === 0 && pesoDelta === 0) {
-      toast.error('Informe uma diferença de metragem ou peso.')
-      return
-    }
-    setSalvando(true)
-    try {
-      const accessToken = await obterToken()
-      await ajustarSaldoBobinaRebobinadeira({
-        data: {
-          accessToken,
-          numeroBobina: ajuste.numeroBobina,
-          metrosDelta,
-          pesoDelta,
-          motivo: ajuste.motivo,
-        },
-      })
-      toast.success('Ajuste registrado no livro de movimentações.')
-      setAjuste({ numeroBobina: '', metrosDelta: '', pesoDelta: '', motivo: '' })
-      setMostrarAjuste(false)
-      await carregar(true)
-    } catch (error) {
-      toast.error('Não foi possível ajustar o saldo.', {
-        description: error instanceof Error ? error.message : 'Verifique os dados e tente novamente.',
-      })
-    } finally {
-      setSalvando(false)
-    }
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
@@ -396,9 +355,6 @@ export function HistoricoProducao({ onChangeArea }: Props) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setMostrarAjuste((v) => !v)} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium transition hover:bg-accent">
-              <SlidersHorizontal className="size-4" /> Ajustar saldo
-            </button>
             <button type="button" onClick={() => setMostrarCadastro((v) => !v)} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110">
               <Package className="size-4" /> Cadastrar bobina
             </button>
@@ -477,18 +433,6 @@ export function HistoricoProducao({ onChangeArea }: Props) {
           </section>
         )}
 
-        {mostrarAjuste && (
-          <section className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-            <div className="mb-3 flex items-center justify-between"><div><h3 className="font-semibold text-amber-950">Ajuste manual de saldo</h3><p className="text-xs text-amber-900">O ajuste gera uma movimentação auditável e não permite saldo negativo.</p></div><button type="button" onClick={() => setMostrarAjuste(false)} className="rounded-lg p-2 hover:bg-amber-100"><X className="size-4" /></button></div>
-            <form onSubmit={(event) => void salvarAjuste(event)} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="grid gap-1 text-sm"><span className="font-medium">Número da bobina</span><input required value={ajuste.numeroBobina} onChange={(e) => setAjuste({ ...ajuste, numeroBobina: e.target.value })} className="h-10 rounded-lg border border-input bg-white px-3" /></label>
-              <label className="grid gap-1 text-sm"><span className="font-medium">Diferença em metros (+/-)</span><input required inputMode="decimal" value={ajuste.metrosDelta} onChange={(e) => setAjuste({ ...ajuste, metrosDelta: e.target.value })} className="h-10 rounded-lg border border-input bg-white px-3" /></label>
-              <label className="grid gap-1 text-sm"><span className="font-medium">Diferença em kg (+/-)</span><input inputMode="decimal" value={ajuste.pesoDelta} onChange={(e) => setAjuste({ ...ajuste, pesoDelta: e.target.value })} className="h-10 rounded-lg border border-input bg-white px-3" /></label>
-              <label className="grid gap-1 text-sm"><span className="font-medium">Motivo</span><input required minLength={3} value={ajuste.motivo} onChange={(e) => setAjuste({ ...ajuste, motivo: e.target.value })} className="h-10 rounded-lg border border-input bg-white px-3" /></label>
-              <div className="flex justify-end sm:col-span-2 lg:col-span-4"><button type="submit" disabled={salvando} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-amber-900 px-4 text-sm font-semibold text-white transition hover:bg-amber-800 disabled:opacity-50"><Save className="size-4" /> {salvando ? 'Salvando...' : 'Registrar ajuste'}</button></div>
-            </form>
-          </section>
-        )}
 
         <div className="grid gap-3 sm:grid-cols-3">
           <article className="rounded-xl border border-border bg-card p-4"><div className="flex items-center gap-2 text-sm text-muted-foreground"><ClipboardList className="size-4" /> Lançamentos no histórico</div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(registros.length)}</p></article>
@@ -551,16 +495,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-xl border border-border bg-card">
-          <div className="border-b border-border p-4"><h3 className="font-semibold">Saldo físico por bobina</h3><p className="text-xs text-muted-foreground">Saldo calculado pela soma das movimentações; o cadastro da Cobrideira é a entrada original do estoque.</p></div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px] text-left text-sm">
-              <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="px-4 py-3">Bobina</th><th className="px-4 py-3">Material</th><th className="px-4 py-3">Entrada</th><th className="px-4 py-3">Saldo em metros</th><th className="px-4 py-3">Saldo em kg</th><th className="px-4 py-3">Status</th></tr></thead>
-              <tbody className="divide-y divide-border">{saldos.slice(0, 30).map((item) => <tr key={item.numero_bobina}><td className="px-4 py-3 font-mono font-semibold">{item.numero_bobina}</td><td className="px-4 py-3">{item.material ?? '—'} · {item.largura_mm ?? '—'} mm</td><td className="px-4 py-3">{formatarData(item.data)}</td><td className="px-4 py-3 tabular-nums">{formatar(item.saldo_metros, ' m')}</td><td className="px-4 py-3 tabular-nums">{formatar(item.saldo_kg, ' kg')}</td><td className="px-4 py-3"><span className={'inline-flex rounded-full border px-2 py-1 text-xs font-semibold ' + statusClass(item.status)}>{statusLabel(item.status)}</span></td></tr>)}</tbody>
-            </table>
-          </div>
-          {saldos.length > 30 && <p className="border-t border-border p-3 text-xs text-muted-foreground">Mostrando as 30 bobinas mais recentes de {saldos.length} no saldo atual.</p>}
-        </section>
+
 
         <p className="text-xs leading-5 text-muted-foreground">A baixa usa a metragem única da linha; quando ela não existe, tenta a metragem da bobina e gera alerta se ambas estiverem vazias. O peso consumido é proporcional à metragem baixada em relação à metragem e ao peso líquido registrados na Cobrideira. A tolerância padrão é 10 metros. Nenhuma movimentação pode deixar o saldo negativo. O histórico e os estornos são preservados no banco.</p>
       </main>
