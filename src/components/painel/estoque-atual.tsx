@@ -353,7 +353,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
           <button type="button" onClick={() => void carregar()} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="size-4"/> Atualizar</button>
           {aba === 'ATIVAS' && <>
             <input ref={inputCsvRef} type="file" accept=".csv,text/csv" multiple className="hidden" onChange={(e) => void importarCsvs(e.target.files)} />
-            <button type="button" disabled={importando} onClick={() => inputCsvRef.current?.click()} className="inline-flex items-center gap-2 rounded-lg border border-[#57534E] bg-white px-3 py-2 text-sm font-semibold text-[#57534E] hover:bg-stone-50 disabled:opacity-50"><FileUp className="size-4"/> {importando ? 'Importando...' : 'Importar CSV'}</button>
+            <button type="button" disabled={importando} onClick={() => inputCsvRef.current?.click()} className="csv-import-control inline-flex items-center gap-2 rounded-lg border border-[#e3262e] bg-[#e3262e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#c91f27] disabled:opacity-50"><FileUp className="size-4"/> {importando ? 'Importando...' : 'Importar CSV'}</button>
             <button type="button" onClick={abrirNovo} className="inline-flex items-center gap-2 rounded-lg bg-[#57534E] px-3 py-2 text-sm font-semibold text-white hover:brightness-110"><Plus className="size-4"/> Nova bobina</button>
           </>}
         </div>
