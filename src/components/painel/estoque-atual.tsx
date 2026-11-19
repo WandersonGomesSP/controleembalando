@@ -149,6 +149,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
   const inputCsvRef = React.useRef<HTMLInputElement>(null)
   const [busca, setBusca] = React.useState('')
   const [categoria, setCategoria] = React.useState<'TODAS' | Categoria>('TODAS')
+  const [ordemEstoque, setOrdemEstoque] = React.useState<'data-desc' | 'data-asc' | 'alfabetica'>('data-desc')
   const [form, setForm] = React.useState<FormEstoque>(vazio)
   const [editando, setEditando] = React.useState<string | null>(null)
   const [formAberto, setFormAberto] = React.useState(false)
@@ -200,13 +201,25 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
   }
   React.useEffect(() => { void carregar() }, [])
 
-  const filtradas = React.useMemo(() => bobinas.filter((b) => {
-    const termo = busca.trim().toLocaleLowerCase('pt-BR')
-    const bateCategoria = categoria === 'TODAS' || b.categoria === categoria
-    const bateBusca = !termo || [b.codigo, b.fornecedor, b.cor, b.cliente, b.linha, b.medida, b.categoria]
-      .some((v) => String(v ?? '').toLocaleLowerCase('pt-BR').includes(termo))
-    return bateCategoria && bateBusca
-  }), [bobinas, busca, categoria])
+  const filtradas = React.useMemo(() => {
+    const resultado = bobinas.filter((b) => {
+      const termo = busca.trim().toLocaleLowerCase('pt-BR')
+      const bateCategoria = categoria === 'TODAS' || b.categoria === categoria
+      const bateBusca = !termo || [b.codigo, b.fornecedor, b.cor, b.cliente, b.linha, b.medida, b.categoria]
+        .some((v) => String(v ?? '').toLocaleLowerCase('pt-BR').includes(termo))
+      return bateCategoria && bateBusca
+    })
+    return resultado.sort((a, b) => {
+      if (ordemEstoque === 'alfabetica') {
+        const nomeA = [a.codigo, a.categoria, a.fornecedor].map((v) => String(v ?? '')).join(' ').toLocaleLowerCase('pt-BR')
+        const nomeB = [b.codigo, b.categoria, b.fornecedor].map((v) => String(v ?? '')).join(' ').toLocaleLowerCase('pt-BR')
+        return nomeA.localeCompare(nomeB, 'pt-BR', { numeric: true })
+      }
+      const dataA = a.data_entrada ? new Date(a.data_entrada + 'T12:00:00').getTime() : 0
+      const dataB = b.data_entrada ? new Date(b.data_entrada + 'T12:00:00').getTime() : 0
+      return ordemEstoque === 'data-desc' ? dataB - dataA : dataA - dataB
+    })
+  }, [bobinas, busca, categoria, ordemEstoque])
 
   const totalKg = bobinas.reduce((s, b) => s + numero(b.peso_kg), 0)
   const totalM = bobinas.reduce((s, b) => s + numero(b.metragem_m), 0)
@@ -466,6 +479,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
           {aba === 'ATIVAS' && <div className="flex flex-wrap gap-2">
             <div className="relative"><Search className="absolute left-3 top-2.5 size-4 text-slate-400"/><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar código, fornecedor..." className="h-9 w-56 rounded-lg border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-slate-500"/></div>
             <select value={categoria} onChange={(e) => setCategoria(e.target.value as typeof categoria)} className="h-9 rounded-lg border border-slate-300 px-3 text-sm"><option value="TODAS">Todas as categorias</option>{categorias.map((c) => <option key={c}>{c}</option>)}</select>
+            <select aria-label="Ordenar estoque" value={ordemEstoque} onChange={(e) => setOrdemEstoque(e.target.value as typeof ordemEstoque)} className="h-9 rounded-lg border border-slate-300 px-3 text-sm"><option value="data-desc">Data: mais recente primeiro</option><option value="data-asc">Data: mais antiga primeiro</option><option value="alfabetica">Ordem alfabética</option></select>
           </div>}
         </div>
         {carregando ? <p className="py-8 text-center text-sm text-slate-500">Carregando estoque...</p> : aba === 'ATIVAS' ? (
