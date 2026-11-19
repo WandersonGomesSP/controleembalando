@@ -687,25 +687,26 @@ export function HistoricoProducao({ onChangeArea }: Props) {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[96rem] flex-col gap-3 px-4 py-4 sm:px-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <img src="/embalando-logo.svg" alt="Embalando Fitas Adesivas" className="h-12 w-48 object-contain" />
-              <div>
-                <h1 className="text-lg font-semibold leading-tight">Rebobinadeira</h1>
-                <p className="text-xs text-muted-foreground">Registro e histórico de produção</p>
+      <header className="sticky top-0 z-30 border-b border-[#e2e8f0] bg-white">
+        <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-7 pt-[18px] pb-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex min-w-0 items-center gap-[18px]">
+              <img src="/logo-embalando.png" alt="Embalando Fitas Adesivas" className="block h-16 w-auto shrink-0 object-contain max-[767px]:h-12" />
+              <div aria-hidden="true" className="hidden h-12 w-px shrink-0 bg-[#cbd5e1] md:block" />
+              <div className="min-w-0">
+                <h1 className="text-[24px] leading-[1.1] font-bold text-[#0b1f4d]">Rebobinadeira</h1>
+                <p className="mt-1 text-[13px] leading-normal text-[#475569]">Registro e histórico de produção</p>
               </div>
             </div>
-            <button type="button" onClick={onChangeArea} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-black bg-black px-3 text-xs font-semibold text-white transition hover:bg-zinc-800">
-              <ArrowLeft className="size-4" /> Trocar de setor
+            <button type="button" onClick={onChangeArea} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-black bg-black px-2.5 text-[11px] font-bold text-white shadow-sm transition-colors hover:bg-zinc-800 sm:min-h-10 sm:gap-2 sm:px-4 sm:text-xs">
+              <ArrowLeft className="size-4" /> Trocar setor
             </button>
           </div>
-          <nav aria-label="Menus da Rebobinadeira" className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-            <button type="button" onClick={() => setTela('cadastro')} className={'inline-flex min-h-9 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition hover:brightness-110 ' + (tela === 'cadastro' ? 'border border-[#c91f28] bg-[#e3262e] text-white' : 'border border-[#e3262e] bg-white text-[#c91f28] hover:bg-red-50')}>
+          <nav aria-label="Menus da Rebobinadeira" className="grid grid-cols-2 gap-2 pb-0 sm:flex sm:flex-wrap">
+            <button type="button" aria-current={tela === 'cadastro' ? 'page' : undefined} onClick={() => setTela('cadastro')} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'cadastro' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]')}>
               <Package className="size-4" /> Cadastrar produção
             </button>
-            <button type="button" onClick={() => setTela('historico')} className={'inline-flex min-h-9 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition ' + (tela === 'historico' ? 'border border-[#c91f28] bg-[#e3262e] text-white' : 'border border-[#e3262e] bg-white text-[#c91f28] hover:bg-red-50')}>
+            <button type="button" aria-current={tela === 'historico' ? 'page' : undefined} onClick={() => setTela('historico')} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'historico' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]')}>
               <History className="size-4" /> Histórico de produção
             </button>
           </nav>
@@ -781,10 +782,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
 
         {tela === 'cadastro' && (
         <section className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div><h3 className="font-semibold">Registrar produção</h3><p className="text-xs text-muted-foreground">Se a bobina não estiver no estoque, o registro será salvo como pendente e gerará um alerta.</p></div>
-              <button type="button" onClick={() => setTela('historico')} aria-label="Fechar cadastro" className="rounded-lg p-2 transition hover:bg-accent"><X className="size-4" /></button>
-            </div>
+            <div className="mb-4"><h3 className="font-semibold">Registrar produção</h3><p className="text-xs text-muted-foreground">Se a bobina não estiver no estoque, o registro será salvo como pendente e gerará um alerta.</p></div>
             <form onSubmit={(event) => void salvarProducao(event)} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label className="grid gap-1 text-sm"><span className="font-medium">Data</span><input required type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Máquina</span><select required value={form.maquina} onChange={(e) => setForm({ ...form, maquina: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3">{['M1','M2','M3','M4','M5','M6'].map((m) => <option key={m}>{m}</option>)}</select></label>
