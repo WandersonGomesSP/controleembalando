@@ -401,7 +401,7 @@ export function HistoricoProducao({ onChangeArea, isDeveloper }: Props) {
     setExcluindo(true)
     try {
       const accessToken = await obterToken()
-      await excluirLancamentosRebobinadeira({ data: { accessToken, ids } })
+      for (let inicio = 0; inicio < ids.length; inicio += 500) {\n        await excluirLancamentosRebobinadeira({ data: { accessToken, ids: ids.slice(inicio, inicio + 500) } })\n      }
       setRegistros((atuais) => atuais.filter((linha) => !ids.includes(linha.id)))
       setGruposSelecionados(new Set())
       setDetalheAberto(null)
