@@ -3,7 +3,7 @@ import { ArrowDownToLine, ArrowUpFromLine, History, Package, RefreshCw, Send } f
 import { toast } from 'sonner'
 import { Field, Panel, PrimaryButton, TextInput } from '@/components/painel/fields'
 import { supabase } from '@/lib/supabase'
-import { listarControleCola, registrarEntradaCola, retirarContainersCola } from '@/lib/admin.functions'
+import { listarControleCola, registrarEntradaCola, retirarContainersCola, atualizarContainersCola, excluirContainersCola } from '@/lib/admin.functions'
 
 type Entrada = {
   id: number
@@ -27,8 +27,24 @@ type Historico = {
   fornecedor_cola: string | null
   status_container: string | null
 }
-type Container = { codigo: string; status: string; entrada_id: number | null; primeira_bobina: string | null; primeiro_uso_em: string | null; enviado_em: string | null }
-type Dados = { entradas: Entrada[]; saldo: Saldo[]; historico: Historico[]; containers: Container[] }
+type Container = {
+  codigo: string
+  status: string
+  entrada_id: number | null
+  localizacao: 'ESTOQUE' | 'GALPAO_MARIO_COVAS'
+  enviado_em: string | null
+  entrada: { data_chegada: string; nf: string; produto: string; lote: string; peso_por_container_kg: number; fornecedor: string } | null
+}
+type Indicadores = {
+  bobinas_90_dias: number
+  consumo_90_dias_kg: number
+  consumo_movel_mensal_kg: number
+  consumo_diario_kg: number
+  estoque_minimo_25_dias_kg: number
+  cola_disponivel_kg: number
+  capacidade_producao_bobinas: number
+}
+type Dados = { entradas: Entrada[]; saldo: Saldo[]; historico: Historico[]; containers: Container[]; indicadores: Indicadores | null }
 type Aba = 'estoque' | 'entrada' | 'retirada' | 'historico'
 
 const hoje = () => new Date().toLocaleDateString('en-CA')
@@ -37,7 +53,7 @@ const kg = (valor: number) => `${Number(valor || 0).toLocaleString('pt-BR', { mi
 
 export function EstoqueColaCobrideira() {
   const [aba, setAba] = React.useState<Aba>('estoque')
-  const [dados, setDados] = React.useState<Dados>({ entradas: [], saldo: [], historico: [], containers: [] })
+  const [dados, setDados] = React.useState<Dados>({ entradas: [], saldo: [], historico: [], containers: [], indicadores: null })
   const [carregando, setCarregando] = React.useState(false)
   const [salvando, setSalvando] = React.useState(false)
   const [form, setForm] = React.useState({
@@ -46,6 +62,14 @@ export function EstoqueColaCobrideira() {
     valor_por_container: '0', fornecedor: 'DOW', observacoes: '',
   })
   const [codigos, setCodigos] = React.useState('')
+  const [abaEstoque, setAbaEstoque] = React.useState<'lotes' | 'detalhes'>('lotes')
+  const [ordemEstoque, setOrdemEstoque] = React.useState<'desc' | 'asc'>('desc')
+  const [selecionados, setSelecionados] = React.useState<string[]>([])
+  const [editandoCodigo, setEditandoCodigo] = React.useState<string | null>(null)
+  const [codigoEditado, setCodigoEditado] = React.useState('')
+  const [localizacaoEditada, setLocalizacaoEditada] = React.useState<'ESTOQUE' | 'GALPAO_MARIO_COVAS'>('ESTOQUE')
+  const [editandoEmLote, setEditandoEmLote] = React.useState(false)
+  const [salvandoEdicao, setSalvandoEdicao] = React.useState(false)
 
   const carregar = React.useCallback(async () => {
     setCarregando(true)
@@ -71,6 +95,13 @@ export function EstoqueColaCobrideira() {
   const totalContainers = dados.saldo.reduce((soma, item) => soma + Number(item.containers_disponiveis || 0), 0)
   const totalKg = dados.saldo.reduce((soma, item) => soma + Number(item.containers_disponiveis || 0) * Number(item.peso_por_container_kg || 0), 0)
   const codigosInformados = [...new Set(codigos.split(/\r?\n/).map((item) => item.trim()).filter(Boolean))]
+  const saldoOrdenado = React.useMemo(() => [...dados.saldo].sort((a, b) =>
+    ordemEstoque === 'desc'
+      ? b.data_chegada.localeCompare(a.data_chegada) || b.id - a.id
+      : a.data_chegada.localeCompare(b.data_chegada) || a.id - b.id
+  ), [dados.saldo, ordemEstoque])
+  const containersSelecionados = dados.containers.filter((item) => selecionados.includes(item.codigo))
+  const todosContainersSelecionados = dados.containers.length > 0 && selecionados.length === dados.containers.length
 
   const historicoAgrupado = React.useMemo(() => {
     const mapa = new Map<string, { codigo: string; bobinas: number; cola: number; primeira: string; ultima: string; lote: string; fornecedor: string; status: string }>()
@@ -110,7 +141,7 @@ export function EstoqueColaCobrideira() {
         lote: form.lote.trim(), quantidade_containers: quantidade, peso_por_container_kg: peso,
         valor_por_container: valor, fornecedor: form.fornecedor.trim(), observacoes: form.observacoes.trim() || undefined,
       } })
-      toast.success('Entrada de cola registrada.')
+      toast.success('Entrada registrada e códigos de containers gerados.', { description: resultado.codigos?.join(', ') })
       setForm((atual) => ({ ...atual, nf: '', lote: '', quantidade_containers: '1', valor_por_container: '0', observacoes: '' }))
       setAba('estoque')
       await carregar()
@@ -118,6 +149,67 @@ export function EstoqueColaCobrideira() {
       toast.error(error instanceof Error ? error.message : 'Não foi possível salvar a entrada.')
     } finally {
       setSalvando(false)
+    }
+  }
+
+  function abrirEdicaoContainer(container: Container) {
+    setEditandoCodigo(container.codigo)
+    setCodigoEditado(container.codigo)
+    setLocalizacaoEditada(container.localizacao || 'ESTOQUE')
+    setEditandoEmLote(false)
+  }
+
+  function abrirEdicaoEmLote() {
+    setEditandoCodigo(null)
+    setCodigoEditado('')
+    setLocalizacaoEditada('ESTOQUE')
+    setEditandoEmLote(true)
+  }
+
+  async function salvarEdicaoContainers() {
+    const itensBase = editandoEmLote ? containersSelecionados : containersSelecionados.filter((item) => item.codigo === editandoCodigo)
+    if (!itensBase.length) return
+    setSalvandoEdicao(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
+      await atualizarContainersCola({ data: {
+        accessToken,
+        itens: itensBase.map((item) => ({
+          codigo_atual: item.codigo,
+          codigo_novo: editandoEmLote ? item.codigo : codigoEditado.trim(),
+          localizacao: localizacaoEditada,
+        })),
+      } })
+      toast.success(`${itensBase.length} container(s) atualizado(s).`)
+      setEditandoCodigo(null)
+      setEditandoEmLote(false)
+      setSelecionados([])
+      await carregar()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível atualizar os containers.')
+    } finally {
+      setSalvandoEdicao(false)
+    }
+  }
+
+  async function excluirSelecionados() {
+    if (!selecionados.length) return
+    if (!window.confirm(`Excluir ${selecionados.length} container(s) selecionado(s)?`)) return
+    setSalvandoEdicao(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
+      const resultado = await excluirContainersCola({ data: { accessToken, codigos: selecionados } })
+      toast.success(`${resultado.removidos.length} container(s) excluído(s).`)
+      setSelecionados([])
+      await carregar()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível excluir os containers.')
+    } finally {
+      setSalvandoEdicao(false)
     }
   }
 
@@ -180,15 +272,80 @@ export function EstoqueColaCobrideira() {
             <div className="rounded-lg border border-slate-200 p-4"><p className="text-xs text-slate-500">Peso disponível</p><p className="mt-1 text-2xl font-bold">{kg(totalKg)}</p></div>
             <div className="rounded-lg border border-slate-200 p-4"><p className="text-xs text-slate-500">Códigos no histórico</p><p className="mt-1 text-2xl font-bold">{historicoAgrupado.length.toLocaleString('pt-BR')}</p></div>
           </div>
-          <Panel title="Entradas de cola" description="Saldo por lote de recebimento, descontando containers consumidos na produção ou enviados para Bahia.">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-xs">
-                <thead className="bg-slate-100 text-slate-700"><tr>{['Chegada','NF','Produto','Lote','Fornecedor','Containers recebidos','Disponíveis','Peso por container','Valor/kg'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}</tr></thead>
-                <tbody>{dados.saldo.map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="px-3 py-2">{new Date(item.data_chegada + 'T12:00:00').toLocaleDateString('pt-BR')}</td><td className="px-3 py-2">{item.nf}</td><td className="px-3 py-2">{item.produto}</td><td className="px-3 py-2">{item.lote}</td><td className="px-3 py-2">{item.fornecedor}</td><td className="px-3 py-2">{item.quantidade_containers}</td><td className="px-3 py-2 font-bold">{item.containers_disponiveis}</td><td className="px-3 py-2">{kg(item.peso_por_container_kg)}</td><td className="px-3 py-2">{dinheiro(item.valor_por_kg)}</td></tr>)}</tbody>
+          <Panel title="Consumo móvel e capacidade de produção" description="Base geral da Cobrideira: cada bobina equivale a 300 kg de cola líquida arredondados. Consumo móvel calculado sobre os últimos 90 dias.">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Consumo móvel mensal</p><p className="mt-1 text-xl font-bold">{kg(Number(dados.indicadores?.consumo_movel_mensal_kg || 0))}</p></div>
+              <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Consumo diário</p><p className="mt-1 text-xl font-bold">{kg(Number(dados.indicadores?.consumo_diario_kg || 0))}</p></div>
+              <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Estoque mínimo · 25 dias</p><p className="mt-1 text-xl font-bold">{kg(Number(dados.indicadores?.estoque_minimo_25_dias_kg || 0))}</p></div>
+              <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Capacidade estimada</p><p className="mt-1 text-xl font-bold">{Number(dados.indicadores?.capacidade_producao_bobinas || 0).toLocaleString('pt-BR',{maximumFractionDigits:1})} bobinas</p><p className="text-[11px] text-slate-500">Considerando 300 kg por bobina</p></div>
+            </div>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[520px] text-left text-xs">
+                <thead className="bg-slate-100 text-slate-700"><tr>{['Referência do CSV','Consumo mensal móvel','Consumo diário','Mínimo · 25 dias'].map((x)=><th key={x} className="px-3 py-2">{x}</th>)}</tr></thead>
+                <tbody>
+                  <tr className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">Planta SP</td><td className="px-3 py-2">39.400 kg</td><td className="px-3 py-2">1.313 kg</td><td className="px-3 py-2">32.833,33 kg</td></tr>
+                  <tr className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">Planta BA</td><td className="px-3 py-2">16.333 kg</td><td className="px-3 py-2">544 kg</td><td className="px-3 py-2">13.611,11 kg</td></tr>
+                </tbody>
               </table>
-              {!dados.saldo.length && <p className="py-8 text-center text-sm text-slate-500">Nenhuma entrada de cola cadastrada.</p>}
             </div>
           </Panel>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setAbaEstoque('lotes')} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${abaEstoque === 'lotes' ? 'border-[#c91d26] bg-[#c91d26] text-white' : 'border-slate-300 bg-white text-slate-700'}`}>Lotes de entrada</button>
+            <button type="button" onClick={() => setAbaEstoque('detalhes')} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${abaEstoque === 'detalhes' ? 'border-[#c91d26] bg-[#c91d26] text-white' : 'border-slate-300 bg-white text-slate-700'}`}>Detalhes dos containers</button>
+          </div>
+          {abaEstoque === 'lotes' ? (
+            <Panel title="Entradas de cola" description="Saldo por lote de recebimento. A coluna ao lado do lote mostra os códigos internos gerados para cada container.">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1100px] text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700"><tr>
+                    <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de entrada {ordemEstoque === 'desc' ? '↓' : '↑'}</button></th>
+                    {['NF','Produto','Lote','Códigos dos containers','Fornecedor','Containers recebidos','Disponíveis','Peso por container','Valor/kg'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
+                  </tr></thead>
+                  <tbody>{saldoOrdenado.map((item) => {
+                    const codigosLote = dados.containers.filter((container) => container.entrada_id === item.id).map((container) => container.codigo)
+                    return <tr key={item.id} className="border-b border-slate-100">
+                      <td className="px-3 py-2">{new Date(item.data_chegada + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                      <td className="px-3 py-2">{item.nf}</td><td className="px-3 py-2">{item.produto}</td><td className="px-3 py-2">{item.lote}</td>
+                      <td className="px-3 py-2 font-mono">{codigosLote.join(', ') || '—'}</td><td className="px-3 py-2">{item.fornecedor}</td>
+                      <td className="px-3 py-2">{item.quantidade_containers}</td><td className="px-3 py-2 font-bold">{item.containers_disponiveis}</td>
+                      <td className="px-3 py-2">{kg(item.peso_por_container_kg)}</td><td className="px-3 py-2">{dinheiro(item.valor_por_kg)}</td>
+                    </tr>
+                  })}</tbody>
+                </table>
+                {!saldoOrdenado.length && <p className="py-8 text-center text-sm text-slate-500">Nenhuma entrada de cola cadastrada.</p>}
+              </div>
+            </Panel>
+          ) : (
+            <Panel title="Detalhes dos containers" description="Selecione um ou mais códigos para alterar a localização ou excluir os registros permitidos. Containers no Galpão da Mario Covas ficam destacados em amarelo.">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-slate-600">{selecionados.length} selecionado(s) de {dados.containers.length}</p>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={abrirEdicaoEmLote} disabled={!selecionados.length} className="rounded-lg bg-[#c91d26] px-3 py-2 text-xs font-semibold text-white hover:bg-[#e3262e] disabled:opacity-50">Alterar selecionados</button>
+                  <button type="button" onClick={() => void excluirSelecionados()} disabled={!selecionados.length || salvandoEdicao} className="rounded-lg bg-[#c91d26] px-3 py-2 text-xs font-semibold text-white hover:bg-[#e3262e] disabled:opacity-50">Excluir selecionados</button>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700"><tr>
+                    <th className="px-3 py-2"><input type="checkbox" checked={todosContainersSelecionados} onChange={(e) => setSelecionados(e.target.checked ? dados.containers.map((item) => item.codigo) : [])} /></th>
+                    {['Código do container','Data de entrada','Lote','NF','Fornecedor','Situação','Localização','Ações'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
+                  </tr></thead>
+                  <tbody>{dados.containers.map((item) => <tr key={item.codigo} className={`border-b border-slate-100 ${item.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-100' : ''}`}>
+                    <td className="px-3 py-2"><input type="checkbox" checked={selecionados.includes(item.codigo)} onChange={(e) => setSelecionados((atual) => e.target.checked ? [...atual,item.codigo] : atual.filter((codigo) => codigo !== item.codigo))} /></td>
+                    <td className="px-3 py-2 font-mono font-semibold">{item.codigo}</td>
+                    <td className="px-3 py-2">{item.entrada?.data_chegada ? new Date(item.entrada.data_chegada + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+                    <td className="px-3 py-2">{item.entrada?.lote || '—'}</td><td className="px-3 py-2">{item.entrada?.nf || '—'}</td>
+                    <td className="px-3 py-2">{item.entrada?.fornecedor || '—'}</td>
+                    <td className="px-3 py-2">{item.status === 'DISPONIVEL' ? 'Disponível' : item.status === 'CONSUMIDO_PRODUCAO' ? 'Utilizado na produção' : item.status === 'ENVIADO_BAHIA' ? 'Enviado para Bahia' : 'Histórico anterior'}</td>
+                    <td className="px-3 py-2">{item.localizacao === 'GALPAO_MARIO_COVAS' ? 'Galpão da Mario Covas' : 'Estoque'}</td>
+                    <td className="px-3 py-2"><button type="button" onClick={() => { setSelecionados([item.codigo]); abrirEdicaoContainer(item) }} className="rounded-md bg-[#c91d26] px-3 py-1.5 font-semibold text-white hover:bg-[#e3262e]">Editar</button></td>
+                  </tr>)}</tbody>
+                </table>
+                {!dados.containers.length && <p className="py-8 text-center text-sm text-slate-500">Nenhum container cadastrado.</p>}
+              </div>
+            </Panel>
+          )}
+
         </div>
       )}
 
@@ -229,6 +386,24 @@ export function EstoqueColaCobrideira() {
             {!historicoAgrupado.length && <p className="py-8 text-center text-sm text-slate-500">Ainda não há consumo registrado.</p>}
           </div>
         </Panel>
+      )}
+      {(editandoCodigo !== null || editandoEmLote) && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md space-y-4 rounded-xl bg-white p-5 shadow-xl">
+            <div><h3 className="text-lg font-bold text-slate-900">{editandoEmLote ? `Alterar ${containersSelecionados.length} containers` : 'Editar container'}</h3><p className="text-xs text-slate-500">Altere o código interno e/ou a localização.</p></div>
+            {!editandoEmLote && <Field label="Código do container"><TextInput value={codigoEditado} onChange={(e) => setCodigoEditado(e.target.value)} /></Field>}
+            <Field label="Localização">
+              <select value={localizacaoEditada} onChange={(e) => setLocalizacaoEditada(e.target.value as 'ESTOQUE' | 'GALPAO_MARIO_COVAS')} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm">
+                <option value="ESTOQUE">Estoque</option>
+                <option value="GALPAO_MARIO_COVAS">Galpão da Mario Covas</option>
+              </select>
+            </Field>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => { setEditandoCodigo(null); setEditandoEmLote(false) }} className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700">Cancelar</button>
+              <button type="button" onClick={() => void salvarEdicaoContainers()} disabled={salvandoEdicao || (!editandoEmLote && !codigoEditado.trim())} className="rounded-lg bg-[#c91d26] px-4 py-2 text-xs font-semibold text-white hover:bg-[#e3262e] disabled:opacity-50">{salvandoEdicao ? 'Salvando...' : 'Salvar alterações'}</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
