@@ -164,7 +164,8 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
       const result = await listCurrentStock({ data: { accessToken: sessionData.session.access_token, tipoEstoque } })
       setBobinas(result.bobinas as BobinaEstoque[])
       setResumos(result.resumos as ResumoProduto[])
-      if (tipoEstoque === 'ADESIVADO') {\n        try {
+      if (tipoEstoque === 'ADESIVADO') {
+        try {
         const dataLimite = new Date()
         dataLimite.setDate(dataLimite.getDate() - 90)
         const desde = dataLimite.toISOString().slice(0, 10)
