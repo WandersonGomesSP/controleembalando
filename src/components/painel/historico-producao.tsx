@@ -19,10 +19,14 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { EstoqueAtualCobrideira } from '@/components/painel/estoque-atual'
 import {
   corrigirNumeroBobinaRebobinadeira,
   editarProducaoRebobinadeira,
   excluirLancamentosRebobinadeira,
+  listarLixeiraRebobinadeira,
+  restaurarLancamentosRebobinadeira,
+  excluirDefinitivamenteLixeiraRebobinadeira,
   buscarDetalhesBobinasOrigemRebobinadeira,
   importarCsvRebobinadeira,
   registrarProducaoRebobinadeira,
@@ -194,7 +198,7 @@ function severidadeClass(severidade: string) {
       : 'border-border bg-muted text-foreground'
 }
 
-export function HistoricoProducao({ onChangeArea }: Props) {
+export function HistoricoProducao({ onChangeArea, isDeveloper }: Props) {
   const [registros, setRegistros] = React.useState<ProducaoRow[]>([])
   const [alertas, setAlertas] = React.useState<RebobinadeiraAlertaBobinaRow[]>([])
   const [saldos, setSaldos] = React.useState<RebobinadeiraSaldoBobinaRow[]>([])
@@ -213,7 +217,10 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const [detalheAberto, setDetalheAberto] = React.useState<string | null>(null)
   const [gruposSelecionados, setGruposSelecionados] = React.useState<Set<string>>(() => new Set())
   const [excluindo, setExcluindo] = React.useState(false)
-  const [tela, setTela] = React.useState<'historico' | 'cadastro'>('historico')
+  const [lixeiraRebo, setLixeiraRebo] = React.useState<Array<{ id: string; producao_id: number; numero_bobina: string; dados: Record<string, any>; excluida_em: string }>>([])
+  const [selecionadosLixeira, setSelecionadosLixeira] = React.useState<Set<string>>(() => new Set())
+  const [processandoLixeira, setProcessandoLixeira] = React.useState(false)
+  const [tela, setTela] = React.useState<'historico' | 'cadastro' | 'indicadores' | 'lixeira'>('historico')
   const [salvando, setSalvando] = React.useState(false)
   const [importando, setImportando] = React.useState(false)
   const [arquivo, setArquivo] = React.useState<File | null>(null)
@@ -377,14 +384,20 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       const correspondeInicio = !dataInicio || grupo.dataFim >= dataInicio
       const correspondeFim = !dataFim || grupo.dataInicio <= dataFim
       const correspondeMes = !mesFiltro || grupo.linhas.some((item) => item.data.startsWith(mesFiltro))
-      return correspondeTexto && correspondeStatus && correspondeInicio && correspondeFim && correspondeMes
+      const diasPeriodo = periodoUtilizacao === '7' ? 7 : periodoUtilizacao === '30' ? 30 : periodoUtilizacao === '90' ? 90 : periodoUtilizacao === '180' ? 180 : periodoUtilizacao === '365' ? 365 : null
+      const hoje = new Date()
+      const inicioPeriodo = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+      if (diasPeriodo !== null) inicioPeriodo.setDate(inicioPeriodo.getDate() - (diasPeriodo - 1))
+      const dataMinimaPeriodo = diasPeriodo === null ? '' : [inicioPeriodo.getFullYear(), String(inicioPeriodo.getMonth() + 1).padStart(2, '0'), String(inicioPeriodo.getDate()).padStart(2, '0')].join('-')
+      const correspondePeriodo = !dataMinimaPeriodo || grupo.linhas.some((item) => item.data >= dataMinimaPeriodo)
+      return correspondeTexto && correspondeStatus && correspondeInicio && correspondeFim && correspondeMes && correspondePeriodo
     }).sort((a, b) => b.dataFim.localeCompare(a.dataFim) || a.numero_bobina.localeCompare(b.numero_bobina))
-  }, [registros, busca, statusFiltro, dataInicio, dataFim, mesFiltro])
+  }, [registros, busca, statusFiltro, dataInicio, dataFim, mesFiltro, periodoUtilizacao])
 
   async function excluirGrupos(grupos: typeof filtrados) {
     const ids = grupos.flatMap((grupo) => grupo.linhas.map((linha) => linha.id))
     if (!ids.length) return
-    if (!window.confirm('Excluir ' + grupos.length + ' lançamento(s) e ' + ids.length + ' registro(s) de produção? O saldo consumido será recomposto e os itens sairão do histórico.')) return
+    if (!window.confirm('Mover ' + grupos.length + ' lançamento(s) e ' + ids.length + ' registro(s) de produção para a lixeira? O saldo consumido será recomposto.')) return
     setExcluindo(true)
     try {
       const accessToken = await obterToken()
@@ -392,7 +405,8 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       setRegistros((atuais) => atuais.filter((linha) => !ids.includes(linha.id)))
       setGruposSelecionados(new Set())
       setDetalheAberto(null)
-      toast.success(grupos.length + ' lançamento(s) excluído(s). O saldo foi recomposto.')
+      toast.success(grupos.length + ' lançamento(s) movido(s) para a lixeira. O saldo foi recomposto.')
+      await carregarLixeiraRebo()
     } catch (error) { toast.error('Não foi possível excluir os lançamentos.', { description: error instanceof Error ? error.message : 'Erro inesperado.' }) }
     finally { setExcluindo(false) }
   }
@@ -412,6 +426,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     if (dias !== null) inicio.setDate(inicio.getDate() - (dias - 1))
     const unicas = new Set<string>()
     for (const item of registros) {
+      if (item.status_baixa === 'EXCLUIDA') continue
       const metros = Number(item.metros_consumidos ?? item.metragem_unica_m ?? 0)
       if (metros <= 0) continue
       const dataRegistro = new Date(item.data + 'T00:00:00')
@@ -421,6 +436,36 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     return unicas.size
   }, [registros, periodoUtilizacao])
   const saldoBobinaSelecionada = bobinaSelecionada ? saldos.find((item) => item.numero_bobina.replace(/\D/g, '') === bobinaSelecionada.numero_bobina.replace(/\D/g, '')) : undefined
+
+  async function carregarLixeiraRebo() {
+    try {
+      const accessToken = await obterToken()
+      const itens = await listarLixeiraRebobinadeira({ data: { accessToken } })
+      setLixeiraRebo(itens as typeof lixeiraRebo)
+      setSelecionadosLixeira(new Set())
+    } catch (error) { toast.error('Não foi possível carregar a lixeira.', { description: error instanceof Error ? error.message : 'Erro inesperado.' }) }
+  }
+
+  async function processarLixeira(acao: 'restaurar' | 'excluir', idsInformados = [...selecionadosLixeira]) {
+    const ids = [...new Set(idsInformados)]
+    if (!ids.length) return
+    if (acao === 'excluir' && !isDeveloper) return
+    const mensagem = acao === 'restaurar' ? 'Restaurar os ' + ids.length + ' lançamento(s) selecionado(s)?' : 'Excluir definitivamente os ' + ids.length + ' lançamento(s)? Esta ação não poderá ser desfeita.'
+    if (!window.confirm(mensagem)) return
+    setProcessandoLixeira(true)
+    try {
+      const accessToken = await obterToken()
+      for (let inicio = 0; inicio < ids.length; inicio += 500) {
+        const lote = ids.slice(inicio, inicio + 500)
+        if (acao === 'restaurar') await restaurarLancamentosRebobinadeira({ data: { accessToken, ids: lote } })
+        else await excluirDefinitivamenteLixeiraRebobinadeira({ data: { accessToken, ids: lote } })
+      }
+      toast.success(acao === 'restaurar' ? ids.length + ' lançamento(s) restaurado(s).' : ids.length + ' lançamento(s) excluído(s) definitivamente.')
+      await carregarLixeiraRebo()
+      if (acao === 'restaurar') await carregar(true)
+    } catch (error) { toast.error('Não foi possível concluir a ação na lixeira.', { description: error instanceof Error ? error.message : 'Erro inesperado.' }) }
+    finally { setProcessandoLixeira(false) }
+  }
 
   async function obterToken() {
     const { data, error } = await supabase.auth.getSession()
