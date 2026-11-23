@@ -11,6 +11,7 @@ import {
   Bell,
   BellOff,
   History,
+  Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
@@ -211,7 +212,7 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpen
               <ChartNoAxesCombined className="size-4" /> Indicadores
             </span>
             <button type="button" onClick={onOpenLixeira} className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg bg-[#c91d26] px-3 text-center text-xs font-semibold text-white whitespace-nowrap hover:bg-[#e3262e] sm:gap-2 sm:px-4 sm:text-sm">
-              <History className="size-4" /> Lixeira
+              <Trash2 className="size-4" /> Lixeira
             </button>
           </nav>
           <nav aria-label="Submenus de Indicadores" className="flex flex-wrap items-center gap-2 pl-3">
