@@ -367,11 +367,11 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h2 className="text-lg font-bold text-slate-900">{tituloEstoque}</h2><p className="text-sm text-slate-500">{tipoEstoque === 'VIRGEM' ? 'Bobinas BOPP virgens da Cobrideira, em estoque separado do material adesivado.' : 'Bobinas e produtos adesivados utilizados na Rebobinadeira.'}</p><p className="mt-1 text-xs text-slate-500">Na importação, selecione vários CSVs de uma vez. Os arquivos são consolidados por categoria e código, sem duplicar bobinas.</p></div>
         <div className="flex gap-2">
-          <button type="button" onClick={() => void carregar()} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="size-4"/> Atualizar</button>
+          <button type="button" onClick={() => void carregar()} className="inline-flex items-center gap-2 rounded-lg bg-[#e3262e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#c91f27]"><RefreshCw className="size-4"/> Atualizar</button>
           {aba === 'ATIVAS' && <>
             <input ref={inputCsvRef} type="file" accept=".csv,text/csv" multiple className="hidden" onChange={(e) => void importarCsvs(e.target.files)} />
             <button type="button" disabled={importando} onClick={() => inputCsvRef.current?.click()} className="csv-import-control inline-flex items-center gap-2 rounded-lg border border-[#e3262e] bg-[#e3262e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#c91f27] disabled:opacity-50"><FileUp className="size-4"/> {importando ? 'Importando...' : 'Importar CSV'}</button>
-            <button type="button" onClick={abrirNovo} className="inline-flex items-center gap-2 rounded-lg bg-[#57534E] px-3 py-2 text-sm font-semibold text-white hover:brightness-110"><Plus className="size-4"/> Nova bobina</button>
+            <button type="button" onClick={abrirNovo} className="inline-flex items-center gap-2 rounded-lg bg-[#e3262e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#c91f27]"><Plus className="size-4"/> Nova bobina</button>
           </>}
         </div>
       </div>
@@ -409,8 +409,8 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
         )
       })()}
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => setAba('ATIVAS')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'ATIVAS' ? 'bg-[#57534E] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{tituloEstoque}</button>
-        {isDeveloper && <button type="button" onClick={() => setAba('LIXEIRA')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'LIXEIRA' ? 'bg-[#57534E] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>Lixeira ({lixeira.length})</button>}
+        <button type="button" onClick={() => setAba('ATIVAS')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'ATIVAS' ? 'bg-[#e3262e] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{tituloEstoque}</button>
+        {isDeveloper && <button type="button" onClick={() => setAba('LIXEIRA')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'LIXEIRA' ? 'bg-[#e3262e] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>Lixeira ({lixeira.length})</button>}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -509,7 +509,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                 <td className="p-2"><div className="font-semibold text-slate-800">{item.dados.categoria}</div><div className="text-xs text-slate-500">{fmtMedida(item.dados.medida)}</div></td>
                 <td className="p-2 font-medium text-slate-800">{item.codigo ?? '—'}{item.dados.cliente ? <div className="text-xs text-slate-500">Cliente: {item.dados.cliente}</div> : null}</td>
                 <td className="p-2 text-slate-600">{item.dados.fornecedor ?? '—'}</td><td className="p-2 text-right tabular-nums">{fmt(item.dados.peso_kg, 1)} kg</td><td className="p-2 text-right tabular-nums">{fmt(item.dados.metragem_m)} m</td>
-                <td className="p-2"><div className="flex justify-end gap-1"><button type="button" onClick={() => void restaurar(item)} className="rounded-md px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">Restaurar</button><button type="button" title="Excluir definitivamente" onClick={() => void excluirDefinitivamente(item)} className="rounded-md p-2 text-red-600 hover:bg-red-50"><Trash2 className="size-4"/></button></div></td>
+                <td className="p-2"><div className="flex justify-end gap-1"><button type="button" onClick={() => void restaurar(item)} className="rounded-md px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">Restaurar</button><button type="button" title="Excluir definitivamente" onClick={() => void excluirDefinitivamente(item)} className="rounded-md bg-[#e3262e] p-2 text-white hover:bg-[#c91f27]"><Trash2 className="size-4"/></button></div></td>
               </tr>)}</tbody>
             </table>
             {!lixeira.length && <p className="py-8 text-center text-sm text-slate-500">A lixeira está vazia.</p>}
@@ -533,7 +533,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
             <label className="grid gap-1 text-sm font-medium text-slate-700">Linha<input value={form.linha} onChange={(e) => setForm({ ...form, linha: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
             <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2">Observações<textarea value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={2} className="rounded-lg border border-slate-300 px-3 py-2"/></label>
           </div>
-          <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setFormAberto(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button><button disabled={salvando} type="submit" className="rounded-lg bg-[#57534E] px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">{salvando ? 'Salvando...' : 'Salvar bobina'}</button></div>
+          <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setFormAberto(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button><button disabled={salvando} type="submit" className="rounded-lg bg-[#e3262e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c91f27] disabled:opacity-50">{salvando ? 'Salvando...' : 'Salvar bobina'}</button></div>
         </form>
       </div>}
     </div>
