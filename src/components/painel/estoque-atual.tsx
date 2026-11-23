@@ -189,9 +189,10 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
           if (!linhas || linhas.length < 1000) break
         }
         setUsosPorProduto(Object.fromEntries(Array.from(usos, ([descricao, chaves]) => [descricao, chaves.size])))
-      } catch (consumoError) {
-        console.error('Falha ao calcular frequência de uso móvel:', consumoError)
-        setUsosPorProduto({})
+        } catch (consumoError) {
+          console.error('Falha ao calcular frequência de uso móvel:', consumoError)
+          setUsosPorProduto({})
+        }
       } else {
         setAlertasDesativados([])
         setUsosPorProduto({})
