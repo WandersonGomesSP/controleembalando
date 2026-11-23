@@ -217,7 +217,10 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
       }
       const dataA = a.data_entrada ? new Date(a.data_entrada + 'T12:00:00').getTime() : 0
       const dataB = b.data_entrada ? new Date(b.data_entrada + 'T12:00:00').getTime() : 0
-      return ordemEstoque === 'data-desc' ? dataB - dataA : dataA - dataB
+      if (!a.data_entrada && !b.data_entrada) return 0
+      if (!a.data_entrada) return 1
+      if (!b.data_entrada) return -1
+      return ordemEstoque === 'data-desc' ? b.data_entrada.localeCompare(a.data_entrada) : a.data_entrada.localeCompare(b.data_entrada)
     })
   }, [bobinas, busca, categoria, ordemEstoque])
 
@@ -479,13 +482,13 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
           {aba === 'ATIVAS' && <div className="flex flex-wrap gap-2">
             <div className="relative"><Search className="absolute left-3 top-2.5 size-4 text-slate-400"/><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar código, fornecedor..." className="h-9 w-56 rounded-lg border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-slate-500"/></div>
             <select value={categoria} onChange={(e) => setCategoria(e.target.value as typeof categoria)} className="h-9 rounded-lg border border-slate-300 px-3 text-sm"><option value="TODAS">Todas as categorias</option>{categorias.map((c) => <option key={c}>{c}</option>)}</select>
-            <select aria-label="Ordenar estoque" value={ordemEstoque} onChange={(e) => setOrdemEstoque(e.target.value as typeof ordemEstoque)} className="h-9 rounded-lg border border-slate-300 px-3 text-sm"><option value="data-desc">Data: mais recente primeiro</option><option value="data-asc">Data: mais antiga primeiro</option><option value="alfabetica">Ordem alfabética</option></select>
+            
           </div>}
         </div>
         {carregando ? <p className="py-8 text-center text-sm text-slate-500">Carregando estoque...</p> : aba === 'ATIVAS' ? (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[850px] text-left text-sm">
-              <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="p-2">Entrada</th><th className="p-2">Categoria / medida</th><th className="p-2">Código</th><th className="p-2">Fornecedor</th><th className="p-2 text-right">Peso</th><th className="p-2 text-right">Metros</th><th className="p-2 text-right">Ações</th></tr></thead>
+              <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="p-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'data-desc' ? 'data-asc' : 'data-desc')} className="inline-flex items-center gap-1 font-semibold">Entrada <span>{ordemEstoque === 'data-desc' ? '▼' : ordemEstoque === 'data-asc' ? '▲' : '↕'}</span></button></th><th className="p-2">Categoria / medida</th><th className="p-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'alfabetica' ? 'data-desc' : 'alfabetica')} className="inline-flex items-center gap-1 font-semibold">Código / nome <span>{ordemEstoque === 'alfabetica' ? '▲' : '↕'}</span></button></th><th className="p-2">Fornecedor</th><th className="p-2 text-right">Peso</th><th className="p-2 text-right">Metros</th><th className="p-2 text-right">Ações</th></tr></thead>
               <tbody>{filtradas.map((b) => <tr key={b.id} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="p-2 text-slate-600">{b.data_entrada ? new Date(`${b.data_entrada}T12:00:00`).toLocaleDateString('pt-BR') : '—'}</td>
                 <td className="p-2"><div className="font-semibold text-slate-800">{b.categoria}</div><div className="text-xs text-slate-500">{fmtMedida(b.medida)}</div></td>
