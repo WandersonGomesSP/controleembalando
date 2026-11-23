@@ -861,7 +861,7 @@ export function HistoricoProducao({ onChangeArea, isDeveloper }: Props) {
         )}
 
         {tela === 'cadastro' && (
-        <section className="rounded-xl border border-border bg-card p-4">
+        <section className="rounded-xl bg-white p-4">
             
             <form onSubmit={(event) => void salvarProducao(event)} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label className="grid gap-1 text-sm"><span className="font-medium">Data</span><input required type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
