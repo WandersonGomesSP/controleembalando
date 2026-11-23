@@ -383,8 +383,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
 
   const gruposVisiveis = paginaRegistros
   const todosVisiveisSelecionados = gruposVisiveis.length > 0 && gruposVisiveis.every((grupo) => gruposSelecionados.has(grupo.groupId))
-  async function excluirGruposSelecionados() {
-    const grupos = filtrados.filter((grupo) => gruposSelecionados.has(grupo.groupId))
+  async function excluirGrupos(grupos: typeof filtrados) {
     const ids = grupos.flatMap((grupo) => grupo.linhas.map((linha) => linha.id))
     if (!ids.length) return
     if (!window.confirm('Excluir ' + grupos.length + ' lançamento(s) e ' + ids.length + ' registro(s) de produção? O saldo consumido será recomposto e os itens sairão do histórico.')) return
@@ -399,6 +398,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     } catch (error) { toast.error('Não foi possível excluir os lançamentos.', { description: error instanceof Error ? error.message : 'Erro inesperado.' }) }
     finally { setExcluindo(false) }
   }
+  async function excluirGruposSelecionados() { await excluirGrupos(filtrados.filter((grupo) => gruposSelecionados.has(grupo.groupId))) }
 
   const porPagina = 30
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / porPagina))
@@ -917,7 +917,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
                         <td className="px-4 py-3">{grupo.material} · {grupo.cor}</td>
                         <td className="px-4 py-3 tabular-nums">{grupo.linhas.length}</td>
                         <td className="px-4 py-3 tabular-nums">{formatar(grupo.metrosConsumidos, ' m')}</td>
-                        <td className="px-4 py-3"><span className={'inline-flex rounded-full border px-2 py-1 text-xs font-semibold ' + statusClass(grupo.status)}>{statusLabel(grupo.status)}</span></td>
+                        <td className="px-4 py-3"><div className="flex items-center gap-2"><span className={'inline-flex rounded-full border px-2 py-1 text-xs font-semibold ' + statusClass(grupo.status)}>{statusLabel(grupo.status)}</span><button type="button" title="Excluir lançamento" aria-label={`Excluir lançamento da bobina ${grupo.numero_bobina}`} onClick={() => void excluirGrupos([grupo])} disabled={excluindo} className="inline-flex size-8 items-center justify-center rounded-md text-red-600 hover:bg-red-50 disabled:opacity-50"><Trash2 className="size-4" /></button></div></td>
                         <td className="px-4 py-3"><button type="button" onClick={() => setDetalheAberto(detalheAberto === grupo.groupId ? null : grupo.groupId)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent">{detalheAberto === grupo.groupId ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />} {detalheAberto === grupo.groupId ? 'Fechar' : 'Detalhes'}</button></td>
                         <td className="px-4 py-3"><button type="button" onClick={() => iniciarEdicao(grupo.linhas.at(-1)!)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent"><Pencil className="size-3" /> Editar</button></td>
                       </tr>
