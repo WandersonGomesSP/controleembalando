@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { listarEstoqueMinimoVirgem, salvarParametroEstoqueMinimoVirgem } from '@/lib/admin.functions'
 import { carregarIndicadoresEstoqueMinimoRebobinadeira } from '@/lib/rebobinadeira-indicadores.functions'
 import { HistoricoProducao } from '@/components/painel/historico-producao'
 import type { RebobinadeiraEstoqueMinimoRow } from '@/lib/database.types'
@@ -56,17 +57,206 @@ export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
   />
 }
 
-export function EstoqueMinimoCobrideira(_props: { isDeveloper: boolean }) {
+type EstoqueMinimoVirgemRow = {
+  referencia: string
+  bobinas_estoque: number
+  peso_estoque_kg: number
+  peso_medio_bobina_kg: number | null
+  consumo_periodo_kg: number
+  meses_periodo: number
+  consumo_mensal_kg: number
+  consumo_diario_kg: number
+  lead_time_dias: number
+  minimo_calculado_kg: number
+  minimo_calibrado_kg: number | null
+  minimo_calibrado_bobinas: number | null
+  kg_bopp_por_jumbo: number | null
+  capacidade_jumbos: number | null
+  folga_calibrada_kg: number
+  status_estoque: string
+  primeira_producao: string | null
+  ultima_producao: string | null
+  registros_producao: number
+}
+
+type EstoqueMinimoVirgemDraft = {
+  lead_time_dias: string
+  minimo_calibrado_kg: string
+  kg_bopp_por_jumbo: string
+}
+
+export function EstoqueMinimoCobrideira({ isDeveloper }: { isDeveloper: boolean }) {
+  const [registros, setRegistros] = React.useState<EstoqueMinimoVirgemRow[]>([])
+  const [rascunhos, setRascunhos] = React.useState<Record<string, EstoqueMinimoVirgemDraft>>({})
+  const [busca, setBusca] = React.useState('')
+  const [carregando, setCarregando] = React.useState(true)
+  const [atualizando, setAtualizando] = React.useState(false)
+  const [salvando, setSalvando] = React.useState<string | null>(null)
+
+  const carregar = React.useCallback(async (silencioso = false) => {
+    if (silencioso) setAtualizando(true)
+    else setCarregando(true)
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (sessionError || !accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
+      const resultado = await listarEstoqueMinimoVirgem({ data: { accessToken } })
+      const linhas = (resultado ?? []) as EstoqueMinimoVirgemRow[]
+      setRegistros(linhas)
+      setRascunhos(Object.fromEntries(linhas.map((item) => [item.referencia, {
+        lead_time_dias: String(item.lead_time_dias ?? 90),
+        minimo_calibrado_kg: item.minimo_calibrado_kg == null ? '' : String(item.minimo_calibrado_kg),
+        kg_bopp_por_jumbo: item.kg_bopp_por_jumbo == null ? '' : String(item.kg_bopp_por_jumbo),
+      }])))
+    } catch (error) {
+      toast.error('Não foi possível carregar o estoque mínimo virgem.', {
+        description: error instanceof Error ? error.message : 'Erro inesperado.',
+      })
+    } finally {
+      setCarregando(false)
+      setAtualizando(false)
+    }
+  }, [])
+
+  React.useEffect(() => { void carregar() }, [carregar])
+
+  function alterarRascunho(referencia: string, campo: keyof EstoqueMinimoVirgemDraft, valor: string) {
+    setRascunhos((atuais) => ({
+      ...atuais,
+      [referencia]: { ...(atuais[referencia] ?? { lead_time_dias: '90', minimo_calibrado_kg: '', kg_bopp_por_jumbo: '' }), [campo]: valor },
+    }))
+  }
+
+  async function salvar(item: EstoqueMinimoVirgemRow) {
+    const rascunho = rascunhos[item.referencia] ?? {
+      lead_time_dias: String(item.lead_time_dias ?? 90),
+      minimo_calibrado_kg: item.minimo_calibrado_kg == null ? '' : String(item.minimo_calibrado_kg),
+      kg_bopp_por_jumbo: item.kg_bopp_por_jumbo == null ? '' : String(item.kg_bopp_por_jumbo),
+    }
+    const leadTime = Number(rascunho.lead_time_dias)
+    const minimoTexto = rascunho.minimo_calibrado_kg.trim()
+    const jumboTexto = rascunho.kg_bopp_por_jumbo.trim()
+    const minimo = minimoTexto ? Number(minimoTexto.replace(',', '.')) : null
+    const kgPorJumbo = jumboTexto ? Number(jumboTexto.replace(',', '.')) : null
+    if (!Number.isInteger(leadTime) || leadTime < 0 || leadTime > 3650) {
+      toast.error('Informe um lead time inteiro entre 0 e 3.650 dias.')
+      return
+    }
+    if (minimo !== null && (!Number.isFinite(minimo) || minimo < 0)) {
+      toast.error('Informe um mínimo calibrado válido em kg.')
+      return
+    }
+    if (kgPorJumbo !== null && (!Number.isFinite(kgPorJumbo) || kgPorJumbo <= 0)) {
+      toast.error('Informe um fator kg por jumbo maior que zero.')
+      return
+    }
+    setSalvando(item.referencia)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
+      await salvarParametroEstoqueMinimoVirgem({
+        data: {
+          accessToken,
+          referencia: item.referencia,
+          lead_time_dias: leadTime,
+          minimo_calibrado_kg: minimo,
+          kg_bopp_por_jumbo: kgPorJumbo,
+        },
+      })
+      toast.success(`Parâmetros de ${item.referencia} atualizados.`)
+      await carregar(true)
+    } catch (error) {
+      toast.error('Não foi possível salvar os parâmetros.', {
+        description: error instanceof Error ? error.message : 'Erro inesperado.',
+      })
+    } finally {
+      setSalvando(null)
+    }
+  }
+
+  const filtrados = registros.filter((item) => item.referencia.toLocaleLowerCase('pt-BR').includes(busca.trim().toLocaleLowerCase('pt-BR')))
+  const totalBobinas = filtrados.reduce((total, item) => total + Number(item.bobinas_estoque ?? 0), 0)
+  const totalKg = filtrados.reduce((total, item) => total + Number(item.peso_estoque_kg ?? 0), 0)
+  const capacidadeConhecida = filtrados.reduce((total, item) => total + Number(item.capacidade_jumbos ?? 0), 0)
+  const abaixo = filtrados.filter((item) => item.status_estoque === 'ABAIXO' || item.status_estoque === 'ZERADO').length
+
   return (
-    <section className="rounded-xl border border-border bg-card p-5">
-      <h2 className="text-lg font-semibold">Estoque Mínimo Virgem</h2>
-      <p className="mt-1 text-sm text-muted-foreground">O estoque mínimo virgem é calculado separadamente do estoque adesivado da Rebobinadeira.</p>
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-lg border border-border bg-background p-4"><p className="text-xs text-muted-foreground">Produtos cadastrados</p><p className="mt-1 text-2xl font-semibold tabular-nums">0</p></div>
-        <div className="rounded-lg border border-border bg-background p-4"><p className="text-xs text-muted-foreground">Estoque mínimo</p><p className="mt-1 text-2xl font-semibold tabular-nums">0</p></div>
-        <div className="rounded-lg border border-border bg-background p-4"><p className="text-xs text-muted-foreground">Alertas</p><p className="mt-1 text-2xl font-semibold tabular-nums">0</p></div>
+    <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Estoque Mínimo Virgem</h2>
+          <p className="mt-1 max-w-4xl text-sm text-muted-foreground">
+            O consumo real vem do peso de filme BOPP calculado nos lançamentos da Cobrideira.
+            Consumo mensal = consumo do período ÷ meses com produção; diário = mensal ÷ 30;
+            mínimo calculado = diário × lead time. O mínimo calibrado é independente e editável.
+          </p>
+        </div>
+        <button type="button" onClick={() => void carregar(true)} disabled={atualizando || carregando}
+          className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#e3262e] px-3 text-sm font-semibold text-white hover:bg-[#c91f27] disabled:opacity-50">
+          <RefreshCw className={`size-4 ${atualizando ? 'animate-spin' : ''}`} /> Atualizar
+        </button>
       </div>
-      <p className="mt-4 text-sm text-muted-foreground">Nenhum dado de estoque mínimo virgem foi cadastrado ainda.</p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-lg border border-border bg-background p-4"><p className="text-xs text-muted-foreground">Bobinas disponíveis</p><p className="mt-1 text-2xl font-semibold tabular-nums">{inteiro.format(totalBobinas)}</p></div>
+        <div className="rounded-lg border border-border bg-background p-4"><p className="text-xs text-muted-foreground">Peso em estoque</p><p className="mt-1 text-2xl font-semibold tabular-nums">{formatar(totalKg, true)} kg</p></div>
+        <div className="rounded-lg border border-border bg-background p-4"><p className="text-xs text-muted-foreground">Capacidade calculável</p><p className="mt-1 text-2xl font-semibold tabular-nums">{inteiro.format(capacidadeConhecida)} jumbos</p></div>
+        <div className="rounded-lg border border-border bg-background p-4"><p className="text-xs text-muted-foreground">Referências abaixo do calibrado</p><p className="mt-1 text-2xl font-semibold tabular-nums">{inteiro.format(abaixo)}</p></div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <div><h3 className="font-semibold">Consumo e parâmetros por medida</h3><p className="text-xs text-muted-foreground">O consumo é calculado apenas para medidas que tenham registros de produção compatíveis.</p></div>
+        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar medida ou referência" className="h-9 w-full max-w-xs rounded-lg border border-input bg-background px-3 text-sm" />
+      </div>
+
+      {carregando ? <p className="py-10 text-center text-sm text-muted-foreground">Carregando estoque mínimo virgem...</p> : filtrados.length === 0 ? <p className="py-10 text-center text-sm text-muted-foreground">Nenhuma referência encontrada.</p> : (
+        <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[1500px] text-left text-xs">
+            <thead className="sticky top-0 bg-muted text-muted-foreground">
+              <tr>
+                <th className="px-3 py-3">Medida / referência</th>
+                <th className="px-3 py-3 text-right">Bobinas</th>
+                <th className="px-3 py-3 text-right">Estoque kg</th>
+                <th className="px-3 py-3 text-right">Consumo mensal kg</th>
+                <th className="px-3 py-3 text-right">Consumo diário kg</th>
+                <th className="px-3 py-3 text-right">Lead time dias</th>
+                <th className="px-3 py-3 text-right">Mínimo calculado kg</th>
+                <th className="px-3 py-3 text-right">Mínimo calibrado kg</th>
+                <th className="px-3 py-3 text-right">Mínimo bobinas</th>
+                <th className="px-3 py-3 text-right">Kg por jumbo</th>
+                <th className="px-3 py-3 text-right">Capacidade jumbos</th>
+                <th className="px-3 py-3">Situação</th>
+                <th className="px-3 py-3">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.map((item) => {
+                const draft = rascunhos[item.referencia] ?? { lead_time_dias: '90', minimo_calibrado_kg: '', kg_bopp_por_jumbo: '' }
+                const situacao = item.status_estoque
+                const corStatus = situacao === 'OK' ? 'bg-emerald-600' : situacao === 'ZERADO' || situacao === 'ABAIXO' ? 'bg-red-600' : 'bg-slate-500'
+                return (
+                  <tr key={item.referencia} className="border-t border-border/70 align-middle">
+                    <td className="px-3 py-3"><div className="font-semibold">{item.referencia}</div><div className="mt-1 text-[10px] text-muted-foreground">{item.registros_producao} lançamentos · {item.meses_periodo} mês(es) com produção</div></td>
+                    <td className="px-3 py-3 text-right tabular-nums">{inteiro.format(item.bobinas_estoque)}</td>
+                    <td className="px-3 py-3 text-right tabular-nums">{formatar(item.peso_estoque_kg, true)}</td>
+                    <td className="px-3 py-3 text-right tabular-nums">{formatar(item.consumo_mensal_kg, true)}</td>
+                    <td className="px-3 py-3 text-right tabular-nums">{formatar(item.consumo_diario_kg, true)}</td>
+                    <td className="px-3 py-3 text-right">{isDeveloper ? <input aria-label={`Lead time de ${item.referencia}`} value={draft.lead_time_dias} onChange={(e) => alterarRascunho(item.referencia,'lead_time_dias',e.target.value)} className="h-8 w-16 rounded-md border border-input bg-background px-2 text-right"/> : inteiro.format(item.lead_time_dias)}</td>
+                    <td className="px-3 py-3 text-right font-semibold tabular-nums">{formatar(item.minimo_calculado_kg, true)}</td>
+                    <td className="px-3 py-3 text-right">{isDeveloper ? <input aria-label={`Mínimo calibrado de ${item.referencia}`} value={draft.minimo_calibrado_kg} onChange={(e) => alterarRascunho(item.referencia,'minimo_calibrado_kg',e.target.value)} placeholder="Não definido" className="h-8 w-24 rounded-md border border-input bg-background px-2 text-right"/> : formatar(item.minimo_calibrado_kg, true)}</td>
+                    <td className="px-3 py-3 text-right tabular-nums">{item.minimo_calibrado_bobinas == null ? '—' : inteiro.format(item.minimo_calibrado_bobinas)}</td>
+                    <td className="px-3 py-3 text-right">{isDeveloper ? <input aria-label={`Kg por jumbo de ${item.referencia}`} value={draft.kg_bopp_por_jumbo} onChange={(e) => alterarRascunho(item.referencia,'kg_bopp_por_jumbo',e.target.value)} placeholder="Configurar" className="h-8 w-24 rounded-md border border-input bg-background px-2 text-right"/> : formatar(item.kg_bopp_por_jumbo, true)}</td>
+                    <td className="px-3 py-3 text-right font-semibold tabular-nums">{item.capacidade_jumbos == null ? '—' : inteiro.format(item.capacidade_jumbos)}</td>
+                    <td className="px-3 py-3"><span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold text-white ${corStatus}`}>{situacao}</span></td>
+                    <td className="px-3 py-3">{isDeveloper && <button type="button" onClick={() => void salvar(item)} disabled={salvando===item.referencia} className="inline-flex min-h-8 items-center gap-1 rounded-md bg-[#e3262e] px-2.5 font-semibold text-white hover:bg-[#c91f27] disabled:opacity-50"><Save className="size-3.5"/>{salvando===item.referencia ? 'Salvando' : 'Salvar'}</button>}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   )
 }
