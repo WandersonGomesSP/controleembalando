@@ -758,7 +758,7 @@ export function HistoricoProducao({ onChangeArea, isDeveloper, onOpenEstoqueMini
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <header className="sticky top-0 z-30 border-b border-[#e2e8f0] bg-white">
         <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-7 pt-[18px] pb-4">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
