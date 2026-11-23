@@ -20,7 +20,6 @@ import type { RebobinadeiraEstoqueMinimoRow } from '@/lib/database.types'
 type Props = {
   onChangeArea: () => void
   isDeveloper: boolean
-  onOpenHistorico?: () => void
   onOpenEstoqueAtual?: () => void
 }
 
@@ -35,7 +34,7 @@ function formatar(valor: number | null | undefined, casas = false) {
 export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
   const [tela, setTela] = React.useState<'historico' | 'estoque-atual' | 'estoque-minimo'>('historico')
   return tela === 'estoque-minimo'
-    ? <EstoqueMinimoView onChangeArea={onChangeArea} isDeveloper={isDeveloper} onOpenHistorico={() => setTela('historico')} onOpenEstoqueAtual={() => setTela('estoque-atual')} />
+    ? <EstoqueMinimoView onChangeArea={onChangeArea} isDeveloper={isDeveloper} onOpenEstoqueAtual={() => setTela('estoque-atual')} />
     : <HistoricoProducao onChangeArea={onChangeArea} isDeveloper={isDeveloper} initialTela={tela === 'estoque-atual' ? 'indicadores' : 'historico'} onOpenEstoqueMinimo={() => setTela('estoque-minimo')} />
 }
 
@@ -54,7 +53,7 @@ export function EstoqueMinimoCobrideira(_props: { isDeveloper: boolean }) {
   )
 }
 
-function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpenHistorico, onOpenEstoqueAtual }: Props & { embedded?: boolean }) {
+function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpenEstoqueAtual }: Props & { embedded?: boolean }) {
   const [registros, setRegistros] = React.useState<RebobinadeiraEstoqueMinimoRow[]>([])
   const [leadTimes, setLeadTimes] = React.useState<Record<string, string>>({})
   const [ajustes, setAjustes] = React.useState<Record<string, number>>({})
