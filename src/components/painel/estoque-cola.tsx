@@ -45,7 +45,24 @@ type Indicadores = {
   lead_time_dias: number
   consumo_medio_bobina_kg: number
 }
-type Dados = { entradas: Entrada[]; saldo: Saldo[]; historico: Historico[]; containers: Container[]; indicadores: Indicadores | null }
+type HistoricoEnvioBahia = {
+  id: number
+  entrada_id: number | null
+  data_entrada: string
+  nf: string
+  produto: string
+  lote: string
+  codigo_container: string
+  peso_kg: number
+  valor_por_container: number | null
+  valor_por_kg: number
+  fornecedor: string
+  data_envio: string
+  mes: string
+  status: string
+  origem: string
+}
+type Dados = { entradas: Entrada[]; saldo: Saldo[]; historico: Historico[]; containers: Container[]; indicadores: Indicadores | null; envios: HistoricoEnvioBahia[] }
 type Aba = 'estoque' | 'entrada' | 'retirada' | 'historico' | 'envios'
 
 const hoje = () => new Date().toLocaleDateString('en-CA')
@@ -54,7 +71,7 @@ const kg = (valor: number) => `${Number(valor || 0).toLocaleString('pt-BR', { mi
 
 export function EstoqueColaCobrideira() {
   const [aba, setAba] = React.useState<Aba>('estoque')
-  const [dados, setDados] = React.useState<Dados>({ entradas: [], saldo: [], historico: [], containers: [], indicadores: null })
+  const [dados, setDados] = React.useState<Dados>({ entradas: [], saldo: [], historico: [], containers: [], indicadores: null, envios: [] })
   const [carregando, setCarregando] = React.useState(false)
   const [salvando, setSalvando] = React.useState(false)
   const [form, setForm] = React.useState({
@@ -165,12 +182,11 @@ export function EstoqueColaCobrideira() {
     )
   }, [dados.historico, dados.containers, ordemConsumo])
 
-  const enviadosParaBahia = React.useMemo(() => dados.containers
-    .filter((item) => item.status === 'ENVIADO_BAHIA' && /^\d{8}$/.test(item.codigo))
+  const enviadosParaBahia = React.useMemo(() => [...dados.envios]
     .sort((a, b) => ordemEnvios === 'desc'
-      ? (b.enviado_em || '').localeCompare(a.enviado_em || '')
-      : (a.enviado_em || '').localeCompare(b.enviado_em || '')),
-  [dados.containers, ordemEnvios])
+      ? b.data_envio.localeCompare(a.data_envio) || a.codigo_container.localeCompare(b.codigo_container)
+      : a.data_envio.localeCompare(b.data_envio) || a.codigo_container.localeCompare(b.codigo_container)),
+  [dados.envios, ordemEnvios])
 
 
 
@@ -534,9 +550,9 @@ export function EstoqueColaCobrideira() {
               <thead className="bg-slate-100 text-slate-700"><tr>
                 <th className="px-3 py-2">Código do container</th>
                 <th className="px-3 py-2"><button type="button" onClick={() => setOrdemConsumo((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de consumo {ordemConsumo === 'desc' ? '↓' : '↑'}</button></th>
-                {['Bobinas','Cola líquida utilizada','Lote','Fornecedor','Situação'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
+                {['Cola líquida utilizada','Lote','Fornecedor','Situação'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
               </tr></thead>
-              <tbody>{historicoAgrupado.map((item) => <tr key={item.codigo} className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">{item.codigo}</td><td className="px-3 py-2">{new Date(item.dataConsumo + 'T12:00:00').toLocaleDateString('pt-BR')}</td><td className="px-3 py-2">{item.bobinas}</td><td className="px-3 py-2 font-bold">{kg(item.cola)}</td><td className="px-3 py-2">{item.lote || '—'}</td><td className="px-3 py-2">{item.fornecedor || '—'}</td><td className="px-3 py-2">{item.status === 'ENVIADO_BAHIA' ? 'Enviado para Bahia' : item.status === 'CONSUMIDO_PRODUCAO' ? 'Utilizado na produção' : 'Histórico anterior'}</td></tr>)}</tbody>
+              <tbody>{historicoAgrupado.map((item) => <tr key={item.codigo} className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">{item.codigo}</td><td className="px-3 py-2">{new Date(item.dataConsumo + 'T12:00:00').toLocaleDateString('pt-BR')}</td><td className="px-3 py-2 font-bold">{kg(item.cola)}</td><td className="px-3 py-2">{item.lote || '—'}</td><td className="px-3 py-2">{item.fornecedor || '—'}</td><td className="px-3 py-2">{item.status === 'ENVIADO_BAHIA' ? 'Enviado para Bahia' : item.status === 'CONSUMIDO_PRODUCAO' ? 'Utilizado na produção' : 'Histórico anterior'}</td></tr>)}</tbody>
             </table>
             {!historicoAgrupado.length && <p className="py-8 text-center text-sm text-slate-500">Ainda não há consumo registrado.</p>}
           </div>
@@ -545,18 +561,25 @@ export function EstoqueColaCobrideira() {
       {aba === 'envios' && (
         <Panel title="Histórico de envio para BA" description="Cada container enviado aparece com a data da retirada e o lote de origem.">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px] text-left text-xs">
+            <table className="w-full min-w-[1500px] text-left text-xs">
               <thead className="bg-slate-100 text-slate-700"><tr>
-                <th className="px-3 py-2">Código do container</th><th className="px-3 py-2"><button type="button" onClick={() => setOrdemEnvios((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de envio {ordemEnvios === 'desc' ? '↓' : '↑'}</button></th>{['Data de entrada','Lote','NF','Fornecedor','Situação'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
+                {['Data de entrada','NF','Produto','Lote','Container','Peso','Valor por container','Valor por kg','Fornecedor'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
+                <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEnvios((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de envio {ordemEnvios === 'desc' ? '↓' : '↑'}</button></th>
+                {['Mês','Status'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
               </tr></thead>
-              <tbody>{enviadosParaBahia.map((item) => <tr key={item.codigo} className={'border-b border-slate-100 ' + (item.entrada?.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-100' : '')}>
-                <td className="px-3 py-2 font-mono font-semibold">{item.codigo}</td>
-                <td className="px-3 py-2">{item.enviado_em ? new Date(item.enviado_em).toLocaleString('pt-BR') : '—'}</td>
-                <td className="px-3 py-2">{item.entrada?.data_chegada ? new Date(item.entrada.data_chegada + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                <td className="px-3 py-2">{item.entrada?.lote || '—'}</td>
-                <td className="px-3 py-2">{item.entrada?.nf || '—'}</td>
-                <td className="px-3 py-2">{item.entrada?.fornecedor || '—'}</td>
-                <td className="px-3 py-2 font-semibold text-slate-700">Enviado para Bahia</td>
+              <tbody>{enviadosParaBahia.map((item) => <tr key={item.codigo_container} className="border-b border-slate-100">
+                <td className="px-3 py-2">{new Date(item.data_entrada + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                <td className="px-3 py-2">{item.nf}</td>
+                <td className="px-3 py-2">{item.produto}</td>
+                <td className="px-3 py-2">{item.lote}</td>
+                <td className="px-3 py-2 font-mono font-semibold">{item.codigo_container}</td>
+                <td className="px-3 py-2">{Number(item.peso_kg).toLocaleString('pt-BR',{maximumFractionDigits:0})} Kg</td>
+                <td className="px-3 py-2">{item.valor_por_container === null ? '—' : dinheiro(Number(item.valor_por_container))}</td>
+                <td className="px-3 py-2">{dinheiro(Number(item.valor_por_kg || 0))}</td>
+                <td className="px-3 py-2">{item.fornecedor}</td>
+                <td className="px-3 py-2">{new Date(item.data_envio + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                <td className="px-3 py-2">{item.mes}</td>
+                <td className="px-3 py-2 font-semibold text-slate-700">{item.status}</td>
               </tr>)}</tbody>
             </table>
             {!enviadosParaBahia.length && <p className="py-8 text-center text-sm text-slate-500">Nenhum envio para Bahia registrado ainda.</p>}
