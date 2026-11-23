@@ -1850,9 +1850,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                                 <td className="px-2 py-3">
                                   <div className="flex items-center gap-2">
                                     <input type="checkbox" aria-label={`Selecionar bobina ${registro.numero_bobina}`} checked={selecionadas.has(registro.numero_bobina)} onChange={() => alternarSelecao(registro.numero_bobina)} />
-                                    <button type="button" onClick={() => alternarExpansao(registro.numero_bobina)} aria-label={expandido ? 'Recolher detalhes' : 'Expandir detalhes'} aria-expanded={expandido} className="grid size-8 place-items-center rounded-md hover:bg-muted">
-                                    {expandido ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                                    </button>
+                                    <button type="button" onClick={() => alternarExpansao(registro.numero_bobina)} aria-label={expandido ? 'Recolher detalhes' : 'Expandir detalhes'} aria-expanded={expandido} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent">{expandido ? 'Fechar' : 'Detalhes'}</button><button type="button" onClick={() => iniciarEdicao(registro)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent"><Pencil className="size-3" /> Editar</button>
                                   </div>
                                 </td>
                                 <td className="px-3 py-3 font-mono">{registro.numero_bobina}</td>
@@ -1862,7 +1860,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                                 <td className="px-3 py-3">{registro.largura}.{String(registro.micragem).padStart(2, '0')}</td>
                                 <td className="px-3 py-3">{formatarPeso(Number(registro.peso_liquido))} kg</td>
                                 <td className="px-3 py-3">{registro.metragem.toLocaleString('pt-BR')} m</td>
-                                <td className="px-3 py-3 text-xs text-muted-foreground">Cadastrada</td>
+                                <td className="px-3 py-3"><div className="flex items-center gap-2 text-xs text-muted-foreground"><span>Cadastrada</span><button type="button" title={`Mover bobina ${registro.numero_bobina} para a lixeira`} aria-label={`Excluir lançamento da bobina ${registro.numero_bobina}`} onClick={async () => { if (!window.confirm(`Mover a bobina ${registro.numero_bobina} para a lixeira?`)) return; try { await moveCobrideiraBobinaToTrash({ data: { accessToken: await tokenAtual(), numeroBobina: registro.numero_bobina } }); setRegistros((atuais) => atuais.filter((item) => item.numero_bobina !== registro.numero_bobina)); setSelecionadas((atuais) => { const novas = new Set(atuais); novas.delete(registro.numero_bobina); return novas }); toast.success(`Bobina ${registro.numero_bobina} movida para a lixeira.`) } catch (error) { toast.error('Não foi possível excluir o lançamento.', { description: erroMensagem(error) }) } }} className="inline-flex size-8 items-center justify-center rounded-md text-red-600 hover:bg-red-50"><Trash2 className="size-4" /></button></div></td>
                               </tr>
                               {expandido && (
                                 <tr className="border-b border-blue-300 bg-blue-50 text-blue-950">
