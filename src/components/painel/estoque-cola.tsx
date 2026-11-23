@@ -333,6 +333,7 @@ export function EstoqueColaCobrideira() {
                 <tbody>
                   <tr className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">Planta SP</td><td className="px-3 py-2">39.400 kg</td><td className="px-3 py-2">1.313 kg</td><td className="px-3 py-2">32.833,33 kg</td></tr>
                   <tr className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">Planta BA</td><td className="px-3 py-2">16.333 kg</td><td className="px-3 py-2">544 kg</td><td className="px-3 py-2">13.611,11 kg</td></tr>
+                  <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold"><td className="px-3 py-2">Total SP + BA</td><td className="px-3 py-2">55.733 kg</td><td className="px-3 py-2">1.857 kg</td><td className="px-3 py-2">46.444,44 kg</td></tr>
                 </tbody>
               </table>
             </div>
