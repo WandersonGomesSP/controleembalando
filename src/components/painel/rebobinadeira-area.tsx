@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { carregarIndicadoresEstoqueMinimoRebobinadeira } from '@/lib/admin.functions'
 import { HistoricoProducao } from '@/components/painel/historico-producao'
 import type { RebobinadeiraEstoqueMinimoRow } from '@/lib/database.types'
 
@@ -85,21 +86,14 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpen
     else setCarregando(true)
     setErro('')
     try {
-      const { data, error } = await supabase
-        .schema('rebobinadeira')
-        .from('vw_estoque_minimo')
-        .select('*')
-        .order('descricao', { ascending: true })
-      if (error) throw error
-      setRegistros((data ?? []) as RebobinadeiraEstoqueMinimoRow[])
-      const { data: ajustesData, error: ajustesError } = await supabase
-        .schema('rebobinadeira')
-        .from('produtos_jumbo')
-        .select('codigo, descricao, ajuste_estoque_percentual, alerta_estoque_baixo_ativo')
-        .eq('ativo', true)
-      if (ajustesError) throw ajustesError
-      setAjustes(Object.fromEntries((ajustesData ?? []).map((produto) => [produto.codigo, Number(produto.ajuste_estoque_percentual ?? 0)])))
-      setAlertasDesativados((ajustesData ?? []).filter((produto) => produto.alerta_estoque_baixo_ativo === false).map((produto) => chaveAlertaEstoque(produto.descricao)))
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (sessionError || !accessToken) throw new Error('Sua sessão expirou. Entre novamente para consultar o estoque mínimo adesivado.')
+      const resultado = await carregarIndicadoresEstoqueMinimoRebobinadeira({ data: { accessToken } })
+      setRegistros((resultado.registros ?? []) as RebobinadeiraEstoqueMinimoRow[])
+      const ajustesData = resultado.produtos ?? []
+      setAjustes(Object.fromEntries(ajustesData.map((produto) => [produto.codigo, Number(produto.ajuste_estoque_percentual ?? 0)])))
+      setAlertasDesativados(ajustesData.filter((produto) => produto.alerta_estoque_baixo_ativo === false).map((produto) => chaveAlertaEstoque(produto.descricao)))
       setLeadTimes({})
     } catch (error) {
       const mensagem = error instanceof Error ? error.message : 'Erro inesperado ao consultar os parâmetros.'
