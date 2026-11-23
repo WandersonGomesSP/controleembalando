@@ -783,7 +783,7 @@ export function HistoricoProducao({ onChangeArea, isDeveloper, onOpenEstoqueMini
               <History className="size-4" /> Histórico de produção
             </button>
             <button type="button" aria-current={tela === 'indicadores' ? 'page' : undefined} onClick={() => setTela('indicadores')} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-3 text-center text-xs font-semibold whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'indicadores' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]')}>
-              <ChartNoAxesCombined className="size-4" /> Indicadores
+              <Package className="size-4" /> Indicadores
             </button>
             <button type="button" aria-current={tela === 'lixeira' ? 'page' : undefined} onClick={() => { setTela('lixeira'); void carregarLixeiraRebo() }} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-3 text-center text-xs font-semibold whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'lixeira' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]')}>
               <Trash2 className="size-4" /> Lixeira ({lixeiraRebo.length})
