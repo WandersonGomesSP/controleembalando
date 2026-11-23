@@ -43,6 +43,7 @@ type Props = {
   onChangeArea: () => void
   isDeveloper: boolean
   onOpenEstoqueMinimo?: () => void
+  initialTela?: 'historico' | 'indicadores'
 }
 
 type BobinaOrigem = {
@@ -199,7 +200,7 @@ function severidadeClass(severidade: string) {
       : 'border-border bg-muted text-foreground'
 }
 
-export function HistoricoProducao({ onChangeArea, isDeveloper, onOpenEstoqueMinimo }: Props) {
+export function HistoricoProducao({ onChangeArea, isDeveloper, onOpenEstoqueMinimo, initialTela = 'historico' }: Props) {
   const [registros, setRegistros] = React.useState<ProducaoRow[]>([])
   const [alertas, setAlertas] = React.useState<RebobinadeiraAlertaBobinaRow[]>([])
   const [saldos, setSaldos] = React.useState<RebobinadeiraSaldoBobinaRow[]>([])
@@ -221,7 +222,7 @@ export function HistoricoProducao({ onChangeArea, isDeveloper, onOpenEstoqueMini
   const [lixeiraRebo, setLixeiraRebo] = React.useState<Array<{ id: string; producao_id: number; numero_bobina: string; dados: Record<string, any>; excluida_em: string }>>([])
   const [selecionadosLixeira, setSelecionadosLixeira] = React.useState<Set<string>>(() => new Set())
   const [processandoLixeira, setProcessandoLixeira] = React.useState(false)
-  const [tela, setTela] = React.useState<'historico' | 'cadastro' | 'indicadores' | 'lixeira'>('historico')
+  const [tela, setTela] = React.useState<'historico' | 'cadastro' | 'indicadores' | 'lixeira'>(initialTela)
   const [salvando, setSalvando] = React.useState(false)
   const [importando, setImportando] = React.useState(false)
   const [arquivo, setArquivo] = React.useState<File | null>(null)
@@ -782,17 +783,19 @@ export function HistoricoProducao({ onChangeArea, isDeveloper, onOpenEstoqueMini
               <History className="size-4" /> Histórico de produção
             </button>
             <button type="button" aria-current={tela === 'indicadores' ? 'page' : undefined} onClick={() => setTela('indicadores')} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-3 text-center text-xs font-semibold whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'indicadores' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]')}>
-              <Package className="size-4" /> Estoque Atual Adesivado
+              <ChartNoAxesCombined className="size-4" /> Indicadores
             </button>
-            {onOpenEstoqueMinimo && <button type="button" onClick={onOpenEstoqueMinimo} className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg bg-[#c91d26] px-3 text-center text-xs font-semibold text-white whitespace-nowrap hover:bg-[#e3262e] sm:gap-2 sm:px-4 sm:text-sm">
-              <Package className="size-4" /> Estoque Mínimo
-            </button>}
             <button type="button" aria-current={tela === 'lixeira' ? 'page' : undefined} onClick={() => { setTela('lixeira'); void carregarLixeiraRebo() }} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-3 text-center text-xs font-semibold whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'lixeira' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]')}>
               <Trash2 className="size-4" /> Lixeira ({lixeiraRebo.length})
             </button>
           </nav>
+          {tela === 'indicadores' && <nav aria-label="Submenus de Indicadores" className="flex flex-wrap items-center gap-2 pl-3">
+            <span className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#e3262e]/30 bg-[#e3262e]/10 px-3 text-sm font-medium text-[#9f1720]"><Package className="size-4" /> Estoque Atual Adesivado</span>
+            {onOpenEstoqueMinimo && <button type="button" onClick={onOpenEstoqueMinimo} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#e3262e] bg-white px-3 text-sm font-medium text-[#c91d26] transition hover:bg-red-50"><Package className="size-4" /> Estoque Mínimo</button>}
+          </nav>}
         </div>
       </header>
+      <div className="h-3 w-full bg-[#4b4642]" />
 
       <main className="mx-auto w-full max-w-[96rem] space-y-4 rounded-2xl bg-white p-3 sm:p-4">
         {tela === 'historico' && <div className="flex justify-end"><button type="button" onClick={() => void carregar(true)} disabled={atualizando || carregando} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#e3262e] px-4 text-sm font-semibold text-white transition hover:bg-[#c91f28] disabled:opacity-50"><RefreshCw className={'size-4 ' + (atualizando ? 'animate-spin' : '')} /> Atualizar</button></div>}
