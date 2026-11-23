@@ -164,7 +164,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
       const result = await listCurrentStock({ data: { accessToken: sessionData.session.access_token, tipoEstoque } })
       setBobinas(result.bobinas as BobinaEstoque[])
       setResumos(result.resumos as ResumoProduto[])
-      try {
+      if (tipoEstoque === 'ADESIVADO') try {
         const dataLimite = new Date()
         dataLimite.setDate(dataLimite.getDate() - 90)
         const desde = dataLimite.toISOString().slice(0, 10)
@@ -191,6 +191,9 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
         setUsosPorProduto(Object.fromEntries(Array.from(usos, ([descricao, chaves]) => [descricao, chaves.size])))
       } catch (consumoError) {
         console.error('Falha ao calcular frequência de uso móvel:', consumoError)
+        setUsosPorProduto({})
+      } else {
+        setAlertasDesativados([])
         setUsosPorProduto({})
       }
       if (isDeveloper) {
