@@ -51,6 +51,8 @@ create table if not exists cobrideira.historico_cola_producao (
 create index if not exists idx_cola_entradas_data on cobrideira.estoque_cola_entradas(data_chegada desc,id desc);
 create index if not exists idx_cola_movimentos_codigo on cobrideira.movimentacoes_cola(codigo_container,ocorrido_em desc);
 create index if not exists idx_cola_historico_codigo_data on cobrideira.historico_cola_producao(codigo_container,data_producao desc);
+create index if not exists idx_cola_containers_entrada on cobrideira.estoque_cola_containers(entrada_id);
+create index if not exists idx_cola_movimentos_entrada on cobrideira.movimentacoes_cola(entrada_id);
 
 create or replace function cobrideira.alocar_entrada_cola()
 returns bigint language plpgsql security definer set search_path=''
@@ -59,8 +61,8 @@ declare v_id bigint;
 begin
  select e.id into v_id from cobrideira.estoque_cola_entradas e
  where e.quantidade_containers > coalesce((
-  select sum(m.quantidade_containers) from cobrideira.movimentacoes_cola m
-  where m.entrada_id=e.id and m.tipo in ('CONSUMO_PRODUCAO','RETIRADA_BAHIA')
+  select sum(case when m.tipo in ('CONSUMO_PRODUCAO','RETIRADA_BAHIA') then m.quantidade_containers when m.tipo='ESTORNO_CONSUMO' then -m.quantidade_containers else 0 end) from cobrideira.movimentacoes_cola m
+  where m.entrada_id=e.id
  ),0)
  order by e.data_chegada,e.id for update skip locked limit 1;
  return v_id;
@@ -163,14 +165,40 @@ end; $$;
 
 create or replace view cobrideira.vw_estoque_cola_saldo with(security_invoker=true) as
 select e.id,e.data_chegada,e.nf,e.produto,e.lote,e.quantidade_containers,e.peso_por_container_kg,e.valor_por_container,e.valor_por_kg,e.fornecedor,
- e.quantidade_containers-coalesce((select sum(m.quantidade_containers) from cobrideira.movimentacoes_cola m where m.entrada_id=e.id and m.tipo in ('CONSUMO_PRODUCAO','RETIRADA_BAHIA')),0)::integer as containers_disponiveis
+ e.quantidade_containers-coalesce((select sum(case when m.tipo in ('CONSUMO_PRODUCAO','RETIRADA_BAHIA') then m.quantidade_containers when m.tipo='ESTORNO_CONSUMO' then -m.quantidade_containers else 0 end) from cobrideira.movimentacoes_cola m where m.entrada_id=e.id),0)::integer as containers_disponiveis
 from cobrideira.estoque_cola_entradas e;
 create or replace view cobrideira.vw_historico_cola with(security_invoker=true) as
 select h.numero_bobina,h.codigo_container,h.data_producao,h.cola_liquida_kg,h.lote_cola,h.fornecedor_cola,c.status as status_container
 from cobrideira.historico_cola_producao h left join cobrideira.estoque_cola_containers c on c.codigo=h.codigo_container;
 
 insert into cobrideira.historico_cola_producao(numero_bobina,codigo_container,data_producao,cola_liquida_kg,lote_cola,fornecedor_cola)
-select numero_bobina,coalesce(nullif(btrim(codigo_interno),''),''),data,coalesce(consumo_cola_liquida_kg,0),nullif(btrim(lote_cola),''),nullif(btrim(fornecedor_cola),'')
+select numero_bobina,case when btrim(codigo_interno) ~ '^0+([.]0+)?,nullif(btrim(lote_cola),''),nullif(btrim(fornecedor_cola),'')
+from cobrideira.bobinas
+on conflict(numero_bobina) do update set codigo_container=excluded.codigo_container,data_producao=excluded.data_producao,cola_liquida_kg=excluded.cola_liquida_kg,lote_cola=excluded.lote_cola,fornecedor_cola=excluded.fornecedor_cola;
+
+insert into cobrideira.estoque_cola_containers(codigo,status,primeiro_uso_em,primeira_bobina)
+select distinct on (btrim(codigo_interno)) btrim(codigo_interno),'HISTORICO_ANTERIOR',
+ min(data) over(partition by btrim(codigo_interno)),
+ first_value(numero_bobina) over(partition by btrim(codigo_interno) order by data,numero_bobina)
+from cobrideira.bobinas
+where nullif(btrim(codigo_interno),'') is not null and btrim(codigo_interno) !~ '^0+([.]0+)?$'
+order by btrim(codigo_interno),data,numero_bobina
+on conflict(codigo) do nothing;
+
+alter table cobrideira.estoque_cola_entradas enable row level security;
+alter table cobrideira.estoque_cola_containers enable row level security;
+alter table cobrideira.movimentacoes_cola enable row level security;
+alter table cobrideira.historico_cola_producao enable row level security;
+revoke all on cobrideira.estoque_cola_entradas,cobrideira.estoque_cola_containers,cobrideira.movimentacoes_cola,cobrideira.historico_cola_producao from anon,authenticated;
+grant select,insert,update,delete on cobrideira.estoque_cola_entradas,cobrideira.estoque_cola_containers,cobrideira.movimentacoes_cola,cobrideira.historico_cola_producao to service_role;
+grant usage,select on all sequences in schema cobrideira to service_role;
+revoke all on function cobrideira.alocar_entrada_cola() from public,anon,authenticated;
+grant execute on function cobrideira.alocar_entrada_cola() to service_role;
+revoke all on function cobrideira.sincronizar_uso_cola_producao() from public,anon,authenticated;
+revoke all on function cobrideira.registrar_retirada_cola(text[],uuid) from public,anon,authenticated;
+grant execute on function cobrideira.registrar_retirada_cola(text[],uuid) to service_role;
+grant select on cobrideira.vw_estoque_cola_saldo,cobrideira.vw_historico_cola to service_role;
+ then '' else coalesce(nullif(btrim(codigo_interno),''),'') end,data,coalesce(consumo_cola_liquida_kg,0),nullif(btrim(lote_cola),''),nullif(btrim(fornecedor_cola),'')
 from cobrideira.bobinas
 on conflict(numero_bobina) do update set codigo_container=excluded.codigo_container,data_producao=excluded.data_producao,cola_liquida_kg=excluded.cola_liquida_kg,lote_cola=excluded.lote_cola,fornecedor_cola=excluded.fornecedor_cola;
 
