@@ -381,8 +381,6 @@ export function HistoricoProducao({ onChangeArea }: Props) {
     }).sort((a, b) => b.dataFim.localeCompare(a.dataFim) || a.numero_bobina.localeCompare(b.numero_bobina))
   }, [registros, busca, statusFiltro, dataInicio, dataFim, mesFiltro])
 
-  const gruposVisiveis = paginaRegistros
-  const todosVisiveisSelecionados = gruposVisiveis.length > 0 && gruposVisiveis.every((grupo) => gruposSelecionados.has(grupo.groupId))
   async function excluirGrupos(grupos: typeof filtrados) {
     const ids = grupos.flatMap((grupo) => grupo.linhas.map((linha) => linha.id))
     if (!ids.length) return
@@ -405,6 +403,8 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const mesesDisponiveis = Array.from(new Set(registros.map((item) => item.data.slice(0, 7)))).sort().reverse()
   const paginaAtual = Math.min(pagina, totalPaginas - 1)
   const paginaRegistros = filtrados.slice(paginaAtual * porPagina, (paginaAtual + 1) * porPagina)
+  const gruposVisiveis = paginaRegistros
+  const todosVisiveisSelecionados = gruposVisiveis.length > 0 && gruposVisiveis.every((grupo) => gruposSelecionados.has(grupo.groupId))
   const consumidas = React.useMemo(() => {
     const hoje = new Date()
     const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
