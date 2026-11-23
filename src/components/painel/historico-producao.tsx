@@ -795,7 +795,7 @@ export function HistoricoProducao({ onChangeArea, isDeveloper }: Props) {
 
         {tela === 'historico' && (
         <>
-        <section className="rounded-xl border border-border bg-card p-4">
+        <section className="rounded-xl bg-white p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex items-center gap-2 font-semibold"><FileUp className="size-4" /> Importar planilha da Rebobinadeira</div>
@@ -862,7 +862,7 @@ export function HistoricoProducao({ onChangeArea, isDeveloper }: Props) {
 
         {tela === 'cadastro' && (
         <section className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-4"><h3 className="font-semibold">Registrar produção</h3><p className="text-xs text-muted-foreground">Se a bobina não estiver no estoque, o registro será salvo como pendente e gerará um alerta.</p></div>
+            
             <form onSubmit={(event) => void salvarProducao(event)} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label className="grid gap-1 text-sm"><span className="font-medium">Data</span><input required type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3" /></label>
               <label className="grid gap-1 text-sm"><span className="font-medium">Máquina</span><select required value={form.maquina} onChange={(e) => setForm({ ...form, maquina: e.target.value })} className="h-10 rounded-lg border border-input bg-background px-3">{['M1','M2','M3','M4','M5','M6'].map((m) => <option key={m}>{m}</option>)}</select></label>
@@ -948,8 +948,8 @@ export function HistoricoProducao({ onChangeArea, isDeveloper }: Props) {
           <article className="rounded-xl bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Package className="size-4" /> Bobinas utilizadas</div><select aria-label="Período de utilização das bobinas" value={periodoUtilizacao} onChange={(event) => setPeriodoUtilizacao(event.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs"><option value="7">Últimos 7 dias</option><option value="30">Último mês</option><option value="90">Último trimestre</option><option value="180">Últimos 6 meses</option><option value="365">Último ano</option><option value="todos">Todo o período</option></select></div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(consumidas)}</p></article>
         </div>
 
-        <section className="overflow-hidden rounded-xl border border-border bg-card">
-          <div className="flex flex-col gap-3 border-b border-border p-4">
+        <section className="overflow-hidden rounded-xl bg-white">
+          <div className="flex flex-col gap-3 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-semibold">Bobinas no histórico</h3><p className="text-xs text-muted-foreground">Cada bobina aparece uma vez na lista. Abra os detalhes para consultar os dados de origem e os lançamentos de produção.</p></div>{gruposSelecionados.size > 0 && <button type="button" onClick={() => void excluirGruposSelecionados()} disabled={excluindo} className="inline-flex h-10 items-center gap-2 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-white hover:bg-[#c91d26] disabled:opacity-50"><Trash2 className="size-4" />{excluindo ? "Excluindo..." : `Excluir ${gruposSelecionados.size} selecionado(s)`}</button>}</div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <label className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input value={busca} onChange={(e) => { setBusca(e.target.value); setPagina(0) }} placeholder="Buscar bobina, máquina ou produto" className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm" /></label>
