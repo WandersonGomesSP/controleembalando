@@ -12,11 +12,6 @@ grant select, insert, update, delete
      estoque_atual.bobinas_estoque_virgem_lixeira
   to anon, authenticated, service_role;
 
-create unique index if not exists bobinas_estoque_virgem_categoria_codigo_uidx
-  on estoque_atual.bobinas_estoque_virgem (categoria, codigo);
-create unique index if not exists bobinas_estoque_virgem_lixeira_categoria_codigo_uidx
-  on estoque_atual.bobinas_estoque_virgem_lixeira (categoria, codigo);
-
 comment on table estoque_atual.bobinas_estoque_virgem is
   'Estoque de bobinas BOPP virgem da Cobrideira. Separado do estoque adesivado.';
 comment on table estoque_atual.bobinas_estoque_virgem_lixeira is
