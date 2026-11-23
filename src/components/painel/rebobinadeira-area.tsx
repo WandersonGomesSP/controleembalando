@@ -163,10 +163,10 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpen
     setAjustes((estado) => ({ ...estado, [codigo]: percentual }))
     const { error } = await supabase.schema('rebobinadeira').from('produtos_jumbo').update({ ajuste_estoque_percentual: percentual }).eq('codigo', codigo)
     if (error) {
-      toast.error('Não foi possível salvar o aumento do estoque mínimo.', { description: error.message })
+      toast.error('Não foi possível salvar o aumento do estoque mínimo adesivado.', { description: error.message })
       await carregar(true)
     } else {
-      toast.success('Aumento do estoque mínimo salvo.')
+      toast.success('Aumento do estoque mínimo adesivado salvo.')
     }
   }
 
@@ -217,7 +217,7 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpen
           </nav>
           <nav aria-label="Submenus de Indicadores" className="flex flex-wrap items-center gap-2 pl-3">
             {onOpenEstoqueAtual && <button type="button" onClick={onOpenEstoqueAtual} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#e3262e] bg-white px-3 text-sm font-medium text-[#c91d26] transition hover:bg-red-50"><PackageCheck className="size-4" /> Estoque Atual Adesivado</button>}
-            <span aria-current="page" className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#e3262e]/30 bg-[#e3262e]/10 px-3 text-sm font-medium text-[#9f1720]"><PackageCheck className="size-4" /> Estoque Mínimo</span>
+            <span aria-current="page" className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#e3262e]/30 bg-[#e3262e]/10 px-3 text-sm font-medium text-[#9f1720]"><PackageCheck className="size-4" /> Estoque Mínimo Adesivado</span>
           </nav>
         </div>
       </header>}
@@ -226,8 +226,8 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpen
       <main className={embedded ? "mx-auto max-w-[96rem] space-y-6 px-1 py-2 sm:px-2" : "mx-auto w-full max-w-[96rem] space-y-4 rounded-2xl bg-white p-3 sm:p-4"}>
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Indicadores / Estoque Mínimo</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight">Comparativo de estoque mínimo</h2>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Indicadores / Estoque Mínimo Adesivado</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">Comparativo de estoque mínimo adesivado</h2>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
               Compare o estoque calculado pelo peso e lead time com a cobertura recomendada por metragem de 1,5 semana útil.
             </p>
@@ -322,7 +322,7 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpen
                         <td className="px-4 py-3 tabular-nums">{formatar(item.consumo_mensal_kg, true)}</td>
                         <td className="px-4 py-3 tabular-nums">{item.lead_time_dias == null ? 'Não definido' : `${item.lead_time_dias} dias`}</td>
                         {isDeveloper && <td className="px-4 py-3">
-                            <select aria-label={`Aumento do estoque mínimo de ${item.descricao}`} value={String(ajustes[item.codigo] ?? 0)} onChange={(event) => void salvarAjuste(item.codigo, event.target.value)} className="h-9 min-w-24 rounded-md border border-input bg-background px-2 text-sm">
+                            <select aria-label={`Aumento do estoque mínimo adesivado de ${item.descricao}`} value={String(ajustes[item.codigo] ?? 0)} onChange={(event) => void salvarAjuste(item.codigo, event.target.value)} className="h-9 min-w-24 rounded-md border border-input bg-background px-2 text-sm">
                               {[0, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 300].map((percentual) => <option key={percentual} value={percentual}>{percentual}%</option>)}
                             </select>
                           </td>}
