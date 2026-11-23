@@ -3,7 +3,7 @@ import { ArrowDownToLine, ArrowUpFromLine, History, Package, RefreshCw, Send } f
 import { toast } from 'sonner'
 import { Field, Panel, PrimaryButton, TextInput } from '@/components/painel/fields'
 import { supabase } from '@/lib/supabase'
-import { listarControleCola, registrarEntradaCola, retirarContainersCola, atualizarContainersCola, excluirContainersCola } from '@/lib/admin.functions'
+import { listarControleCola, registrarEntradaCola, retirarContainersCola, atualizarContainersCola, excluirContainersCola, atualizarEntradasCola } from '@/lib/admin.functions'
 
 type Entrada = {
   id: number
@@ -33,7 +33,7 @@ type Container = {
   entrada_id: number | null
   localizacao: 'ESTOQUE' | 'GALPAO_MARIO_COVAS'
   enviado_em: string | null
-  entrada: { data_chegada: string; nf: string; produto: string; lote: string; peso_por_container_kg: number; fornecedor: string } | null
+  entrada: { data_chegada: string; nf: string; produto: string; lote: string; peso_por_container_kg: number; valor_por_container: number; fornecedor: string } | null
 }
 type Indicadores = {
   bobinas_90_dias: number
@@ -67,7 +67,14 @@ export function EstoqueColaCobrideira() {
   const [selecionados, setSelecionados] = React.useState<string[]>([])
   const [editandoCodigo, setEditandoCodigo] = React.useState<string | null>(null)
   const [codigoEditado, setCodigoEditado] = React.useState('')
-  const [localizacaoEditada, setLocalizacaoEditada] = React.useState<'ESTOQUE' | 'GALPAO_MARIO_COVAS'>('ESTOQUE')
+  const [localizacaoEditada, setLocalizacaoEditada] = React.useState<'ESTOQUE' | 'GALPAO_MARIO_COVAS' | ''>('')
+  const [dataEntradaEditada, setDataEntradaEditada] = React.useState('')
+  const [nfEditada, setNfEditada] = React.useState('')
+  const [produtoEditado, setProdutoEditado] = React.useState('')
+  const [loteEditado, setLoteEditado] = React.useState('')
+  const [pesoEntradaEditado, setPesoEntradaEditado] = React.useState('')
+  const [valorEntradaEditado, setValorEntradaEditado] = React.useState('')
+  const [fornecedorEditado, setFornecedorEditado] = React.useState('')
   const [editandoEmLote, setEditandoEmLote] = React.useState(false)
   const [salvandoEdicao, setSalvandoEdicao] = React.useState(false)
 
@@ -156,13 +163,27 @@ export function EstoqueColaCobrideira() {
     setEditandoCodigo(container.codigo)
     setCodigoEditado(container.codigo)
     setLocalizacaoEditada(container.localizacao || 'ESTOQUE')
+    setDataEntradaEditada(container.entrada?.data_chegada || '')
+    setNfEditada(container.entrada?.nf || '')
+    setProdutoEditado(container.entrada?.produto || '')
+    setLoteEditado(container.entrada?.lote || '')
+    setPesoEntradaEditado(container.entrada?.peso_por_container_kg?.toString() || '')
+    setValorEntradaEditado(container.entrada?.valor_por_container?.toString() || '')
+    setFornecedorEditado(container.entrada?.fornecedor || '')
     setEditandoEmLote(false)
   }
 
   function abrirEdicaoEmLote() {
     setEditandoCodigo(null)
     setCodigoEditado('')
-    setLocalizacaoEditada('ESTOQUE')
+    setLocalizacaoEditada('')
+    setDataEntradaEditada('')
+    setNfEditada('')
+    setProdutoEditado('')
+    setLoteEditado('')
+    setPesoEntradaEditado('')
+    setValorEntradaEditado('')
+    setFornecedorEditado('')
     setEditandoEmLote(true)
   }
 
@@ -174,14 +195,31 @@ export function EstoqueColaCobrideira() {
       const { data: sessionData } = await supabase.auth.getSession()
       const accessToken = sessionData.session?.access_token
       if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
-      await atualizarContainersCola({ data: {
-        accessToken,
-        itens: itensBase.map((item) => ({
-          codigo_atual: item.codigo,
-          codigo_novo: editandoEmLote ? item.codigo : codigoEditado.trim(),
-          localizacao: localizacaoEditada,
-        })),
-      } })
+      const mudouLocalizacao = Boolean(localizacaoEditada)
+      const mudouCodigo = !editandoEmLote && Boolean(codigoEditado.trim()) && codigoEditado.trim() !== editandoCodigo
+      if (mudouLocalizacao || mudouCodigo) {
+        await atualizarContainersCola({ data: {
+          accessToken,
+          itens: itensBase.map((item) => ({
+            codigo_atual: item.codigo,
+            codigo_novo: editandoEmLote ? item.codigo : codigoEditado.trim(),
+            ...(localizacaoEditada ? { localizacao: localizacaoEditada } : {}),
+          })),
+        } })
+      }
+      const atualizacoes: Record<string, string | number> = {}
+      if (dataEntradaEditada) atualizacoes.data_chegada = dataEntradaEditada
+      if (nfEditada.trim()) atualizacoes.nf = nfEditada.trim()
+      if (produtoEditado.trim()) atualizacoes.produto = produtoEditado.trim()
+      if (loteEditado.trim()) atualizacoes.lote = loteEditado.trim()
+      if (pesoEntradaEditado.trim()) atualizacoes.peso_por_container_kg = numero(pesoEntradaEditado)
+      if (valorEntradaEditado.trim()) atualizacoes.valor_por_container = numero(valorEntradaEditado)
+      if (fornecedorEditado.trim()) atualizacoes.fornecedor = fornecedorEditado.trim()
+      if (Object.keys(atualizacoes).length) {
+        const entradaIds = [...new Set(itensBase.map((item) => item.entrada_id).filter((id): id is number => id !== null))]
+        if (!entradaIds.length) throw new Error('Os containers selecionados não possuem uma entrada vinculada para editar.')
+        await atualizarEntradasCola({ data: { accessToken, entrada_ids: entradaIds, atualizacoes } })
+      }
       toast.success(`${itensBase.length} container(s) atualizado(s).`)
       setEditandoCodigo(null)
       setEditandoEmLote(false)
@@ -393,11 +431,25 @@ export function EstoqueColaCobrideira() {
             <div><h3 className="text-lg font-bold text-slate-900">{editandoEmLote ? `Alterar ${containersSelecionados.length} containers` : 'Editar container'}</h3><p className="text-xs text-slate-500">Altere o código interno e/ou a localização.</p></div>
             {!editandoEmLote && <Field label="Código do container"><TextInput value={codigoEditado} onChange={(e) => setCodigoEditado(e.target.value)} /></Field>}
             <Field label="Localização">
-              <select value={localizacaoEditada} onChange={(e) => setLocalizacaoEditada(e.target.value as 'ESTOQUE' | 'GALPAO_MARIO_COVAS')} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm">
+              <select value={localizacaoEditada} onChange={(e) => setLocalizacaoEditada(e.target.value as 'ESTOQUE' | 'GALPAO_MARIO_COVAS' | '')} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm">
+                {editandoEmLote && <option value="">Manter localização atual</option>}
                 <option value="ESTOQUE">Estoque</option>
                 <option value="GALPAO_MARIO_COVAS">Galpão da Mario Covas</option>
               </select>
             </Field>
+            <div className="rounded-lg border border-slate-200 p-3">
+              <p className="mb-2 text-xs font-bold text-slate-800">Dados da entrada / lote</p>
+              <p className="mb-3 text-[11px] text-slate-500">Esses campos são compartilhados por todos os containers do mesmo lote. Em edição em lote, deixe em branco o que não deseja alterar.</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Field label="Data de entrada"><TextInput type="date" value={dataEntradaEditada} onChange={(e) => setDataEntradaEditada(e.target.value)} /></Field>
+                <Field label="NF"><TextInput value={nfEditada} onChange={(e) => setNfEditada(e.target.value)} /></Field>
+                <Field label="Produto"><TextInput value={produtoEditado} onChange={(e) => setProdutoEditado(e.target.value)} /></Field>
+                <Field label="Lote"><TextInput value={loteEditado} onChange={(e) => setLoteEditado(e.target.value)} /></Field>
+                <Field label="Peso por container (kg)"><TextInput type="number" min="0.001" step="0.001" value={pesoEntradaEditado} onChange={(e) => setPesoEntradaEditado(e.target.value)} /></Field>
+                <Field label="Valor por container (R$)"><TextInput type="number" min="0" step="0.01" value={valorEntradaEditado} onChange={(e) => setValorEntradaEditado(e.target.value)} /></Field>
+                <Field label="Fornecedor"><TextInput value={fornecedorEditado} onChange={(e) => setFornecedorEditado(e.target.value)} /></Field>
+              </div>
+            </div>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => { setEditandoCodigo(null); setEditandoEmLote(false) }} className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700">Cancelar</button>
               <button type="button" onClick={() => void salvarEdicaoContainers()} disabled={salvandoEdicao || (!editandoEmLote && !codigoEditado.trim())} className="rounded-lg bg-[#c91d26] px-4 py-2 text-xs font-semibold text-white hover:bg-[#e3262e] disabled:opacity-50">{salvandoEdicao ? 'Salvando...' : 'Salvar alterações'}</button>
