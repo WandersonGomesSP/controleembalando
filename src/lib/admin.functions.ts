@@ -1778,7 +1778,7 @@ export const listarControleCola = createServerFn({ method: 'POST' })
       cola.from('estoque_cola_entradas').select('*').order('data_chegada', { ascending: false }).order('id', { ascending: false }).limit(500),
       cola.from('vw_estoque_cola_saldo').select('*').order('data_chegada', { ascending: false }).order('id', { ascending: false }).limit(500),
       cola.from('vw_historico_cola').select('*').order('data_producao', { ascending: false }).order('numero_bobina', { ascending: false }).limit(2000),
-      cola.from('estoque_cola_containers').select('codigo,status,entrada_id,localizacao,enviado_em,entrada:estoque_cola_entradas(data_chegada,nf,produto,lote,peso_por_container_kg,fornecedor)').order('criado_em', { ascending: false }).limit(5000),
+      cola.from('estoque_cola_containers').select('codigo,status,entrada_id,enviado_em,entrada:estoque_cola_entradas(data_chegada,nf,produto,lote,peso_por_container_kg,valor_por_container,fornecedor,localizacao)').order('criado_em', { ascending: false }).limit(5000),
       cola.from('vw_consumo_movel_cola').select('*').single(),
     ])
     for (const result of [entradasResult, saldoResult, historicoResult, containersResult, indicadoresResult]) {
@@ -1898,6 +1898,7 @@ export const atualizarEntradasCola = createServerFn({ method: 'POST' })
       peso_por_container_kg: z.number().positive().max(100000).optional(),
       valor_por_container: z.number().min(0).max(100000000).optional(),
       fornecedor: z.string().trim().min(1).max(160).optional(),
+      localizacao: z.enum(['ESTOQUE', 'GALPAO_MARIO_COVAS']).optional(),
     }).refine((value) => Object.keys(value).length > 0, 'Informe ao menos um campo para alterar.'),
   }))
   .handler(async ({ data }) => {
@@ -1909,4 +1910,27 @@ export const atualizarEntradasCola = createServerFn({ method: 'POST' })
       .select('id')
     if (error) throw new Error(`Não foi possível atualizar os dados das entradas: ${error.message}`)
     return { atualizadas: atualizadas?.map((item: { id: number }) => item.id) ?? [] }
+  })
+
+
+const atualizarLeadTimeConsumoColaSchema = tokenInput.extend({
+  lead_time_dias: z.number().int().min(0).max(365),
+})
+
+export const atualizarLeadTimeConsumoCola = createServerFn({ method: 'POST' })
+  .validator(atualizarLeadTimeConsumoColaSchema)
+  .handler(async ({ data }) => {
+    const { client, user } = await requireCobrideiraEditor(data.accessToken)
+    const { data: registro, error } = await (client as any).schema('cobrideira')
+      .from('parametros_consumo_cola')
+      .update({
+        lead_time_dias: data.lead_time_dias,
+        atualizado_em: new Date().toISOString(),
+        atualizado_por: user.id,
+      })
+      .eq('id', 1)
+      .select('lead_time_dias')
+      .single()
+    if (error) throw new Error(`Não foi possível salvar o lead time do consumo de cola: ${error.message}`)
+    return registro as { lead_time_dias: number }
   })
