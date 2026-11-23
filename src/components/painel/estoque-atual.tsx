@@ -215,8 +215,6 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
         const nomeB = [b.codigo, b.categoria, b.fornecedor].map((v) => String(v ?? '')).join(' ').toLocaleLowerCase('pt-BR')
         return nomeA.localeCompare(nomeB, 'pt-BR', { numeric: true })
       }
-      const dataA = a.data_entrada ? new Date(a.data_entrada + 'T12:00:00').getTime() : 0
-      const dataB = b.data_entrada ? new Date(b.data_entrada + 'T12:00:00').getTime() : 0
       if (!a.data_entrada && !b.data_entrada) return 0
       if (!a.data_entrada) return 1
       if (!b.data_entrada) return -1
