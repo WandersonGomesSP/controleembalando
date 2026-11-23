@@ -67,7 +67,11 @@ export function EstoqueColaCobrideira() {
   const [loteExpandido, setLoteExpandido] = React.useState<number | null>(null)
   const [leadTimeDias, setLeadTimeDias] = React.useState('25')
   const [salvandoLeadTime, setSalvandoLeadTime] = React.useState(false)
-  const [ordemEstoque, setOrdemEstoque] = React.useState<'desc' | 'asc'>('desc')
+  const [ordemLotes, setOrdemLotes] = React.useState<'desc' | 'asc'>('desc')
+  const [ordemDetalhes, setOrdemDetalhes] = React.useState<'desc' | 'asc'>('desc')
+  const [ordemConsumo, setOrdemConsumo] = React.useState<'desc' | 'asc'>('desc')
+  const [ordemEnvios, setOrdemEnvios] = React.useState<'desc' | 'asc'>('desc')
+  const [detalhesBAAberto, setDetalhesBAAberto] = React.useState(false)
   const [selecionados, setSelecionados] = React.useState<string[]>([])
   const [editandoCodigo, setEditandoCodigo] = React.useState<string | null>(null)
   const [codigoEditado, setCodigoEditado] = React.useState('')
@@ -106,12 +110,20 @@ export function EstoqueColaCobrideira() {
     : 0
   const totalContainers = dados.saldo.reduce((soma, item) => soma + Number(item.containers_disponiveis || 0), 0)
   const totalKg = dados.saldo.reduce((soma, item) => soma + Number(item.containers_disponiveis || 0) * Number(item.peso_por_container_kg || 0), 0)
+  const valorEstoqueAtual = dados.saldo.reduce((soma, item) => soma + Number(item.containers_disponiveis || 0) * Number(item.valor_por_container || 0), 0)
+  const leadTimeAtual = Number(dados.indicadores?.lead_time_dias ?? leadTimeDias ?? 25)
+  const consumoBAMensal = 16333.3333333333
+  const consumoBADiario = consumoBAMensal / 30
+  const minimoBA = consumoBADiario * leadTimeAtual
+  const consumoSPMensal = Number(dados.indicadores?.consumo_movel_mensal_kg || 0)
+  const consumoSPDiario = Number(dados.indicadores?.consumo_diario_kg || 0)
+  const minimoSP = Number(dados.indicadores?.estoque_minimo_25_dias_kg || 0)
   const codigosInformados = [...new Set(codigos.split(/\r?\n/).map((item) => item.trim()).filter(Boolean))]
   const saldoOrdenado = React.useMemo(() => [...dados.saldo].sort((a, b) =>
-    ordemEstoque === 'desc'
+    ordemLotes === 'desc'
       ? b.data_chegada.localeCompare(a.data_chegada) || b.id - a.id
       : a.data_chegada.localeCompare(b.data_chegada) || a.id - b.id
-  ), [dados.saldo, ordemEstoque])
+  ), [dados.saldo, ordemLotes])
   const containersDisponiveis = React.useMemo(
     () => dados.containers.filter((item) => item.status === 'DISPONIVEL'),
     [dados.containers],
@@ -119,10 +131,10 @@ export function EstoqueColaCobrideira() {
   const containersOrdenados = React.useMemo(() => [...containersDisponiveis].sort((a, b) => {
     const dataA = a.entrada?.data_chegada || ''
     const dataB = b.entrada?.data_chegada || ''
-    return ordemEstoque === 'desc'
+    return ordemDetalhes === 'desc'
       ? dataB.localeCompare(dataA) || b.codigo.localeCompare(a.codigo)
       : dataA.localeCompare(dataB) || a.codigo.localeCompare(b.codigo)
-  }), [containersDisponiveis, ordemEstoque])
+  }), [containersDisponiveis, ordemDetalhes])
   const containersSelecionados = containersDisponiveis.filter((item) => selecionados.includes(item.codigo))
   const todosContainersSelecionados = containersDisponiveis.length > 0 && containersSelecionados.length === containersDisponiveis.length
 
@@ -147,16 +159,18 @@ export function EstoqueColaCobrideira() {
       mapa.set(codigo, atual)
     }
     return [...mapa.values()].sort((a, b) =>
-      ordemEstoque === 'desc'
+      ordemConsumo === 'desc'
         ? b.dataConsumo.localeCompare(a.dataConsumo) || a.codigo.localeCompare(b.codigo)
         : a.dataConsumo.localeCompare(b.dataConsumo) || a.codigo.localeCompare(b.codigo)
     )
-  }, [dados.historico, dados.containers, ordemEstoque])
+  }, [dados.historico, dados.containers, ordemConsumo])
 
   const enviadosParaBahia = React.useMemo(() => dados.containers
     .filter((item) => item.status === 'ENVIADO_BAHIA' && /^\d{8}$/.test(item.codigo))
-    .sort((a, b) => (b.enviado_em || '').localeCompare(a.enviado_em || '')),
-  [dados.containers])
+    .sort((a, b) => ordemEnvios === 'desc'
+      ? (b.enviado_em || '').localeCompare(a.enviado_em || '')
+      : (a.enviado_em || '').localeCompare(b.enviado_em || '')),
+  [dados.containers, ordemEnvios])
 
 
 
@@ -358,9 +372,10 @@ export function EstoqueColaCobrideira() {
 
       {aba === 'estoque' && (
         <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-lg border border-slate-200 p-4"><p className="text-xs text-slate-500">Containers disponíveis</p><p className="mt-1 text-2xl font-bold">{totalContainers.toLocaleString('pt-BR')}</p></div>
-            <div className="rounded-lg border border-slate-200 p-4"><p className="text-xs text-slate-500">Peso disponível</p><p className="mt-1 text-2xl font-bold">{kg(totalKg)}</p></div>
+            <div className="rounded-lg border border-slate-200 p-4"><p className="text-xs text-slate-500">Peso disponível</p><p className="mt-1 text-2xl font-bold">{kg(totalKg)}</p><p className="text-[11px] text-slate-500">Cada container: 1.000 kg</p></div>
+            <div className="rounded-lg border border-slate-200 p-4"><p className="text-xs text-slate-500">Valor atual do estoque</p><p className="mt-1 text-2xl font-bold">{dinheiro(valorEstoqueAtual)}</p></div>
             <div className="rounded-lg border border-slate-200 p-4"><p className="text-xs text-slate-500">Códigos no histórico</p><p className="mt-1 text-2xl font-bold">{historicoAgrupado.length.toLocaleString('pt-BR')}</p></div>
           </div>
           <Panel title="Consumo móvel e capacidade de produção" description="Cálculo baseado na soma real do campo Cola (kg) da Cobrideira nos últimos 90 dias.">
@@ -373,21 +388,30 @@ export function EstoqueColaCobrideira() {
               </button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Consumo móvel mensal</p><p className="mt-1 text-xl font-bold">{kg(Number(dados.indicadores?.consumo_movel_mensal_kg || 0))}</p></div>
+              <div className="rounded-lg border border-slate-200 p-3">
+                <p className="text-xs text-slate-500">Consumo móvel mensal · SP real</p>
+                <p className="mt-1 text-xl font-bold">{kg(consumoSPMensal)}</p>
+                <button type="button" onClick={() => setDetalhesBAAberto((aberto) => !aberto)} className="mt-2 inline-flex items-center gap-1 rounded-md bg-[#c91d26] px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-[#e3262e]">
+                  {detalhesBAAberto ? 'Ocultar detalhes BA' : 'Detalhes BA'}
+                </button>
+                {detalhesBAAberto && (
+                  <div className="mt-3 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs">
+                    <p className="font-semibold text-slate-800">Bahia · base de planejamento</p>
+                    <div className="flex justify-between gap-2"><span>Consumo mensal</span><strong>{kg(consumoBAMensal)}</strong></div>
+                    <div className="flex justify-between gap-2"><span>Consumo diário</span><strong>{kg(consumoBADiario)}</strong></div>
+                    <div className="flex justify-between gap-2"><span>Estoque mínimo · {leadTimeAtual} dias</span><strong>{kg(minimoBA)}</strong></div>
+                    <div className="border-t border-slate-200 pt-2 font-semibold text-slate-800">SP real + BA planejamento</div>
+                    <div className="flex justify-between gap-2"><span>Consumo mensal combinado</span><strong>{kg(consumoSPMensal + consumoBAMensal)}</strong></div>
+                    <div className="flex justify-between gap-2"><span>Consumo diário combinado</span><strong>{kg(consumoSPDiario + consumoBADiario)}</strong></div>
+                    <div className="flex justify-between gap-2"><span>Mínimo combinado</span><strong>{kg(minimoSP + minimoBA)}</strong></div>
+                    <p className="border-t border-slate-200 pt-2 text-[11px] leading-relaxed text-slate-600">O número de SP vem da soma real do campo Cola na Cobrideira, usando os últimos 90 dias. A referência anterior do planejamento de SP era 39.400 kg/mês; o histórico atual apura 40.200 kg/mês, diferença de 800 kg. A BA permanece como previsão separada de 16.333,33 kg/mês.</p>
+                  </div>
+                )}
+              </div>
               <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Consumo diário</p><p className="mt-1 text-xl font-bold">{kg(Number(dados.indicadores?.consumo_diario_kg || 0))}</p></div>
               <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Estoque mínimo · {Number(dados.indicadores?.lead_time_dias ?? leadTimeDias)} dias</p><p className="mt-1 text-xl font-bold">{kg(Number(dados.indicadores?.estoque_minimo_25_dias_kg || 0))}</p></div>
               <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Média Cola por bobina</p><p className="mt-1 text-xl font-bold">{kg(Number(dados.indicadores?.consumo_medio_bobina_kg || 0))}</p></div>
               <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Capacidade estimada</p><p className="mt-1 text-xl font-bold">{Number(dados.indicadores?.capacidade_producao_bobinas || 0).toLocaleString('pt-BR',{maximumFractionDigits:1})} bobinas</p><p className="text-[11px] text-slate-500">Média real do campo Cola (kg)</p></div>
-            </div>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[520px] text-left text-xs">
-                <thead className="bg-slate-100 text-slate-700"><tr>{['Referência do CSV','Consumo mensal móvel','Consumo diário','Mínimo · 25 dias'].map((x)=><th key={x} className="px-3 py-2">{x}</th>)}</tr></thead>
-                <tbody>
-                  <tr className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">Planta SP</td><td className="px-3 py-2">39.400 kg</td><td className="px-3 py-2">1.313 kg</td><td className="px-3 py-2">32.833,33 kg</td></tr>
-                  <tr className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">Planta BA</td><td className="px-3 py-2">16.333 kg</td><td className="px-3 py-2">544 kg</td><td className="px-3 py-2">13.611,11 kg</td></tr>
-                  <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold"><td className="px-3 py-2">Total SP + BA</td><td className="px-3 py-2">55.733 kg</td><td className="px-3 py-2">1.857 kg</td><td className="px-3 py-2">46.444,44 kg</td></tr>
-                </tbody>
-              </table>
             </div>
           </Panel>
           <div className="flex flex-wrap gap-2">
@@ -399,7 +423,7 @@ export function EstoqueColaCobrideira() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1100px] text-left text-xs">
                   <thead className="bg-slate-100 text-slate-700"><tr>
-                    <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de entrada {ordemEstoque === 'desc' ? '↓' : '↑'}</button></th>
+                    <th className="px-3 py-2"><button type="button" onClick={() => setOrdemLotes((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de entrada {ordemLotes === 'desc' ? '↓' : '↑'}</button></th>
                     {['NF','Produto','Lote','Localização','Detalhes','Fornecedor','Containers recebidos','Disponíveis','Peso por container','Valor/kg'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
                   </tr></thead>
                   <tbody>{saldoOrdenado.map((item) => {
@@ -454,7 +478,7 @@ export function EstoqueColaCobrideira() {
                   <thead className="bg-slate-100 text-slate-700"><tr>
                     <th className="px-3 py-2"><input type="checkbox" checked={todosContainersSelecionados} onChange={(e) => setSelecionados(e.target.checked ? containersDisponiveis.map((item) => item.codigo) : [])} /></th>
                     <th className="px-3 py-2">Código do container</th>
-                    <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de entrada {ordemEstoque === 'desc' ? '↓' : '↑'}</button></th>
+                    <th className="px-3 py-2"><button type="button" onClick={() => setOrdemDetalhes((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de entrada {ordemDetalhes === 'desc' ? '↓' : '↑'}</button></th>
                     {['Lote','NF','Fornecedor','Situação','Localização','Ações'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
                   </tr></thead>
                   <tbody>{containersOrdenados.map((item) => <tr key={item.codigo} className={`border-b border-slate-100 ${item.entrada?.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-100' : ''}`}>
@@ -509,7 +533,7 @@ export function EstoqueColaCobrideira() {
             <table className="w-full min-w-[850px] text-left text-xs">
               <thead className="bg-slate-100 text-slate-700"><tr>
                 <th className="px-3 py-2">Código do container</th>
-                <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de consumo {ordemEstoque === 'desc' ? '↓' : '↑'}</button></th>
+                <th className="px-3 py-2"><button type="button" onClick={() => setOrdemConsumo((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de consumo {ordemConsumo === 'desc' ? '↓' : '↑'}</button></th>
                 {['Bobinas','Cola líquida utilizada','Lote','Fornecedor','Situação'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
               </tr></thead>
               <tbody>{historicoAgrupado.map((item) => <tr key={item.codigo} className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">{item.codigo}</td><td className="px-3 py-2">{new Date(item.dataConsumo + 'T12:00:00').toLocaleDateString('pt-BR')}</td><td className="px-3 py-2">{item.bobinas}</td><td className="px-3 py-2 font-bold">{kg(item.cola)}</td><td className="px-3 py-2">{item.lote || '—'}</td><td className="px-3 py-2">{item.fornecedor || '—'}</td><td className="px-3 py-2">{item.status === 'ENVIADO_BAHIA' ? 'Enviado para Bahia' : item.status === 'CONSUMIDO_PRODUCAO' ? 'Utilizado na produção' : 'Histórico anterior'}</td></tr>)}</tbody>
@@ -523,7 +547,7 @@ export function EstoqueColaCobrideira() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[850px] text-left text-xs">
               <thead className="bg-slate-100 text-slate-700"><tr>
-                {['Código do container','Data de envio','Data de entrada','Lote','NF','Fornecedor','Situação'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
+                <th className="px-3 py-2">Código do container</th><th className="px-3 py-2"><button type="button" onClick={() => setOrdemEnvios((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de envio {ordemEnvios === 'desc' ? '↓' : '↑'}</button></th>{['Data de entrada','Lote','NF','Fornecedor','Situação'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
               </tr></thead>
               <tbody>{enviadosParaBahia.map((item) => <tr key={item.codigo} className={'border-b border-slate-100 ' + (item.entrada?.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-100' : '')}>
                 <td className="px-3 py-2 font-mono font-semibold">{item.codigo}</td>
