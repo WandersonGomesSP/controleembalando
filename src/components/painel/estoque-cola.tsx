@@ -107,27 +107,37 @@ export function EstoqueColaCobrideira() {
       ? b.data_chegada.localeCompare(a.data_chegada) || b.id - a.id
       : a.data_chegada.localeCompare(b.data_chegada) || a.id - b.id
   ), [dados.saldo, ordemEstoque])
+  const containersOrdenados = React.useMemo(() => [...dados.containers].sort((a, b) => {
+    const dataA = a.entrada?.data_chegada || ''
+    const dataB = b.entrada?.data_chegada || ''
+    return ordemEstoque === 'desc'
+      ? dataB.localeCompare(dataA) || b.codigo.localeCompare(a.codigo)
+      : dataA.localeCompare(dataB) || a.codigo.localeCompare(b.codigo)
+  }), [dados.containers, ordemEstoque])
   const containersSelecionados = dados.containers.filter((item) => selecionados.includes(item.codigo))
   const todosContainersSelecionados = dados.containers.length > 0 && selecionados.length === dados.containers.length
 
   const historicoAgrupado = React.useMemo(() => {
-    const mapa = new Map<string, { codigo: string; bobinas: number; cola: number; primeira: string; ultima: string; lote: string; fornecedor: string; status: string }>()
+    const mapa = new Map<string, { codigo: string; bobinas: number; cola: number; dataEntrada: string; lote: string; fornecedor: string; status: string }>()
+    const containersPorCodigo = new Map(dados.containers.map((container) => [container.codigo, container]))
     for (const item of dados.historico) {
       const codigo = item.codigo_container || 'SEM CÓDIGO'
+      const container = containersPorCodigo.get(codigo)
       const atual = mapa.get(codigo) ?? {
-        codigo, bobinas: 0, cola: 0, primeira: item.data_producao, ultima: item.data_producao,
-        lote: item.lote_cola || '', fornecedor: item.fornecedor_cola || '', status: item.status_container || 'HISTORICO_ANTERIOR',
+        codigo, bobinas: 0, cola: 0, dataEntrada: container?.entrada?.data_chegada || '',
+        lote: item.lote_cola || container?.entrada?.lote || '',
+        fornecedor: item.fornecedor_cola || container?.entrada?.fornecedor || '',
+        status: item.status_container || container?.status || 'HISTORICO_ANTERIOR',
       }
       atual.bobinas += 1
       atual.cola += Number(item.cola_liquida_kg || 0)
-      if (item.data_producao < atual.primeira) atual.primeira = item.data_producao
-      if (item.data_producao > atual.ultima) atual.ultima = item.data_producao
+      if (!atual.dataEntrada && container?.entrada?.data_chegada) atual.dataEntrada = container.entrada.data_chegada
       if (!atual.lote && item.lote_cola) atual.lote = item.lote_cola
       if (!atual.fornecedor && item.fornecedor_cola) atual.fornecedor = item.fornecedor_cola
       mapa.set(codigo, atual)
     }
-    return [...mapa.values()].sort((a, b) => b.ultima.localeCompare(a.ultima))
-  }, [dados.historico])
+    return [...mapa.values()].sort((a, b) => b.dataEntrada.localeCompare(a.dataEntrada) || a.codigo.localeCompare(b.codigo))
+  }, [dados.historico, dados.containers])
 
   async function salvarEntrada(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -143,7 +153,7 @@ export function EstoqueColaCobrideira() {
       const { data: sessionData } = await supabase.auth.getSession()
       const accessToken = sessionData.session?.access_token
       if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
-      await registrarEntradaCola({ data: {
+      const resultado = await registrarEntradaCola({ data: {
         accessToken, data_chegada: form.data_chegada, nf: form.nf.trim(), produto: form.produto.trim(),
         lote: form.lote.trim(), quantidade_containers: quantidade, peso_por_container_kg: peso,
         valor_por_container: valor, fornecedor: form.fornecedor.trim(), observacoes: form.observacoes.trim() || undefined,
@@ -366,9 +376,11 @@ export function EstoqueColaCobrideira() {
                 <table className="w-full min-w-[900px] text-left text-xs">
                   <thead className="bg-slate-100 text-slate-700"><tr>
                     <th className="px-3 py-2"><input type="checkbox" checked={todosContainersSelecionados} onChange={(e) => setSelecionados(e.target.checked ? dados.containers.map((item) => item.codigo) : [])} /></th>
-                    {['Código do container','Data de entrada','Lote','NF','Fornecedor','Situação','Localização','Ações'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
+                    <th className="px-3 py-2">Código do container</th>
+                    <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de entrada {ordemEstoque === 'desc' ? '↓' : '↑'}</button></th>
+                    {['Lote','NF','Fornecedor','Situação','Localização','Ações'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
                   </tr></thead>
-                  <tbody>{dados.containers.map((item) => <tr key={item.codigo} className={`border-b border-slate-100 ${item.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-100' : ''}`}>
+                  <tbody>{containersOrdenados.map((item) => <tr key={item.codigo} className={`border-b border-slate-100 ${item.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-100' : ''}`}>
                     <td className="px-3 py-2"><input type="checkbox" checked={selecionados.includes(item.codigo)} onChange={(e) => setSelecionados((atual) => e.target.checked ? [...atual,item.codigo] : atual.filter((codigo) => codigo !== item.codigo))} /></td>
                     <td className="px-3 py-2 font-mono font-semibold">{item.codigo}</td>
                     <td className="px-3 py-2">{item.entrada?.data_chegada ? new Date(item.entrada.data_chegada + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td>
@@ -418,8 +430,8 @@ export function EstoqueColaCobrideira() {
         <Panel title="Histórico de cola por código" description="A quantidade de cola líquida é acumulada automaticamente conforme as bobinas utilizam o mesmo código interno.">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[850px] text-left text-xs">
-              <thead className="bg-slate-100 text-slate-700"><tr>{['Código do container','Bobinas','Cola líquida utilizada','Primeira utilização','Última utilização','Lote','Fornecedor','Situação'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}</tr></thead>
-              <tbody>{historicoAgrupado.map((item) => <tr key={item.codigo} className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">{item.codigo}</td><td className="px-3 py-2">{item.bobinas}</td><td className="px-3 py-2 font-bold">{kg(item.cola)}</td><td className="px-3 py-2">{new Date(item.primeira + 'T12:00:00').toLocaleDateString('pt-BR')}</td><td className="px-3 py-2">{new Date(item.ultima + 'T12:00:00').toLocaleDateString('pt-BR')}</td><td className="px-3 py-2">{item.lote || '—'}</td><td className="px-3 py-2">{item.fornecedor || '—'}</td><td className="px-3 py-2">{item.status === 'ENVIADO_BAHIA' ? 'Enviado para Bahia' : item.status === 'CONSUMIDO_PRODUCAO' ? 'Utilizado na produção' : 'Histórico anterior'}</td></tr>)}</tbody>
+              <thead className="bg-slate-100 text-slate-700"><tr>{['Código do container','Data de entrada','Bobinas','Cola líquida utilizada','Lote','Fornecedor','Situação'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}</tr></thead>
+              <tbody>{historicoAgrupado.map((item) => <tr key={item.codigo} className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">{item.codigo}</td><td className="px-3 py-2">{item.dataEntrada ? new Date(item.dataEntrada + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td><td className="px-3 py-2">{item.bobinas}</td><td className="px-3 py-2 font-bold">{kg(item.cola)}</td><td className="px-3 py-2">{item.lote || '—'}</td><td className="px-3 py-2">{item.fornecedor || '—'}</td><td className="px-3 py-2">{item.status === 'ENVIADO_BAHIA' ? 'Enviado para Bahia' : item.status === 'CONSUMIDO_PRODUCAO' ? 'Utilizado na produção' : 'Histórico anterior'}</td></tr>)}</tbody>
             </table>
             {!historicoAgrupado.length && <p className="py-8 text-center text-sm text-slate-500">Ainda não há consumo registrado.</p>}
           </div>
