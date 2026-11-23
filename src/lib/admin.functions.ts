@@ -1769,25 +1769,6 @@ const entradaColaSchema = tokenInput.extend({
   observacoes: z.string().max(1000).optional(),
 })
 
-export const carregarIndicadoresEstoqueMinimoRebobinadeira = createServerFn({ method: 'POST' })
-  .validator(tokenInput)
-  .handler(async ({ data }) => {
-    const { client } = await requireRebobinadeiraEditor(data.accessToken)
-    const rebobinadeira = (client as any).schema('rebobinadeira')
-    const [indicadoresResult, produtosResult] = await Promise.all([
-      rebobinadeira.from('vw_estoque_minimo').select('*').order('descricao', { ascending: true }),
-      rebobinadeira.from('produtos_jumbo')
-        .select('codigo, descricao, ajuste_estoque_percentual, alerta_estoque_baixo_ativo')
-        .eq('ativo', true),
-    ])
-    if (indicadoresResult.error) throw new Error('Não foi possível carregar a view vw_estoque_minimo: ' + indicadoresResult.error.message)
-    if (produtosResult.error) throw new Error('Não foi possível carregar os parâmetros dos produtos jumbo: ' + produtosResult.error.message)
-    return {
-      registros: indicadoresResult.data ?? [],
-      produtos: produtosResult.data ?? [],
-    }
-  })
-
 export const listarControleCola = createServerFn({ method: 'POST' })
   .validator(tokenInput)
   .handler(async ({ data }) => {
