@@ -323,7 +323,7 @@ export function HistoricoProducao({ onChangeArea, isDeveloper }: Props) {
     setAtualizando(false)
   }, [])
 
-  React.useEffect(() => { void carregar() }, [carregar])
+  React.useEffect(() => { void carregar(); void carregarLixeiraRebo() }, [carregar])
 
   const filtrados = React.useMemo(() => {
     const mapa = new Map<string, ProducaoRow[]>()
