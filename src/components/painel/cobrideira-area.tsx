@@ -1237,7 +1237,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         ) : secao === 'estoque-atual' ? (
           <EstoqueAtualCobrideira isDeveloper={isDeveloper} tipoEstoque="VIRGEM" />
         ) : secao === 'estoque-minimo' ? (
-          <Panel title="Indicadores · Estoque Mínimo" description="Comparativo dos estoques mínimos por peso e por metragem.">
+          <Panel title="Indicadores · Estoque Mínimo Virgem" description="Comparativo dos estoques mínimos por peso e por metragem.">
             <EstoqueMinimoCobrideira isDeveloper={isDeveloper} />
           </Panel>
         ) : secao === 'cadastro' ? (
