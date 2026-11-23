@@ -16,7 +16,7 @@ import {
 type Categoria = 'BOPP' | 'PEBD' | 'CREPE' | 'KRAFT' | 'DUPLA FACE'
 type BobinaEstoque = {
   id: string; categoria: Categoria; data_entrada: string | null; fornecedor: string | null
-  medida: number | null; peso_kg: number | null; metragem_m: number | null; codigo: string | null
+  medida: number | null; medida_texto?: string | null; nf?: string | null; aba?: string | null; peso_kg: number | null; metragem_m: number | null; codigo: string | null
   cor: string | null; cliente: string | null; linha: string | null; origem_arquivo: string; observacoes: string | null
 }
 type ResumoProduto = {
@@ -28,10 +28,10 @@ type ResumoProduto = {
 }
 type BobinaLixeira = { id: string; categoria: Categoria; codigo: string | null; dados: BobinaEstoque; excluida_em: string }
 type FormEstoque = {
-  categoria: Categoria; data_entrada: string; fornecedor: string; medida: string
+  categoria: Categoria; data_entrada: string; fornecedor: string; medida: string; nf: string; aba: string
   peso_kg: string; metragem_m: string; codigo: string; cor: string; cliente: string; linha: string; observacoes: string
 }
-const vazio: FormEstoque = { categoria: 'BOPP', data_entrada: new Date().toISOString().slice(0, 10), fornecedor: '', medida: '', peso_kg: '', metragem_m: '', codigo: '', cor: '', cliente: '', linha: '', observacoes: '' }
+const vazio: FormEstoque = { categoria: 'BOPP', data_entrada: new Date().toISOString().slice(0, 10), fornecedor: '', medida: '', nf: '', aba: '', peso_kg: '', metragem_m: '', codigo: '', cor: '', cliente: '', linha: '', observacoes: '' }
 const numero = (v: number | null | undefined) => Number(v ?? 0)
 const fmt = (v: number | null | undefined, casas = 0) => numero(v).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
 const categorias: Categoria[] = ['BOPP', 'PEBD', 'CREPE', 'KRAFT', 'DUPLA FACE']
@@ -111,9 +111,11 @@ function lerCsv(texto: string, nomeArquivo: string) {
     return null
   }
   const registros = linhas.slice(1).map((colunas, indiceLinha) => {
-    const categoriaBruta = valor(colunas, 'categoria', 'tipo_categoria').toUpperCase().replace(/_/g, ' ')
-    const categoria: Categoria | null = categoriaBruta === 'BOPP' ? 'BOPP'
-      : categoriaBruta === 'PEBD' ? 'PEBD'
+    const aba = valor(colunas, 'aba', 'guia', 'planilha', 'aba_origem')
+    const categoriaBruta = (valor(colunas, 'categoria', 'tipo_categoria') || aba).toUpperCase().replace(/_/g, ' ')
+    const abaEhBopp = /^\\d{3,4}[.,]\\d{2}$/.test(aba.trim()) || /METALIZAD/i.test(aba)
+    const categoria: Categoria | null = categoriaBruta === 'BOPP' || abaEhBopp ? 'BOPP'
+      : categoriaBruta === 'PEBD' || /^PEBD$/i.test(aba) ? 'PEBD'
       : categoriaBruta === 'CREPE' ? 'CREPE'
       : categoriaBruta === 'KRAFT' ? 'KRAFT'
       : categoriaBruta === 'DUPLA FACE' ? 'DUPLA FACE'
@@ -121,17 +123,33 @@ function lerCsv(texto: string, nomeArquivo: string) {
     const codigo = valor(colunas, 'codigo', 'codigo_bobina', 'codigo_da_bobina', 'cod_bob', 'cod_bobina', 'numero_bobina', 'numero_da_bobina', 'numero', 'id_bobina', 'identificacao')
     if (!colunas.some((v) => v.trim()) || !codigo) return null
     if (!categoria) throw new Error(`${nomeArquivo}: informe a categoria em cada linha ou use BOPP, PEBD, CREPE, KRAFT ou DUPLA_FACE no nome do arquivo (linha ${indiceLinha + 2}).`)
-    const medida = converterNumero(valor(colunas, 'medida', 'medidas', 'largura', 'largura_bobina', 'largura_bobina_texto', 'medida_texto', 'especificacao', 'medida_produto'))
+    const medidaTexto = valor(colunas, 'medida', 'medidas', 'largura', 'largura_bobina', 'largura_bobina_texto', 'medida_texto', 'especificacao', 'medida_produto')
+    const medida = converterNumero(medidaTexto)
     const peso = converterNumero(valor(colunas, 'peso_kg', 'peso', 'peso_bobina', 'peso_bobina_kg', 'peso_bobina_texto', 'peso_atual', 'kg'))
     const metragem = converterNumero(valor(colunas, 'metragem_m', 'metragem', 'metros', 'metragem_disponivel_m', 'metragem_bobina_texto', 'comprimento', 'metragem_unica'))
-    const data = converterData(valor(colunas, 'data_entrada', 'data', 'entrada', 'data_de_entrada'))
+    const dataOriginal = valor(colunas, 'data_entrada', 'data', 'entrada', 'data_de_entrada')
+    const dataConvertida = converterData(dataOriginal)
+    const data = dataConvertida && dataConvertida >= '2000-01-01' ? dataConvertida : null
+    const nf = valor(colunas, 'nf', 'nota_fiscal', 'nota', 'numero_nf')
+    const corExplicita = valor(colunas, 'cor', 'cor_filme', 'cor_do_filme')
+    const corDaMedida = medidaTexto.match(/^\\s*\\d+(?:[.,]\\d+)?(?:\\.\\s*|\\s+)([A-ZÀ-ÿ][A-ZÀ-ÿ\\s]+)$/i)?.[1]?.trim() || ''
+    const cor = corExplicita || corDaMedida || null
+    const observacoesOriginais = valor(colunas, 'observacoes', 'observacao', 'obs')
+    const observacoesGeradas = [
+      nf ? `NF: ${nf}` : '',
+      aba ? `ABA: ${aba}` : '',
+      medidaTexto && /[A-Za-zÀ-ÿ]/.test(medidaTexto) ? `MEDIDA original: ${medidaTexto}` : '',
+      dataOriginal && !data ? `DATA_ENTRADA original não convertida: ${dataOriginal}` : '',
+      observacoesOriginais,
+    ].filter(Boolean).join(' | ')
     return {
       categoria, data_entrada: data, fornecedor: valor(colunas, 'fornecedor', 'fornec_filme', 'fornecedor_filme', 'fornec') || null,
-      medida, peso_kg: peso, metragem_m: metragem, codigo,
-      cor: valor(colunas, 'cor', 'cor_filme', 'cor_do_filme') || null,
+      medida, medida_texto: medidaTexto || null, nf: nf || null, aba: aba || null,
+      peso_kg: peso, metragem_m: metragem, codigo,
+      cor,
       cliente: valor(colunas, 'cliente', 'cliente_personalizado', 'pedido') || null,
       linha: valor(colunas, 'linha', 'tipo_linha') || null,
-      observacoes: valor(colunas, 'observacoes', 'observacao', 'obs') || null,
+      observacoes: observacoesGeradas || null,
     }
   }).filter((registro): registro is NonNullable<typeof registro> => Boolean(registro))
   return registros
@@ -256,7 +274,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
     setEditando(b.id)
     setForm({
       categoria: b.categoria, data_entrada: b.data_entrada ?? '', fornecedor: b.fornecedor ?? '',
-      medida: b.medida == null ? '' : String(b.medida), peso_kg: b.peso_kg == null ? '' : String(b.peso_kg),
+      medida: b.medida_texto || (b.medida == null ? '' : String(b.medida)), nf: b.nf ?? '', aba: b.aba ?? '', peso_kg: b.peso_kg == null ? '' : String(b.peso_kg),
       metragem_m: b.metragem_m == null ? '' : String(b.metragem_m), codigo: b.codigo ?? '',
       cor: b.cor ?? '', cliente: b.cliente ?? '', linha: b.linha ?? '', observacoes: b.observacoes ?? '',
     })
@@ -266,7 +284,8 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
     e.preventDefault()
     const peso = form.peso_kg.trim() ? Number(form.peso_kg.replace(',', '.')) : null
     const metros = form.metragem_m.trim() ? Number(form.metragem_m.replace(',', '.')) : null
-    const medida = form.medida.trim() ? Number(form.medida.replace(',', '.')) : null
+    const medidaTexto = form.medida.trim()
+    const medida = medidaTexto ? Number.parseFloat(medidaTexto.replace(',', '.').replace(/[^0-9.,].*$/, '')) : null
     if (peso !== null && (!Number.isFinite(peso) || peso < 0)) return toast.error('Informe um peso válido.')
     if (metros !== null && (!Number.isFinite(metros) || metros < 0)) return toast.error('Informe uma metragem válida.')
     if (medida !== null && (!Number.isFinite(medida) || medida <= 0)) return toast.error('Informe uma medida válida.')
@@ -278,7 +297,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
       if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
       const registro = {
         categoria: form.categoria, data_entrada: form.data_entrada || null,
-        fornecedor: form.fornecedor.trim() || null, medida, peso_kg: peso, metragem_m: metros,
+        fornecedor: form.fornecedor.trim() || null, medida, medida_texto: medidaTexto || null, nf: form.nf.trim() || null, aba: form.aba.trim() || null, peso_kg: peso, metragem_m: metros,
         codigo: form.codigo.trim(), cor: form.cor.trim() || null, cliente: form.cliente.trim() || null, linha: form.linha.trim() || null,
         observacoes: form.observacoes.trim() || null,
       }
@@ -300,7 +319,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
       for (const arquivo of Array.from(arquivos)) {
         if (!arquivo.name.toLowerCase().endsWith('.csv')) continue
         const registros = lerCsv(await arquivo.text(), arquivo.name)
-      if (tipoEstoque === 'VIRGEM' && registros.some((registro) => registro.categoria !== 'BOPP')) throw new Error('O Estoque Atual Virgem aceita somente arquivos e registros da categoria BOPP.')
+      if (tipoEstoque === 'VIRGEM' && registros.some((registro) => !['BOPP', 'PEBD'].includes(registro.categoria))) throw new Error('O Estoque Atual Virgem aceita somente BOPP e PEBD.')
         if (registros.length) arquivosLidos++
         for (const registro of registros) {
           const chave = `${registro.categoria}|${registro.codigo}`
@@ -499,8 +518,8 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
               <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="p-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'data-desc' ? 'data-asc' : 'data-desc')} className="inline-flex items-center gap-1 font-semibold">Entrada <span>{ordemEstoque === 'data-desc' ? '▼' : ordemEstoque === 'data-asc' ? '▲' : '↕'}</span></button></th><th className="p-2">Categoria / medida</th><th className="p-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'alfabetica' ? 'data-desc' : 'alfabetica')} className="inline-flex items-center gap-1 font-semibold">Código / nome <span>{ordemEstoque === 'alfabetica' ? '▲' : '↕'}</span></button></th><th className="p-2">Fornecedor</th><th className="p-2 text-right">Peso</th><th className="p-2 text-right">Metros</th><th className="p-2 text-right">Ações</th></tr></thead>
               <tbody>{filtradas.map((b) => <tr key={b.id} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="p-2 text-slate-600">{b.data_entrada ? new Date(`${b.data_entrada}T12:00:00`).toLocaleDateString('pt-BR') : '—'}</td>
-                <td className="p-2"><div className="font-semibold text-slate-800">{b.categoria}</div><div className="text-xs text-slate-500">{fmtMedida(b.medida)}</div></td>
-                <td className="p-2 font-medium text-slate-800">{b.codigo ?? '—'}{b.cor || b.cliente ? <div className="text-xs text-slate-500">{b.cor ?? ''}{b.cliente ? ` · Cliente: ${b.cliente}` : ''} {b.linha ? `· ${b.linha}` : ''}</div> : null}</td>
+                <td className="p-2"><div className="font-semibold text-slate-800">{b.categoria}</div><div className="text-xs text-slate-500">{b.medida_texto || fmtMedida(b.medida)}</div>{b.aba ? <div className="text-[11px] text-slate-400">ABA: {b.aba}</div> : null}</td>
+                <td className="p-2 font-medium text-slate-800">{b.codigo ?? '—'}{b.cor || b.cliente || b.nf ? <div className="text-xs text-slate-500">{b.cor ?? ''}{b.nf ? ` · NF: ${b.nf}` : ''}{b.cliente ? ` · Cliente: ${b.cliente}` : ''} {b.linha ? `· ${b.linha}` : ''}</div> : null}</td>
                 <td className="p-2 text-slate-600">{b.fornecedor ?? '—'}</td><td className="p-2 text-right tabular-nums">{fmt(b.peso_kg, 1)} kg</td><td className="p-2 text-right tabular-nums">{fmt(b.metragem_m)} m</td>
                 <td className="p-2"><div className="flex justify-end gap-1"><button type="button" title="Editar" onClick={() => abrirEdicao(b)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100"><Pencil className="size-4"/></button>{isDeveloper && <button type="button" title="Mover para lixeira" onClick={() => void excluir(b)} className="rounded-md bg-[#e3262e] p-2 text-white hover:bg-[#c91f27]"><Trash2 className="size-4"/></button>}</div></td>
               </tr>)}</tbody>
@@ -532,6 +551,8 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
             <label className="grid gap-1 text-sm font-medium text-slate-700">Data de entrada<input type="date" value={form.data_entrada} onChange={(e) => setForm({ ...form, data_entrada: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
             <label className="grid gap-1 text-sm font-medium text-slate-700">Código da bobina *<input required value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
             <label className="grid gap-1 text-sm font-medium text-slate-700">Fornecedor<input value={form.fornecedor} onChange={(e) => setForm({ ...form, fornecedor: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
+            <label className="grid gap-1 text-sm font-medium text-slate-700">NF<input value={form.nf} onChange={(e) => setForm({ ...form, nf: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
+            <label className="grid gap-1 text-sm font-medium text-slate-700">ABA / guia<input value={form.aba} onChange={(e) => setForm({ ...form, aba: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
             <label className="grid gap-1 text-sm font-medium text-slate-700">Medida / especificação<input inputMode="decimal" value={form.medida} onChange={(e) => setForm({ ...form, medida: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
             <label className="grid gap-1 text-sm font-medium text-slate-700">Peso (kg)<input inputMode="decimal" value={form.peso_kg} onChange={(e) => setForm({ ...form, peso_kg: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
             <label className="grid gap-1 text-sm font-medium text-slate-700">Metragem (m)<input inputMode="decimal" value={form.metragem_m} onChange={(e) => setForm({ ...form, metragem_m: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
