@@ -772,31 +772,24 @@ export function HistoricoProducao({ onChangeArea, isDeveloper }: Props) {
             </button>
           </div>
           <nav aria-label="Menus da Rebobinadeira" className="grid grid-cols-2 gap-2 pb-0 sm:flex sm:flex-wrap">
-            <button type="button" aria-current={tela === 'cadastro' ? 'page' : undefined} onClick={() => setTela('cadastro')} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'cadastro' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]')}>
+            <button type="button" aria-current={tela === 'cadastro' ? 'page' : undefined} onClick={() => setTela('cadastro')} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-3 text-center text-xs font-semibold whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'cadastro' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]')}>
               <Package className="size-4" /> Cadastrar produção
             </button>
-            <button type="button" aria-current={tela === 'historico' ? 'page' : undefined} onClick={() => setTela('historico')} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'historico' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]')}>
+            <button type="button" aria-current={tela === 'historico' ? 'page' : undefined} onClick={() => setTela('historico')} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-3 text-center text-xs font-semibold whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'historico' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]')}>
               <History className="size-4" /> Histórico de produção
+            </button>
+            <button type="button" aria-current={tela === 'indicadores' ? 'page' : undefined} onClick={() => setTela('indicadores')} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-3 text-center text-xs font-semibold whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'indicadores' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]')}>
+              <Package className="size-4" /> Indicadores
+            </button>
+            <button type="button" aria-current={tela === 'lixeira' ? 'page' : undefined} onClick={() => { setTela('lixeira'); void carregarLixeiraRebo() }} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-3 text-center text-xs font-semibold whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'lixeira' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]')}>
+              <Trash2 className="size-4" /> Lixeira ({lixeiraRebo.length})
             </button>
           </nav>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[96rem] space-y-6 px-3 py-4 sm:px-3 sm:py-5">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rebobinadeira / {tela === 'cadastro' ? 'Cadastro' : 'Histórico'}</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight">{tela === 'cadastro' ? 'Cadastrar produção' : 'Histórico de produção'}</h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              {tela === 'cadastro' ? 'Informe a produção e identifique a bobina pelo número de origem.' : 'Cada número identifica uma bobina física. Consulte os dados de origem e todos os lançamentos nos detalhes.'}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-{tela === 'historico' && (<button type="button" onClick={() => void carregar(true)} disabled={atualizando || carregando} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#c91f28] bg-[#e3262e] px-3 text-sm font-semibold text-white transition hover:bg-[#c91f28] disabled:opacity-50">
-              <RefreshCw className={'size-4 ' + (atualizando ? 'animate-spin' : '')} /> Atualizar
-            </button>)}
-          </div>
-        </div>
+      <main className="mx-auto w-full max-w-[96rem] space-y-4 rounded-2xl bg-white p-3 sm:p-4">
+        {tela === 'historico' && <div className="flex justify-end"><button type="button" onClick={() => void carregar(true)} disabled={atualizando || carregando} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#e3262e] px-4 text-sm font-semibold text-white transition hover:bg-[#c91f28] disabled:opacity-50"><RefreshCw className={'size-4 ' + (atualizando ? 'animate-spin' : '')} /> Atualizar</button></div>}
 
         {erro && <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-900"><strong>Falha ao carregar:</strong> {erro}</div>}
 
@@ -848,6 +841,24 @@ export function HistoricoProducao({ onChangeArea, isDeveloper }: Props) {
         )}
 
         </>)}
+
+        {tela === 'indicadores' && <EstoqueAtualCobrideira isDeveloper={isDeveloper} tipoEstoque="ADESIVADO" />}
+
+        {tela === 'lixeira' && (
+          <section className="rounded-xl bg-white p-4">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div><h3 className="font-semibold">Lixeira da Rebobinadeira</h3><p className="text-xs text-muted-foreground">Restaure lançamentos ou exclua definitivamente os registros selecionados.</p></div>
+              <div className="flex flex-wrap gap-2">
+                {selecionadosLixeira.size > 0 && <button type="button" onClick={() => void processarLixeira('restaurar')} disabled={processandoLixeira} className="rounded-lg bg-[#e3262e] px-3 py-2 text-xs font-bold text-white hover:bg-[#c91f28]">Restaurar {selecionadosLixeira.size} selecionado(s)</button>}
+                {isDeveloper && selecionadosLixeira.size > 0 && <button type="button" onClick={() => void processarLixeira('excluir')} disabled={processandoLixeira} className="rounded-lg bg-red-800 px-3 py-2 text-xs font-bold text-white hover:bg-red-900">Excluir definitivamente</button>}
+              </div>
+            </div>
+            {lixeiraRebo.length ? <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm">
+              <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="px-2 py-3"><input type="checkbox" aria-label="Selecionar todos os itens da lixeira" checked={lixeiraRebo.length > 0 && lixeiraRebo.every((item) => selecionadosLixeira.has(item.id))} onChange={(event) => setSelecionadosLixeira(event.target.checked ? new Set(lixeiraRebo.map((item) => item.id)) : new Set())} /></th><th className="px-3 py-3">Excluída em</th><th className="px-3 py-3">Bobina</th><th className="px-3 py-3">Data de produção</th><th className="px-3 py-3">Máquina</th><th className="px-3 py-3">Produto</th><th className="px-3 py-3 text-right">Ações</th></tr></thead>
+              <tbody>{lixeiraRebo.map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="px-2 py-3"><input type="checkbox" aria-label={`Selecionar lançamento da bobina ${item.numero_bobina}`} checked={selecionadosLixeira.has(item.id)} onChange={() => setSelecionadosLixeira((atuais) => { const novas = new Set(atuais); novas.has(item.id) ? novas.delete(item.id) : novas.add(item.id); return novas })} /></td><td className="px-3 py-3 text-xs">{new Date(item.excluida_em).toLocaleString('pt-BR')}</td><td className="px-3 py-3 font-mono">{item.numero_bobina}</td><td className="px-3 py-3">{item.dados.data ? formatarData(item.dados.data) : '—'}</td><td className="px-3 py-3">{item.dados.maquina ?? '—'}</td><td className="px-3 py-3">{item.dados.produto_codigo ?? '—'}</td><td className="px-3 py-3"><div className="flex justify-end gap-2"><button type="button" onClick={() => void processarLixeira('restaurar', [item.id])} disabled={processandoLixeira} className="rounded-md bg-[#e3262e] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#c91f28]">Restaurar</button>{isDeveloper && <button type="button" onClick={() => void processarLixeira('excluir', [item.id])} disabled={processandoLixeira} className="rounded-md bg-red-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-900">Excluir</button>}</div></td></tr>)}</tbody>
+            </table></div> : <p className="py-10 text-center text-sm text-muted-foreground">A lixeira está vazia.</p>}
+          </section>
+        )}
 
         {tela === 'cadastro' && (
         <section className="rounded-xl border border-border bg-card p-4">
@@ -932,9 +943,9 @@ export function HistoricoProducao({ onChangeArea, isDeveloper }: Props) {
         {tela === 'historico' && (
         <>
         <div className="grid gap-3 sm:grid-cols-3">
-          <article className="rounded-xl border border-border bg-card p-4"><div className="flex items-center gap-2 text-sm text-muted-foreground"><ClipboardList className="size-4" /> Lançamentos no histórico</div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(registros.length)}</p></article>
-          <article className="rounded-xl border border-border bg-card p-4"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Bell className="size-4" /> Alertas em aberto</div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(alertas.length)}</p></article>
-          <article className="rounded-xl border border-border bg-card p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Package className="size-4" /> Bobinas utilizadas</div><select aria-label="Período de utilização das bobinas" value={periodoUtilizacao} onChange={(event) => setPeriodoUtilizacao(event.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs"><option value="7">Últimos 7 dias</option><option value="30">Último mês</option><option value="90">Último trimestre</option><option value="180">Últimos 6 meses</option><option value="365">Último ano</option><option value="todos">Todo o período</option></select></div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(consumidas)}</p></article>
+          <article className="rounded-xl bg-white p-4"><div className="flex items-center gap-2 text-sm text-muted-foreground"><ClipboardList className="size-4" /> Lançamentos no histórico</div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(registros.filter((item) => item.status_baixa !== 'EXCLUIDA' && (periodoUtilizacao === 'todos' || item.data >= (() => { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - (Number(periodoUtilizacao) - 1)); return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-') })())).length)}</p></article>
+          <article className="rounded-xl bg-white p-4"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Bell className="size-4" /> Alertas em aberto</div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(alertas.length)}</p></article>
+          <article className="rounded-xl bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Package className="size-4" /> Bobinas utilizadas</div><select aria-label="Período de utilização das bobinas" value={periodoUtilizacao} onChange={(event) => setPeriodoUtilizacao(event.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs"><option value="7">Últimos 7 dias</option><option value="30">Último mês</option><option value="90">Último trimestre</option><option value="180">Últimos 6 meses</option><option value="365">Último ano</option><option value="todos">Todo o período</option></select></div><p className="mt-2 text-2xl font-semibold tabular-nums">{numero.format(consumidas)}</p></article>
         </div>
 
         <section className="overflow-hidden rounded-xl border border-border bg-card">
