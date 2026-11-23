@@ -153,6 +153,7 @@ begin
   end if;
   v_entrada:=case when found then v_container.entrada_id else null end;
   if v_entrada is null then v_entrada:=cobrideira.alocar_entrada_cola(); end if;
+  if v_entrada is null then raise exception 'Não há container disponível no estoque para registrar a retirada de %.',v_codigo; end if;
   insert into cobrideira.estoque_cola_containers(codigo,status,entrada_id,enviado_em,enviado_por)
   values(v_codigo,'ENVIADO_BAHIA',v_entrada,now(),p_user_id)
   on conflict(codigo) do update set status='ENVIADO_BAHIA',entrada_id=excluded.entrada_id,enviado_em=now(),enviado_por=p_user_id;
