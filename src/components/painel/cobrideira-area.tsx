@@ -1202,7 +1202,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               type="button"
               aria-current={secao === 'estoque-atual' || secao === 'estoque-minimo' || secao === 'estoque-cola' ? 'page' : undefined}
               onClick={() => setSecao('estoque-atual')}
-              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'estoque-atual' || secao === 'estoque-minimo' || secao === 'estoque-cola' ? 'bg-[#e3262e' text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
+              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'estoque-atual' || secao === 'estoque-minimo' || secao === 'estoque-cola' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
             >
               <ChartNoAxesCombined className="size-4" />
               Indicadores
