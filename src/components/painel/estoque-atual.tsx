@@ -135,7 +135,7 @@ function lerCsv(texto: string, nomeArquivo: string) {
   return registros
 }
 
-export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }) {
+export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: { isDeveloper: boolean; tipoEstoque?: 'VIRGEM' | 'ADESIVADO' }) {
   const [bobinas, setBobinas] = React.useState<BobinaEstoque[]>([])
   const [resumos, setResumos] = React.useState<ResumoProduto[]>([])
   const [usosPorProduto, setUsosPorProduto] = React.useState<Record<string, number>>({})
@@ -153,13 +153,15 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
   const [form, setForm] = React.useState<FormEstoque>(vazio)
   const [editando, setEditando] = React.useState<string | null>(null)
   const [formAberto, setFormAberto] = React.useState(false)
+  const categoriasVisiveis: Categoria[] = tipoEstoque === 'VIRGEM' ? ['BOPP'] : categorias
+  const tituloEstoque = tipoEstoque === 'VIRGEM' ? 'Estoque Atual Virgem' : 'Estoque Atual Adesivado'
 
   async function carregar() {
     setCarregando(true)
     try {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
       if (sessionError || !sessionData.session?.access_token) throw new Error('Sua sessão expirou. Entre novamente.')
-      const result = await listCurrentStock({ data: { accessToken: sessionData.session.access_token } })
+      const result = await listCurrentStock({ data: { accessToken: sessionData.session.access_token, tipoEstoque } })
       setBobinas(result.bobinas as BobinaEstoque[])
       setResumos(result.resumos as ResumoProduto[])
       try {
@@ -192,14 +194,14 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
         setUsosPorProduto({})
       }
       if (isDeveloper) {
-        const arquivadas = await listCurrentStockTrash({ data: { accessToken: sessionData.session.access_token } })
+        const arquivadas = await listCurrentStockTrash({ data: { accessToken: sessionData.session.access_token, tipoEstoque } })
         setLixeira(arquivadas as BobinaLixeira[])
       } else setLixeira([])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível carregar o estoque atual.')
     } finally { setCarregando(false) }
   }
-  React.useEffect(() => { void carregar() }, [])
+  React.useEffect(() => { void carregar() }, [tipoEstoque])
 
   const filtradas = React.useMemo(() => {
     const resultado = bobinas.filter((b) => {
@@ -225,7 +227,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
   const totalKg = bobinas.reduce((s, b) => s + numero(b.peso_kg), 0)
   const totalM = bobinas.reduce((s, b) => s + numero(b.metragem_m), 0)
   const porCategoria = [
-    ...categorias.map((c) => ({
+    ...categoriasVisiveis.map((c) => ({
       categoria: c,
       quantidade: bobinas.filter((b) => b.categoria === c).length,
       unidade: 'bobinas' as const,
@@ -273,8 +275,8 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
         codigo: form.codigo.trim(), cor: form.cor.trim() || null, cliente: form.cliente.trim() || null, linha: form.linha.trim() || null,
         observacoes: form.observacoes.trim() || null,
       }
-      if (editando) await updateCurrentStockRecord({ data: { accessToken, id: editando, registro } })
-      else await createCurrentStockRecord({ data: { accessToken, registro } })
+      if (editando) await updateCurrentStockRecord({ data: { accessToken, tipoEstoque, id: editando, registro } })
+      else await createCurrentStockRecord({ data: { accessToken, tipoEstoque, registro } })
       toast.success(editando ? 'Bobina atualizada.' : 'Bobina adicionada ao estoque atual.')
       setFormAberto(false)
       await carregar()
@@ -291,6 +293,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
       for (const arquivo of Array.from(arquivos)) {
         if (!arquivo.name.toLowerCase().endsWith('.csv')) continue
         const registros = lerCsv(await arquivo.text(), arquivo.name)
+      if (tipoEstoque === 'VIRGEM' && registros.some((registro) => registro.categoria !== 'BOPP')) throw new Error('O Estoque Atual Virgem aceita somente arquivos e registros da categoria BOPP.')
         if (registros.length) arquivosLidos++
         for (const registro of registros) {
           const chave = `${registro.categoria}|${registro.codigo}`
@@ -311,7 +314,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
       let totalImportado = 0
       for (let inicio = 0; inicio < registros.length; inicio += 500) {
         const lote = registros.slice(inicio, inicio + 500)
-        const resultado = await importCurrentStockCsv({ data: { accessToken, registros: lote } })
+        const resultado = await importCurrentStockCsv({ data: { accessToken, tipoEstoque, registros: lote } })
         totalImportado += resultado.importados
       }
       toast.success(`${totalImportado} bobinas consolidadas/importadas de ${arquivosLidos} arquivo(s). Códigos repetidos foram reunidos.`)
@@ -330,7 +333,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
       const { data: sessionData } = await supabase.auth.getSession()
       const accessToken = sessionData.session?.access_token
       if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
-      await moveCurrentStockToTrash({ data: { accessToken, id: b.id } })
+      await moveCurrentStockToTrash({ data: { accessToken, tipoEstoque, id: b.id } })
       toast.success('Bobina movida para a lixeira do Estoque Atual.')
       await carregar()
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível excluir a bobina.') }
@@ -342,7 +345,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
       const { data: sessionData } = await supabase.auth.getSession()
       const accessToken = sessionData.session?.access_token
       if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
-      await restoreCurrentStockRecord({ data: { accessToken, id: item.id } })
+      await restoreCurrentStockRecord({ data: { accessToken, tipoEstoque, id: item.id } })
       toast.success('Bobina restaurada para o Estoque Atual.')
       await carregar()
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível restaurar a bobina.') }
@@ -353,7 +356,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
       const { data: sessionData } = await supabase.auth.getSession()
       const accessToken = sessionData.session?.access_token
       if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
-      await permanentlyDeleteCurrentStockTrashRecord({ data: { accessToken, id: item.id } })
+      await permanentlyDeleteCurrentStockTrashRecord({ data: { accessToken, tipoEstoque, id: item.id } })
       toast.success('Bobina excluída definitivamente da lixeira.')
       await carregar()
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível excluir definitivamente a bobina.') }
@@ -362,7 +365,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h2 className="text-lg font-bold text-slate-900">Posição do estoque físico</h2><p className="text-sm text-slate-500">Edite ou exclua os itens daqui sem alterar o histórico de produção.</p><p className="mt-1 text-xs text-slate-500">Na importação, selecione vários CSVs de uma vez (BOPP, CREPE, DUPLA_FACE e KRAFT). Os arquivos são consolidados por categoria e código, sem duplicar bobinas.</p></div>
+        <div><h2 className="text-lg font-bold text-slate-900">{tituloEstoque}</h2><p className="text-sm text-slate-500">{tipoEstoque === 'VIRGEM' ? 'Bobinas BOPP virgens da Cobrideira, em estoque separado do material adesivado.' : 'Bobinas e produtos adesivados utilizados na Rebobinadeira.'}</p><p className="mt-1 text-xs text-slate-500">Na importação, selecione vários CSVs de uma vez. Os arquivos são consolidados por categoria e código, sem duplicar bobinas.</p></div>
         <div className="flex gap-2">
           <button type="button" onClick={() => void carregar()} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="size-4"/> Atualizar</button>
           {aba === 'ATIVAS' && <>
@@ -373,8 +376,8 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
         </div>
       </div>
 
-      {aba === 'ATIVAS' && (() => {
-        const alertas = resumos.filter((r) => numero(r.estoque_minimo_semanal_m) > 0 && numero(r.metragem_disponivel_m) < numero(r.estoque_minimo_semanal_m) && !alertasDesativados.includes(chaveAlertaEstoque(r.medida_produto)))
+      {aba === 'ATIVAS' && tipoEstoque === 'ADESIVADO' && (() => {
+        const alertas = (tipoEstoque === 'ADESIVADO' ? resumos : []).filter((r) => numero(r.estoque_minimo_semanal_m) > 0 && numero(r.metragem_disponivel_m) < numero(r.estoque_minimo_semanal_m) && !alertasDesativados.includes(chaveAlertaEstoque(r.medida_produto)))
         const porPagina = 4
         const totalPaginas = Math.ceil(alertas.length / porPagina)
         const paginaAtual = totalPaginas ? paginaAlertas % totalPaginas : 0
@@ -414,11 +417,11 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
         <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2 text-sm text-slate-500"><Boxes className="size-4"/> Bobinas no estoque</div><div className="mt-2 text-2xl font-bold text-slate-900">{fmt(bobinas.length)}</div></div>
         <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2 text-sm text-slate-500"><Weight className="size-4"/> Peso disponível</div><div className="mt-2 text-2xl font-bold text-slate-900">{fmt(totalKg, 1)} <span className="text-sm font-medium">kg</span></div></div>
         <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2 text-sm text-slate-500"><Ruler className="size-4"/> Metragem disponível</div><div className="mt-2 text-2xl font-bold text-slate-900">{fmt(totalM)} <span className="text-sm font-medium">m</span></div></div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2 text-sm text-slate-500"><Package className="size-4"/> Produtos monitorados</div><div className="mt-2 text-2xl font-bold text-slate-900">{fmt(resumos.length)}</div></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2 text-sm text-slate-500"><Package className="size-4"/> {tipoEstoque === 'VIRGEM' ? 'Categoria' : 'Produtos monitorados'}</div><div className="mt-2 text-2xl font-bold text-slate-900">{tipoEstoque === 'VIRGEM' ? 'BOPP virgem' : fmt(resumos.length)}</div></div>
       </div>
 
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      {tipoEstoque === 'ADESIVADO' && <div className="grid gap-3 lg:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <h3 className="font-bold text-slate-900">Estoque por categoria</h3>
           <div className="mt-3 grid gap-3">
@@ -472,14 +475,14 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
             })}
           </div>
         </section>
-      </div>
+      </div>}
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-bold text-slate-900">{aba === 'ATIVAS' ? 'Bobinas em estoque' : 'Bobinas na lixeira'}</h3>
           {aba === 'ATIVAS' && <div className="flex flex-wrap gap-2">
             <div className="relative"><Search className="absolute left-3 top-2.5 size-4 text-slate-400"/><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar código, fornecedor..." className="h-9 w-56 rounded-lg border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-slate-500"/></div>
-            <select value={categoria} onChange={(e) => setCategoria(e.target.value as typeof categoria)} className="h-9 rounded-lg border border-slate-300 px-3 text-sm"><option value="TODAS">Todas as categorias</option>{categorias.map((c) => <option key={c}>{c}</option>)}</select>
+            <select value={categoria} onChange={(e) => setCategoria(e.target.value as typeof categoria)} className="h-9 rounded-lg border border-slate-300 px-3 text-sm"><option value="TODAS">Todas as categorias</option>{categoriasVisiveis.map((c) => <option key={c}>{c}</option>)}</select>
             
           </div>}
         </div>
@@ -492,7 +495,7 @@ export function EstoqueAtualCobrideira({ isDeveloper }: { isDeveloper: boolean }
                 <td className="p-2"><div className="font-semibold text-slate-800">{b.categoria}</div><div className="text-xs text-slate-500">{fmtMedida(b.medida)}</div></td>
                 <td className="p-2 font-medium text-slate-800">{b.codigo ?? '—'}{b.cor || b.cliente ? <div className="text-xs text-slate-500">{b.cor ?? ''}{b.cliente ? ` · Cliente: ${b.cliente}` : ''} {b.linha ? `· ${b.linha}` : ''}</div> : null}</td>
                 <td className="p-2 text-slate-600">{b.fornecedor ?? '—'}</td><td className="p-2 text-right tabular-nums">{fmt(b.peso_kg, 1)} kg</td><td className="p-2 text-right tabular-nums">{fmt(b.metragem_m)} m</td>
-                <td className="p-2"><div className="flex justify-end gap-1"><button type="button" title="Editar" onClick={() => abrirEdicao(b)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100"><Pencil className="size-4"/></button>{isDeveloper && <button type="button" title="Mover para lixeira" onClick={() => void excluir(b)} className="rounded-md p-2 text-red-600 hover:bg-red-50"><Trash2 className="size-4"/></button>}</div></td>
+                <td className="p-2"><div className="flex justify-end gap-1"><button type="button" title="Editar" onClick={() => abrirEdicao(b)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100"><Pencil className="size-4"/></button>{isDeveloper && <button type="button" title="Mover para lixeira" onClick={() => void excluir(b)} className="rounded-md bg-[#e3262e] p-2 text-white hover:bg-[#c91f27]"><Trash2 className="size-4"/></button>}</div></td>
               </tr>)}</tbody>
             </table>
             {!filtradas.length && <p className="py-8 text-center text-sm text-slate-500">Nenhuma bobina encontrada.</p>}
