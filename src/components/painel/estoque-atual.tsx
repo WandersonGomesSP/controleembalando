@@ -298,7 +298,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
       if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
       const registro = {
         categoria: form.categoria, data_entrada: form.data_entrada || null,
-        fornecedor: form.fornecedor.trim() || null, medida, medida_texto: medidaTexto || null, nf: form.nf.trim().match(/\\d+/)?.[0] ?? null, aba: form.aba.trim() || null, peso_kg: peso, metragem_m: metros,
+        fornecedor: form.fornecedor.trim() || null, medida, medida_texto: medidaTexto || null, nf: form.nf.trim().match(/\d+/)?.[0] ?? null, aba: form.aba.trim() || null, peso_kg: peso, metragem_m: metros,
         codigo: form.codigo.trim(), cor: form.cor.trim() || null, cliente: form.cliente.trim() || null, linha: form.linha.trim() || null,
         observacoes: form.observacoes.trim() || null,
       }
