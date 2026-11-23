@@ -430,6 +430,10 @@ input[type='checkbox'] {
   cursor: pointer;
 }
 label:has(input[type='checkbox']) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
   cursor: pointer;
 }
 select {
