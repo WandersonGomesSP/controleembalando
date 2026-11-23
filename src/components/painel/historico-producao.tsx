@@ -43,7 +43,7 @@ type Props = {
   onChangeArea: () => void
   isDeveloper: boolean
   onOpenEstoqueMinimo?: () => void
-  initialTela?: 'historico' | 'indicadores'
+  initialTela?: 'historico' | 'indicadores' | 'cadastro' | 'lixeira'
 }
 
 type BobinaOrigem = {
