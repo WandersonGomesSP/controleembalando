@@ -15,12 +15,14 @@ import {
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { HistoricoProducao } from '@/components/painel/historico-producao'
+import { EstoqueAtualCobrideira } from '@/components/painel/estoque-atual'
 import type { RebobinadeiraEstoqueMinimoRow } from '@/lib/database.types'
 
 type Props = {
   onChangeArea: () => void
   isDeveloper: boolean
   onOpenHistorico?: () => void
+  onOpenEstoqueAtual?: () => void
 }
 
 const numero = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
@@ -32,10 +34,10 @@ function formatar(valor: number | null | undefined, casas = false) {
 }
 
 export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
-  const [tela, setTela] = React.useState<'historico' | 'estoque-minimo'>('historico')
-  return tela === 'historico'
-    ? <HistoricoProducao onChangeArea={onChangeArea} isDeveloper={isDeveloper} onOpenEstoqueMinimo={() => setTela('estoque-minimo')} />
-    : <EstoqueMinimoView onChangeArea={onChangeArea} isDeveloper={isDeveloper} onOpenHistorico={() => setTela('historico')} />
+  const [tela, setTela] = React.useState<'historico' | 'estoque-atual' | 'estoque-minimo'>('historico')
+  return tela === 'estoque-minimo'
+    ? <EstoqueMinimoView onChangeArea={onChangeArea} isDeveloper={isDeveloper} onOpenHistorico={() => setTela('historico')} onOpenEstoqueAtual={() => setTela('estoque-atual')} />
+    : <HistoricoProducao onChangeArea={onChangeArea} isDeveloper={isDeveloper} initialTela={tela === 'estoque-atual' ? 'indicadores' : 'historico'} onOpenEstoqueMinimo={() => setTela('estoque-minimo')} />
 }
 
 export function EstoqueMinimoCobrideira(_props: { isDeveloper: boolean }) {
@@ -53,7 +55,7 @@ export function EstoqueMinimoCobrideira(_props: { isDeveloper: boolean }) {
   )
 }
 
-function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpenHistorico }: Props & { embedded?: boolean }) {
+function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpenHistorico, onOpenEstoqueAtual }: Props & { embedded?: boolean }) {
   const [registros, setRegistros] = React.useState<RebobinadeiraEstoqueMinimoRow[]>([])
   const [leadTimes, setLeadTimes] = React.useState<Record<string, string>>({})
   const [ajustes, setAjustes] = React.useState<Record<string, number>>({})
@@ -190,17 +192,12 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpen
             </span>
           </nav>
           <nav aria-label="Indicadores" className="flex items-center gap-2 pl-3">
-            <span className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 text-sm font-medium text-foreground">
-              <PackageCheck className="size-4" /> Estoque Mínimo
-            </span>
-            {onOpenHistorico && (
-              <button type="button" onClick={onOpenHistorico} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium transition hover:bg-accent">
-                <History className="size-4" /> Histórico de produção
-              </button>
-            )}
+            {onOpenEstoqueAtual && <button type="button" onClick={onOpenEstoqueAtual} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-[#c91d26] transition hover:bg-red-50"><PackageCheck className="size-4" /> Estoque Atual Adesivado</button>}
+            <span className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#e3262e]/30 bg-[#e3262e]/10 px-3 text-sm font-medium text-[#9f1720]"><PackageCheck className="size-4" /> Estoque Mínimo</span>
           </nav>
         </div>
-      </header>}
+      </header>
+      {!embedded && <div className="h-3 w-full bg-[#4b4642]" />}
 
       <main className={embedded ? "mx-auto max-w-[96rem] space-y-6 px-1 py-2 sm:px-2" : "mx-auto max-w-[96rem] space-y-6 px-4 py-6 sm:px-6 sm:py-8"}>
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
