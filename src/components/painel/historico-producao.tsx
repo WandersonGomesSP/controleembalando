@@ -42,6 +42,7 @@ import type {
 type Props = {
   onChangeArea: () => void
   isDeveloper: boolean
+  onOpenEstoqueMinimo?: () => void
 }
 
 type BobinaOrigem = {
@@ -198,7 +199,7 @@ function severidadeClass(severidade: string) {
       : 'border-border bg-muted text-foreground'
 }
 
-export function HistoricoProducao({ onChangeArea, isDeveloper }: Props) {
+export function HistoricoProducao({ onChangeArea, isDeveloper, onOpenEstoqueMinimo }: Props) {
   const [registros, setRegistros] = React.useState<ProducaoRow[]>([])
   const [alertas, setAlertas] = React.useState<RebobinadeiraAlertaBobinaRow[]>([])
   const [saldos, setSaldos] = React.useState<RebobinadeiraSaldoBobinaRow[]>([])
@@ -212,7 +213,7 @@ export function HistoricoProducao({ onChangeArea, isDeveloper }: Props) {
   const [dataInicio, setDataInicio] = React.useState('')
   const [dataFim, setDataFim] = React.useState('')
   const [mesFiltro, setMesFiltro] = React.useState('')
-  const [periodoUtilizacao, setPeriodoUtilizacao] = React.useState('7')
+  const [periodoUtilizacao, setPeriodoUtilizacao] = React.useState('todos')
   const [pagina, setPagina] = React.useState(0)
   const [detalheAberto, setDetalheAberto] = React.useState<string | null>(null)
   const [gruposSelecionados, setGruposSelecionados] = React.useState<Set<string>>(() => new Set())
@@ -781,8 +782,11 @@ export function HistoricoProducao({ onChangeArea, isDeveloper }: Props) {
               <History className="size-4" /> Histórico de produção
             </button>
             <button type="button" aria-current={tela === 'indicadores' ? 'page' : undefined} onClick={() => setTela('indicadores')} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-3 text-center text-xs font-semibold whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'indicadores' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]')}>
-              <Package className="size-4" /> Indicadores
+              <Package className="size-4" /> Estoque Atual Adesivado
             </button>
+            {onOpenEstoqueMinimo && <button type="button" onClick={onOpenEstoqueMinimo} className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg bg-[#c91d26] px-3 text-center text-xs font-semibold text-white whitespace-nowrap hover:bg-[#e3262e] sm:gap-2 sm:px-4 sm:text-sm">
+              <Package className="size-4" /> Estoque Mínimo
+            </button>}
             <button type="button" aria-current={tela === 'lixeira' ? 'page' : undefined} onClick={() => { setTela('lixeira'); void carregarLixeiraRebo() }} className={'inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-3 text-center text-xs font-semibold whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ' + (tela === 'lixeira' ? 'bg-[#e3262e] text-white shadow-sm' : 'bg-[#c91d26] text-white hover:bg-[#e3262e]')}>
               <Trash2 className="size-4" /> Lixeira ({lixeiraRebo.length})
             </button>
