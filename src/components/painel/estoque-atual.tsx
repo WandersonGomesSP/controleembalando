@@ -81,6 +81,7 @@ function lerCsv(texto: string, nomeArquivo: string) {
     if (nome.includes('dupla_face') || nome.includes('dupla')) return 'DUPLA FACE'
     if (nome.includes('crepe')) return 'CREPE'
     if (nome.includes('kraft')) return 'KRAFT'
+    if (nome.includes('pebd')) return 'PEBD'
     if (nome.includes('bopp')) return 'BOPP'
     return null
   })()
