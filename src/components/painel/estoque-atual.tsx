@@ -113,7 +113,7 @@ function lerCsv(texto: string, nomeArquivo: string) {
   const registros = linhas.slice(1).map((colunas, indiceLinha) => {
     const aba = valor(colunas, 'aba', 'guia', 'planilha', 'aba_origem')
     const categoriaBruta = (valor(colunas, 'categoria', 'tipo_categoria') || aba).toUpperCase().replace(/_/g, ' ')
-    const abaEhBopp = /^\\d{3,4}[.,]\\d{2}$/.test(aba.trim()) || /METALIZAD/i.test(aba)
+    const abaEhBopp = /^\d{3,4}[.,]\d{2}$/.test(aba.trim()) || /METALIZAD/i.test(aba)
     const categoria: Categoria | null = categoriaBruta === 'BOPP' || abaEhBopp ? 'BOPP'
       : categoriaBruta === 'PEBD' || /^PEBD$/i.test(aba) ? 'PEBD'
       : categoriaBruta === 'CREPE' ? 'CREPE'
@@ -132,7 +132,7 @@ function lerCsv(texto: string, nomeArquivo: string) {
     const data = dataConvertida && dataConvertida >= '2000-01-01' ? dataConvertida : null
     const nf = valor(colunas, 'nf', 'nota_fiscal', 'nota', 'numero_nf')
     const corExplicita = valor(colunas, 'cor', 'cor_filme', 'cor_do_filme')
-    const corDaMedida = medidaTexto.match(/^\\s*\\d+(?:[.,]\\d+)?(?:\\.\\s*|\\s+)([A-ZÀ-ÿ][A-ZÀ-ÿ\\s]+)$/i)?.[1]?.trim() || ''
+    const corDaMedida = medidaTexto.match(/^\s*\d+(?:[.,]\d+)?(?:\.\s*|\s+)([A-ZÀ-ÿ][A-ZÀ-ÿ\s]+)$/i)?.[1]?.trim() || ''
     const cor = corExplicita || corDaMedida || null
     const observacoesOriginais = valor(colunas, 'observacoes', 'observacao', 'obs')
     const observacoesGeradas = [
