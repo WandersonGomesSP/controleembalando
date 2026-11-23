@@ -451,7 +451,7 @@ export function EstoqueColaCobrideira() {
                     <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de entrada {ordemEstoque === 'desc' ? '↓' : '↑'}</button></th>
                     {['Lote','NF','Fornecedor','Situação','Localização','Ações'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
                   </tr></thead>
-                  <tbody>{containersOrdenados.map((item) => <tr key={item.codigo} className={`border-b border-slate-100 ${item.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-100' : ''}`}>
+                  <tbody>{containersOrdenados.map((item) => <tr key={item.codigo} className={`border-b border-slate-100 ${item.entrada?.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-100' : ''}`}>
                     <td className="px-3 py-2"><input type="checkbox" checked={selecionados.includes(item.codigo)} onChange={(e) => setSelecionados((atual) => e.target.checked ? [...atual,item.codigo] : atual.filter((codigo) => codigo !== item.codigo))} /></td>
                     <td className="px-3 py-2 font-mono font-semibold">{item.codigo}</td>
                     <td className="px-3 py-2">{item.entrada?.data_chegada ? new Date(item.entrada.data_chegada + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td>
@@ -498,17 +498,38 @@ export function EstoqueColaCobrideira() {
       )}
 
       {aba === 'historico' && (
-        <Panel title="Histórico de cola por código" description="A quantidade de cola líquida é acumulada automaticamente conforme as bobinas utilizam o mesmo código interno.">
+        <Panel title="Histórico de consumo por código" description="Exibe somente códigos de container com oito dígitos; a data apresentada é a última data de consumo registrada.">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[850px] text-left text-xs">
               <thead className="bg-slate-100 text-slate-700"><tr>
                 <th className="px-3 py-2">Código do container</th>
-                <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de entrada {ordemEstoque === 'desc' ? '↓' : '↑'}</button></th>
+                <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de consumo {ordemEstoque === 'desc' ? '↓' : '↑'}</button></th>
                 {['Bobinas','Cola líquida utilizada','Lote','Fornecedor','Situação'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
               </tr></thead>
-              <tbody>{historicoAgrupado.map((item) => <tr key={item.codigo} className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">{item.codigo}</td><td className="px-3 py-2">{item.dataEntrada ? new Date(item.dataEntrada + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td><td className="px-3 py-2">{item.bobinas}</td><td className="px-3 py-2 font-bold">{kg(item.cola)}</td><td className="px-3 py-2">{item.lote || '—'}</td><td className="px-3 py-2">{item.fornecedor || '—'}</td><td className="px-3 py-2">{item.status === 'ENVIADO_BAHIA' ? 'Enviado para Bahia' : item.status === 'CONSUMIDO_PRODUCAO' ? 'Utilizado na produção' : 'Histórico anterior'}</td></tr>)}</tbody>
+              <tbody>{historicoAgrupado.map((item) => <tr key={item.codigo} className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">{item.codigo}</td><td className="px-3 py-2">{new Date(item.dataConsumo + 'T12:00:00').toLocaleDateString('pt-BR')}</td><td className="px-3 py-2">{item.bobinas}</td><td className="px-3 py-2 font-bold">{kg(item.cola)}</td><td className="px-3 py-2">{item.lote || '—'}</td><td className="px-3 py-2">{item.fornecedor || '—'}</td><td className="px-3 py-2">{item.status === 'ENVIADO_BAHIA' ? 'Enviado para Bahia' : item.status === 'CONSUMIDO_PRODUCAO' ? 'Utilizado na produção' : 'Histórico anterior'}</td></tr>)}</tbody>
             </table>
             {!historicoAgrupado.length && <p className="py-8 text-center text-sm text-slate-500">Ainda não há consumo registrado.</p>}
+          </div>
+        </Panel>
+      )}
+      {aba === 'envios' && (
+        <Panel title="Histórico de envio para BA" description="Cada container enviado aparece com a data da retirada e o lote de origem.">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[850px] text-left text-xs">
+              <thead className="bg-slate-100 text-slate-700"><tr>
+                {['Código do container','Data de envio','Data de entrada','Lote','NF','Fornecedor','Situação'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
+              </tr></thead>
+              <tbody>{enviadosParaBahia.map((item) => <tr key={item.codigo} className={'border-b border-slate-100 ' + (item.entrada?.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-100' : '')}>
+                <td className="px-3 py-2 font-mono font-semibold">{item.codigo}</td>
+                <td className="px-3 py-2">{item.enviado_em ? new Date(item.enviado_em).toLocaleString('pt-BR') : '—'}</td>
+                <td className="px-3 py-2">{item.entrada?.data_chegada ? new Date(item.entrada.data_chegada + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+                <td className="px-3 py-2">{item.entrada?.lote || '—'}</td>
+                <td className="px-3 py-2">{item.entrada?.nf || '—'}</td>
+                <td className="px-3 py-2">{item.entrada?.fornecedor || '—'}</td>
+                <td className="px-3 py-2 font-semibold text-slate-700">Enviado para Bahia</td>
+              </tr>)}</tbody>
+            </table>
+            {!enviadosParaBahia.length && <p className="py-8 text-center text-sm text-slate-500">Nenhum envio para Bahia registrado ainda.</p>}
           </div>
         </Panel>
       )}
