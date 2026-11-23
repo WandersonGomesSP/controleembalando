@@ -922,6 +922,15 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     }
   }
 
+  async function tokenAtual(): Promise<string> {
+    const { data, error } = await supabase.auth.getSession()
+    const accessToken = data.session?.access_token
+    if (error || !accessToken) {
+      throw new Error('Sua sessão expirou. Entre novamente para acessar a lixeira.')
+    }
+    return accessToken
+  }
+
   async function carregarLixeira() {
     setCarregandoLixeira(true)
     try {
