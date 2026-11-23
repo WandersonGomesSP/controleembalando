@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  Trash2,
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -21,6 +22,7 @@ import { supabase } from '@/lib/supabase'
 import {
   corrigirNumeroBobinaRebobinadeira,
   editarProducaoRebobinadeira,
+  excluirLancamentosRebobinadeira,
   buscarDetalhesBobinasOrigemRebobinadeira,
   importarCsvRebobinadeira,
   registrarProducaoRebobinadeira,
@@ -209,6 +211,8 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const [periodoUtilizacao, setPeriodoUtilizacao] = React.useState('7')
   const [pagina, setPagina] = React.useState(0)
   const [detalheAberto, setDetalheAberto] = React.useState<string | null>(null)
+  const [gruposSelecionados, setGruposSelecionados] = React.useState<Set<string>>(() => new Set())
+  const [excluindo, setExcluindo] = React.useState(false)
   const [tela, setTela] = React.useState<'historico' | 'cadastro'>('historico')
   const [salvando, setSalvando] = React.useState(false)
   const [importando, setImportando] = React.useState(false)
@@ -317,6 +321,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
   const filtrados = React.useMemo(() => {
     const mapa = new Map<string, ProducaoRow[]>()
     for (const item of registros) {
+      if (item.status_baixa === 'EXCLUIDA') continue
       const chave = item.numero_normalizado || item.numero_bobina.replace(/\D/g, '')
       const grupo = mapa.get(chave) ?? []
       grupo.push(item)
@@ -375,6 +380,25 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       return correspondeTexto && correspondeStatus && correspondeInicio && correspondeFim && correspondeMes
     }).sort((a, b) => b.dataFim.localeCompare(a.dataFim) || a.numero_bobina.localeCompare(b.numero_bobina))
   }, [registros, busca, statusFiltro, dataInicio, dataFim, mesFiltro])
+
+  const gruposVisiveis = paginaRegistros
+  const todosVisiveisSelecionados = gruposVisiveis.length > 0 && gruposVisiveis.every((grupo) => gruposSelecionados.has(grupo.groupId))
+  async function excluirGruposSelecionados() {
+    const grupos = filtrados.filter((grupo) => gruposSelecionados.has(grupo.groupId))
+    const ids = grupos.flatMap((grupo) => grupo.linhas.map((linha) => linha.id))
+    if (!ids.length) return
+    if (!window.confirm('Excluir ' + grupos.length + ' lançamento(s) e ' + ids.length + ' registro(s) de produção? O saldo consumido será recomposto e os itens sairão do histórico.')) return
+    setExcluindo(true)
+    try {
+      const accessToken = await obterToken()
+      await excluirLancamentosRebobinadeira({ data: { accessToken, ids } })
+      setRegistros((atuais) => atuais.filter((linha) => !ids.includes(linha.id)))
+      setGruposSelecionados(new Set())
+      setDetalheAberto(null)
+      toast.success(grupos.length + ' lançamento(s) excluído(s). O saldo foi recomposto.')
+    } catch (error) { toast.error('Não foi possível excluir os lançamentos.', { description: error instanceof Error ? error.message : 'Erro inesperado.' }) }
+    finally { setExcluindo(false) }
+  }
 
   const porPagina = 30
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / porPagina))
