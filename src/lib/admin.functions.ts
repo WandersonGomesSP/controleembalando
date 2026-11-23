@@ -1880,3 +1880,28 @@ export const excluirContainersCola = createServerFn({ method: 'POST' })
     if (error) throw new Error(`Não foi possível excluir os containers: ${error.message}`)
     return { removidos: removidos?.map((item: { codigo: string }) => item.codigo) ?? [] }
   })
+
+
+export const atualizarEntradasCola = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({
+    entrada_ids: z.array(z.number().int().positive()).min(1).max(500),
+    atualizacoes: z.object({
+      data_chegada: isoDate.optional(),
+      nf: z.string().trim().min(1).max(80).optional(),
+      produto: z.string().trim().min(1).max(80).optional(),
+      lote: z.string().trim().min(1).max(100).optional(),
+      peso_por_container_kg: z.number().positive().max(100000).optional(),
+      valor_por_container: z.number().min(0).max(100000000).optional(),
+      fornecedor: z.string().trim().min(1).max(160).optional(),
+    }).refine((value) => Object.keys(value).length > 0, 'Informe ao menos um campo para alterar.'),
+  }))
+  .handler(async ({ data }) => {
+    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const { data: atualizadas, error } = await (client as any).schema('cobrideira')
+      .from('estoque_cola_entradas')
+      .update(data.atualizacoes)
+      .in('id', [...new Set(data.entrada_ids)])
+      .select('id')
+    if (error) throw new Error(`Não foi possível atualizar os dados das entradas: ${error.message}`)
+    return { atualizadas: atualizadas?.map((item: { id: number }) => item.id) ?? [] }
+  })
