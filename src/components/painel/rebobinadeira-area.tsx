@@ -38,7 +38,7 @@ export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
     : <EstoqueMinimoView onChangeArea={onChangeArea} isDeveloper={isDeveloper} onOpenHistorico={() => setTela('historico')} />
 }
 
-export function EstoqueMinimoCobrideira({ isDeveloper }: { isDeveloper: boolean }) {
+export function EstoqueMinimoCobrideira(_props: { isDeveloper: boolean }) {
   return (
     <section className="rounded-xl border border-border bg-card p-5">
       <h2 className="text-lg font-semibold">Estoque Mínimo Virgem</h2>
