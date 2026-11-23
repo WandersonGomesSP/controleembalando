@@ -1612,19 +1612,38 @@ export const importCurrentStockCsv = createServerFn({ method: 'POST' })
     const { client } = await requireCurrentStockEditor(data.accessToken, data.tipoEstoque)
     const estoque = (client as any).schema('estoque_atual')
     const tabela = tabelaEstoqueAtual(data.tipoEstoque)
-    const codigos = [...new Set(data.registros.map((r) => r.codigo).filter((v): v is string => Boolean(v)))]
     const existentes: any[] = []
-    for (let i = 0; i < codigos.length; i += 200) {
-      const lote = codigos.slice(i, i + 200)
-      const categorias = [...new Set(data.registros.filter((r) => r.codigo && lote.includes(r.codigo)).map((r) => r.categoria))]
-      for (const categoria of categorias) {
-        const { data: encontrados, error } = await estoque.from(tabela)
-          .select('*').eq('categoria', categoria).in('codigo', lote)
-        if (error) throw new Error(`Não foi possível conferir os códigos existentes: ${error.message}`)
-        existentes.push(...(encontrados ?? []))
+    if (data.tipoEstoque === 'VIRGEM') {
+      const grupos = new Map<string, { categoria: string; medidaTexto: string; codigos: string[] }>()
+      for (const registro of data.registros) {
+        const medidaTexto = (registro.medida_texto ?? '').trim()
+        const chave = `${registro.categoria}|${medidaTexto}`
+        const grupo = grupos.get(chave) ?? { categoria: registro.categoria, medidaTexto, codigos: [] }
+        if (registro.codigo && !grupo.codigos.includes(registro.codigo)) grupo.codigos.push(registro.codigo)
+        grupos.set(chave, grupo)
+      }
+      for (const grupo of grupos.values()) {
+        for (let i = 0; i < grupo.codigos.length; i += 200) {
+          const lote = grupo.codigos.slice(i, i + 200)
+          const { data: encontrados, error } = await estoque.from(tabela)
+            .select('*').eq('categoria', grupo.categoria).eq('medida_texto', grupo.medidaTexto).in('codigo', lote)
+          if (error) throw new Error(`Não foi possível conferir os códigos existentes: ${error.message}`)
+          existentes.push(...(encontrados ?? []))
+        }
+      }
+    } else {
+      const codigos = [...new Set(data.registros.map((r) => r.codigo).filter((v): v is string => Boolean(v)))]
+      for (let i = 0; i < codigos.length; i += 200) {
+        const lote = codigos.slice(i, i + 200)
+        const categorias = [...new Set(data.registros.filter((r) => r.codigo && lote.includes(r.codigo)).map((r) => r.categoria))]
+        for (const categoria of categorias) {
+          const { data: encontrados, error } = await estoque.from(tabela).select('*').eq('categoria', categoria).in('codigo', lote)
+          if (error) throw new Error(`Não foi possível conferir os códigos existentes: ${error.message}`)
+          existentes.push(...(encontrados ?? []))
+        }
       }
     }
-    const existentesPorCodigo = new Map(existentes.map((r) => [`${r.categoria}|${r.codigo}`, r]))
+    const existentesPorCodigo = new Map(existentes.map((r) => [`${r.categoria}|${data.tipoEstoque === 'VIRGEM' ? (r.medida_texto ?? '') : ''}|${r.codigo}`, r]))
     const registros = data.registros.map((r) => {
       if (data.tipoEstoque === 'VIRGEM' && !['BOPP', 'PEBD'].includes(r.categoria)) {
         throw new Error('O Estoque Atual Virgem aceita somente bobinas BOPP e PEBD.')
@@ -1632,13 +1651,16 @@ export const importCurrentStockCsv = createServerFn({ method: 'POST' })
       if (data.tipoEstoque === 'ADESIVADO' && r.categoria === 'PEBD') {
         throw new Error('PEBD é permitido somente no Estoque Atual Virgem.')
       }
-      const anterior = existentesPorCodigo.get(`${r.categoria}|${r.codigo}`)
+      const medidaTexto = data.tipoEstoque === 'VIRGEM'
+        ? (r.medida_texto ?? (r.medida == null ? '' : Number(r.medida).toFixed(2))).trim()
+        : (r.medida_texto ?? '')
+      const anterior = existentesPorCodigo.get(`${r.categoria}|${data.tipoEstoque === 'VIRGEM' ? medidaTexto : ''}|${r.codigo}`)
       return {
         ...anterior, ...r,
         data_entrada: r.data_entrada ?? anterior?.data_entrada ?? null,
         fornecedor: r.fornecedor ?? anterior?.fornecedor ?? null,
         medida: r.medida ?? anterior?.medida ?? null,
-        medida_texto: r.medida_texto ?? anterior?.medida_texto ?? null,
+        medida_texto: data.tipoEstoque === 'VIRGEM' ? medidaTexto : (r.medida_texto ?? anterior?.medida_texto ?? null),
         nf: r.nf ?? anterior?.nf ?? null,
         aba: r.aba ?? anterior?.aba ?? null,
         peso_kg: r.peso_kg ?? anterior?.peso_kg ?? null,
@@ -1650,8 +1672,9 @@ export const importCurrentStockCsv = createServerFn({ method: 'POST' })
         origem_arquivo: 'Importação CSV unificado',
       }
     })
+    const conflito = data.tipoEstoque === 'VIRGEM' ? 'categoria,medida_texto,codigo' : 'categoria,codigo'
     const { data: gravados, error } = await estoque.from(tabela)
-      .upsert(registros, { onConflict: 'categoria,codigo' }).select('id')
+      .upsert(registros, { onConflict: conflito }).select('id')
     if (error) throw new Error(`Não foi possível importar o CSV: ${error.message}`)
     return { importados: gravados?.length ?? registros.length }
   })
@@ -1679,7 +1702,14 @@ export const createCurrentStockRecord = createServerFn({ method: 'POST' })
     if (data.tipoEstoque === 'VIRGEM' && !['BOPP', 'PEBD'].includes(data.registro.categoria)) throw new Error('O Estoque Atual Virgem aceita somente bobinas BOPP e PEBD.')
     if (data.tipoEstoque === 'ADESIVADO' && data.registro.categoria === 'PEBD') throw new Error('PEBD é permitido somente no Estoque Atual Virgem.')
     const estoque = (client as any).schema('estoque_atual')
-    const registro = { ...data.registro, data_entrada: data.registro.data_entrada || null, origem_arquivo: 'Cadastro manual no site' }
+    const registro = {
+      ...data.registro,
+      data_entrada: data.registro.data_entrada || null,
+      medida_texto: data.tipoEstoque === 'VIRGEM'
+        ? (data.registro.medida_texto ?? (data.registro.medida == null ? '' : Number(data.registro.medida).toFixed(2))).trim()
+        : data.registro.medida_texto ?? null,
+      origem_arquivo: 'Cadastro manual no site',
+    }
     const { data: created, error } = await estoque.from(tabelaEstoqueAtual(data.tipoEstoque)).insert(registro).select('*').single()
     if (error?.code === '23505') throw new Error('Já existe uma bobina com esse código. Confira o cadastro.')
     if (error) throw new Error(`Não foi possível adicionar a bobina: ${error.message}`)
@@ -1693,8 +1723,15 @@ export const updateCurrentStockRecord = createServerFn({ method: 'POST' })
     if (data.tipoEstoque === 'VIRGEM' && !['BOPP', 'PEBD'].includes(data.registro.categoria)) throw new Error('O Estoque Atual Virgem aceita somente bobinas BOPP e PEBD.')
     if (data.tipoEstoque === 'ADESIVADO' && data.registro.categoria === 'PEBD') throw new Error('PEBD é permitido somente no Estoque Atual Virgem.')
     const estoque = (client as any).schema('estoque_atual')
+    const registro = {
+      ...data.registro,
+      data_entrada: data.registro.data_entrada || null,
+      medida_texto: data.tipoEstoque === 'VIRGEM'
+        ? (data.registro.medida_texto ?? (data.registro.medida == null ? '' : Number(data.registro.medida).toFixed(2))).trim()
+        : data.registro.medida_texto ?? null,
+    }
     const { data: updated, error } = await estoque.from(tabelaEstoqueAtual(data.tipoEstoque))
-      .update({ ...data.registro, data_entrada: data.registro.data_entrada || null })
+      .update(registro)
       .eq('id', data.id).select('*').maybeSingle()
     if (error?.code === '23505') throw new Error('Já existe outra bobina com esse código.')
     if (error) throw new Error(`Não foi possível atualizar a bobina: ${error.message}`)
@@ -1723,10 +1760,13 @@ export const moveCurrentStockToTrash = createServerFn({ method: 'POST' })
     const { data: bobina, error: readError } = await estoque.from(tabela).select('*').eq('id', data.id).maybeSingle()
     if (readError || !bobina) throw new Error('Bobina não encontrada no Estoque Atual.')
     if (!bobina.codigo) throw new Error('A bobina precisa ter um código para ser arquivada na lixeira.')
-    const { error: archiveError } = await estoque.from(tabelaLixeira).upsert({
+    const dadosLixeira: Record<string, unknown> = {
       bobina_id: bobina.id, categoria: bobina.categoria, codigo: bobina.codigo,
       dados: bobina, excluida_por: user.id, excluida_em: new Date().toISOString(),
-    }, { onConflict: 'categoria,codigo' })
+    }
+    const conflitoLixeira = data.tipoEstoque === 'VIRGEM' ? 'categoria,medida_texto,codigo' : 'categoria,codigo'
+    if (data.tipoEstoque === 'VIRGEM') dadosLixeira.medida_texto = bobina.medida_texto ?? ''
+    const { error: archiveError } = await estoque.from(tabelaLixeira).upsert(dadosLixeira, { onConflict: conflitoLixeira })
     if (archiveError) throw new Error(`Não foi possível arquivar a bobina: ${archiveError.message}`)
     const { error: deleteError, count } = await estoque.from(tabela).delete({ count: 'exact' }).eq('id', data.id)
     if (deleteError || count === 0) throw new Error(`A cópia foi guardada na lixeira, mas a bobina ativa não foi removida: ${deleteError?.message ?? 'registro não removido'}`)
