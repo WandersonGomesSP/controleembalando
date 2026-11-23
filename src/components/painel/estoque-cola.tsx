@@ -122,7 +122,7 @@ export function EstoqueColaCobrideira() {
     const containersPorCodigo = new Map(dados.containers.map((container) => [container.codigo, container]))
     for (const item of dados.historico) {
       const codigoBruto = String(item.codigo_container || '').trim()
-      const codigo = !codigoBruto || /^0+(?:\\.0+)?$/.test(codigoBruto) ? 'SEM CÓDIGO INFORMADO' : codigoBruto
+      const codigo = !codigoBruto || /^0+(?:\.0+)?$/.test(codigoBruto) ? 'SEM CÓDIGO INFORMADO' : codigoBruto
       const container = containersPorCodigo.get(codigo)
       const atual = mapa.get(codigo) ?? {
         codigo, bobinas: 0, cola: 0, dataEntrada: container?.entrada?.data_chegada || '',
