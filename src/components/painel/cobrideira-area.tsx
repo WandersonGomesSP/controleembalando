@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   PackagePlus,
+  Pencil,
   Search,
   Save,
   RefreshCw,
