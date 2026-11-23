@@ -120,7 +120,7 @@ export function PrimaryButton({
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg bg-primary font-semibold text-primary-foreground shadow-sm transition-[background-color,transform] outline-none hover:bg-primary/90 focus-visible:ring-[3px] focus-visible:ring-ring/50 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none',
+        'inline-flex items-center justify-center gap-2 rounded-lg bg-[#c91d26] text-white font-semibold shadow-sm transition-[background-color,transform] outline-none hover:bg-[#e3262e] focus-visible:ring-[3px] focus-visible:ring-ring/50 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none',
         size === 'lg' ? 'h-11 w-full px-5 text-sm' : 'h-9 px-4 text-xs',
         className,
       )}
