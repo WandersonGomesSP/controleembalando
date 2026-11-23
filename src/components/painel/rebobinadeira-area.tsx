@@ -15,7 +15,6 @@ import {
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { HistoricoProducao } from '@/components/painel/historico-producao'
-import { EstoqueAtualCobrideira } from '@/components/painel/estoque-atual'
 import type { RebobinadeiraEstoqueMinimoRow } from '@/lib/database.types'
 
 type Props = {
