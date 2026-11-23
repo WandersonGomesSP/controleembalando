@@ -22,6 +22,8 @@ from cobrideira.estoque_cola_containers c
 where c.codigo like '%.0'
 on conflict(codigo_antigo) do nothing;
 
+alter table cobrideira.bobinas disable trigger trg_sincronizar_uso_cola;
+
 update cobrideira.bobinas
 set codigo_interno = case
   when length(regexp_replace(codigo_interno,'[.]0$',''))=7
@@ -69,6 +71,8 @@ update cobrideira.estoque_cola_containers c
 set codigo=m.codigo_novo
 from mapa m
 where c.codigo=m.codigo_antigo;
+
+alter table cobrideira.bobinas enable trigger trg_sincronizar_uso_cola;
 
 alter table cobrideira.estoque_cola_containers
   add column if not exists localizacao text not null default 'ESTOQUE';
