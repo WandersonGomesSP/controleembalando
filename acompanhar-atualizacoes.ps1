@@ -133,19 +133,44 @@ try {
     $remote = Invoke-Git @('rev-parse', 'origin/desenvolvimento')
     if ($remote.ExitCode -ne 0 -or $remote.Text -eq $lastHead) { continue }
 
+    # Debounce: so atualiza quando o commit remoto ficar estavel por mais de 5 segundos.
+    $candidato = $remote.Text
+    $ultimoCommitDetectado = $candidato
+    $segundosEstavel = 0
     Write-Host ""
-    Write-Host "============================================" -ForegroundColor Yellow
-    Write-Host "  NOVA ATUALIZACAO ENCONTRADA!" -ForegroundColor Yellow
-    Write-Host "============================================" -ForegroundColor Yellow
-    try { [Console]::Beep(1000, 250); [Console]::Beep(1400, 250) } catch { }
+    Write-Host "Atualizacao encontrada. Aguardando 5 segundos sem novos arquivos..." -ForegroundColor Yellow
 
-    if (Update-Repository -Announce) {
-      # Codigo 10 pede ao BAT para abrir uma nova janela do CMD e encerrar esta.
-      exit 10
+    while ($segundosEstavel -lt 6) {
+      Start-Sleep -Seconds 1
+      $verificacao = Invoke-Git @('fetch', 'origin', 'desenvolvimento')
+      if ($verificacao.ExitCode -ne 0) { continue }
+      $headVerificado = Invoke-Git @('rev-parse', 'origin/desenvolvimento')
+      if ($headVerificado.ExitCode -ne 0) { continue }
+
+      if ($headVerificado.Text -ne $ultimoCommitDetectado) {
+        $ultimoCommitDetectado = $headVerificado.Text
+        $segundosEstavel = 0
+        Write-Host "Chegou outra alteracao. Reiniciando a contagem dos 5 segundos..." -ForegroundColor Yellow
+      } else {
+        $segundosEstavel++
+      }
     }
 
-    # Evita repetir a mesma tentativa a cada cinco segundos.
-    $lastHead = $remote.Text
+    Write-Host "Atualizacao estavel. Aplicando agora..." -ForegroundColor Cyan
+    try { [Console]::Beep(1000, 200); [Console]::Beep(1400, 200) } catch { }
+
+    if (Update-Repository -Announce) {
+      # Reinicia apenas o servidor local; mantem esta mesma janela aberta.
+      if ($server -and -not $server.HasExited) {
+        & taskkill.exe /PID $server.Id /T /F 2>$null | Out-Null
+        Start-Sleep -Seconds 2
+      }
+      $server = Start-DevServer
+      $lastHead = Get-Head
+      Write-Host "Monitoramento continuo ativo. Esta janela permanecera aberta." -ForegroundColor Green
+    } else {
+      $lastHead = $ultimoCommitDetectado
+    }
   }
 }
 finally {
