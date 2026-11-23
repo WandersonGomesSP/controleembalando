@@ -194,7 +194,7 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpen
             <span className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#e3262e]/30 bg-[#e3262e]/10 px-3 text-sm font-medium text-[#9f1720]"><PackageCheck className="size-4" /> Estoque Mínimo</span>
           </nav>
         </div>
-      </header>
+      </header>}
       {!embedded && <div className="h-3 w-full bg-[#4b4642]" />}
 
       <main className={embedded ? "mx-auto max-w-[96rem] space-y-6 px-1 py-2 sm:px-2" : "mx-auto max-w-[96rem] space-y-6 px-4 py-6 sm:px-6 sm:py-8"}>
