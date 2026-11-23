@@ -58,7 +58,7 @@ export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
 export function EstoqueMinimoCobrideira(_props: { isDeveloper: boolean }) {
   return (
     <section className="rounded-xl border border-border bg-card p-5">
-      <h2 className="text-lg font-semibold">Estoque Mínimo Virgem</h2>
+      <h2 className="text-lg font-semibold">Estoque Mínimo Adesivado Virgem</h2>
       <p className="mt-1 text-sm text-muted-foreground">O estoque mínimo da Cobrideira é independente do cálculo de adesivados da Rebobinadeira.</p>
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-border bg-background p-4"><p className="text-xs text-muted-foreground">Produtos cadastrados</p><p className="mt-1 text-2xl font-semibold tabular-nums">0</p></div>
