@@ -1203,7 +1203,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'registros' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
             >
               <ClipboardList className="size-4" />
-              Bobinas cadastradas
+              Histórico de produção
             </button>
             {false && isDeveloper && <button type="button" aria-current={secao === 'operadores' ? 'page' : undefined} onClick={() => { setSecao('operadores'); void carregarOperadores() }} className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'operadores' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}>
               <Users className="size-4" /> Operadores
@@ -1216,7 +1216,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             <nav aria-label="Submenus de Indicadores" className="flex items-center gap-2 border-t border-[#e2e8f0] pt-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-[#475569]">Indicadores</span>
               <button type="button" onClick={() => setSecao('estoque-atual')} aria-current={secao === 'estoque-atual' ? 'page' : undefined} className={`inline-flex min-h-8 items-center gap-2 rounded-lg border px-3 text-xs font-semibold ${secao === 'estoque-atual' ? 'border-[#e3262e] bg-[#fff1f2] text-[#7f1d1d]' : 'border-[#e2e8f0] bg-white text-[#475569] hover:bg-slate-50'}`}>
-                <PackagePlus className="size-4" /> Estoque Atual
+                <PackagePlus className="size-4" /> Estoque Atual Virgem
               </button>
               <button type="button" onClick={() => setSecao('estoque-minimo')} aria-current={secao === 'estoque-minimo' ? 'page' : undefined} className={`inline-flex min-h-8 items-center gap-2 rounded-lg border px-3 text-xs font-semibold ${secao === 'estoque-minimo' ? 'border-[#e3262e] bg-[#fff1f2] text-[#7f1d1d]' : 'border-[#e2e8f0] bg-white text-[#475569] hover:bg-slate-50'}`}>
                 <ChartNoAxesCombined className="size-4" /> Estoque Mínimo
@@ -1228,8 +1228,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
 
       <main className="mx-auto grid max-w-[96rem] gap-3 px-3 py-3 sm:px-4 sm:py-4">
         {secao === 'estoque-atual' ? (
-          <Panel title="Indicadores · Estoque Atual" description="Visão do saldo físico, com edição independente do histórico de produção.">
-            <EstoqueAtualCobrideira isDeveloper={isDeveloper} />
+          <Panel title="Indicadores · Estoque Atual Virgem" description="Visão do saldo físico, com edição independente do histórico de produção.">
+            <EstoqueAtualCobrideira isDeveloper={isDeveloper} tipoEstoque="VIRGEM" />
           </Panel>
         ) : secao === 'estoque-minimo' ? (
           <Panel title="Indicadores · Estoque Mínimo" description="Comparativo dos estoques mínimos por peso e por metragem.">
@@ -1819,7 +1819,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                               Metragem <span className="sort">{ordenacao.campo === 'metragem' ? '▲' : '↕'}</span>
                             </button>
                           </th>
-                          <th>Situação</th>
+                          <th className="text-right">Situação / ações</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1851,7 +1851,6 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                                 <td className="px-2 py-3">
                                   <div className="flex items-center gap-2">
                                     <input type="checkbox" aria-label={`Selecionar bobina ${registro.numero_bobina}`} checked={selecionadas.has(registro.numero_bobina)} onChange={() => alternarSelecao(registro.numero_bobina)} />
-                                    <button type="button" onClick={() => alternarExpansao(registro.numero_bobina)} aria-label={expandido ? 'Recolher detalhes' : 'Expandir detalhes'} aria-expanded={expandido} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent">{expandido ? 'Fechar' : 'Detalhes'}</button><button type="button" onClick={() => iniciarEdicao(registro)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-accent"><Pencil className="size-3" /> Editar</button>
                                   </div>
                                 </td>
                                 <td className="px-3 py-3 font-mono">{registro.numero_bobina}</td>
@@ -1861,7 +1860,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                                 <td className="px-3 py-3">{registro.largura}.{String(registro.micragem).padStart(2, '0')}</td>
                                 <td className="px-3 py-3">{formatarPeso(Number(registro.peso_liquido))} kg</td>
                                 <td className="px-3 py-3">{registro.metragem.toLocaleString('pt-BR')} m</td>
-                                <td className="px-3 py-3"><div className="flex items-center gap-2 text-xs text-muted-foreground"><span>Cadastrada</span><button type="button" title={`Mover bobina ${registro.numero_bobina} para a lixeira`} aria-label={`Excluir lançamento da bobina ${registro.numero_bobina}`} onClick={async () => { if (!window.confirm(`Mover a bobina ${registro.numero_bobina} para a lixeira?`)) return; try { await moveCobrideiraBobinaToTrash({ data: { accessToken: await tokenAtual(), numeroBobina: registro.numero_bobina } }); setRegistros((atuais) => atuais.filter((item) => item.numero_bobina !== registro.numero_bobina)); setSelecionadas((atuais) => { const novas = new Set(atuais); novas.delete(registro.numero_bobina); return novas }); toast.success(`Bobina ${registro.numero_bobina} movida para a lixeira.`) } catch (error) { toast.error('Não foi possível excluir o lançamento.', { description: erroMensagem(error) }) } }} className="inline-flex size-8 items-center justify-center rounded-md text-red-600 hover:bg-red-50"><Trash2 className="size-4" /></button></div></td>
+                                <td className="px-3 py-3"><div className="flex flex-wrap items-center justify-end gap-1.5"><span className="mr-1 text-xs text-muted-foreground">Cadastrada</span><button type="button" onClick={() => alternarExpansao(registro.numero_bobina)} aria-label={expandido ? 'Recolher detalhes' : 'Expandir detalhes'} aria-expanded={expandido} className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-accent">{expandido ? 'Fechar' : 'Detalhes'}</button><button type="button" onClick={() => iniciarEdicao(registro)} className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-accent"><Pencil className="size-3" /> Editar</button><button type="button" title={`Mover bobina ${registro.numero_bobina} para a lixeira`} aria-label={`Excluir lançamento da bobina ${registro.numero_bobina}`} onClick={async () => { if (!window.confirm(`Mover a bobina ${registro.numero_bobina} para a lixeira?`)) return; try { await moveCobrideiraBobinaToTrash({ data: { accessToken: await tokenAtual(), numeroBobina: registro.numero_bobina } }); setRegistros((atuais) => atuais.filter((item) => item.numero_bobina !== registro.numero_bobina)); setSelecionadas((atuais) => { const novas = new Set(atuais); novas.delete(registro.numero_bobina); return novas }); toast.success(`Bobina ${registro.numero_bobina} movida para a lixeira.`) } catch (error) { toast.error('Não foi possível excluir o lançamento.', { description: erroMensagem(error) }) } }} className="inline-flex size-8 items-center justify-center rounded-md bg-[#e3262e] text-white hover:bg-[#c91f27]"><Trash2 className="size-4" /></button></div></td>
                               </tr>
                               {expandido && (
                                 <tr className="border-b border-blue-300 bg-blue-50 text-blue-950">
