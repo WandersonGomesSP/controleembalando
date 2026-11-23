@@ -1578,7 +1578,7 @@ export const deleteInsumoReference = createServerFn({ method: 'POST' })
   })
 
 const currentStockRecordSchema = z.object({
-  categoria: z.enum(['BOPP', 'CREPE', 'KRAFT', 'DUPLA FACE']),
+  categoria: z.enum(['BOPP', 'PEBD', 'CREPE', 'KRAFT', 'DUPLA FACE']),
   data_entrada: z.union([isoDate, z.literal('')]).nullable(),
   fornecedor: z.string().max(160).nullable(),
   medida: z.number().positive().nullable(),
@@ -1623,8 +1623,11 @@ export const importCurrentStockCsv = createServerFn({ method: 'POST' })
     }
     const existentesPorCodigo = new Map(existentes.map((r) => [`${r.categoria}|${r.codigo}`, r]))
     const registros = data.registros.map((r) => {
-      if (data.tipoEstoque === 'VIRGEM' && r.categoria !== 'BOPP') {
-        throw new Error('O Estoque Atual Virgem aceita somente bobinas BOPP.')
+      if (data.tipoEstoque === 'VIRGEM' && !['BOPP', 'PEBD'].includes(r.categoria)) {
+        throw new Error('O Estoque Atual Virgem aceita somente bobinas BOPP e PEBD.')
+      }
+      if (data.tipoEstoque === 'ADESIVADO' && r.categoria === 'PEBD') {
+        throw new Error('PEBD é permitido somente no Estoque Atual Virgem.')
       }
       const anterior = existentesPorCodigo.get(`${r.categoria}|${r.codigo}`)
       return {
@@ -1667,7 +1670,8 @@ export const createCurrentStockRecord = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({ tipoEstoque: tipoEstoqueAtualSchema, registro: currentStockRecordSchema }))
   .handler(async ({ data }) => {
     const { client } = await requireCurrentStockEditor(data.accessToken, data.tipoEstoque)
-    if (data.tipoEstoque === 'VIRGEM' && data.registro.categoria !== 'BOPP') throw new Error('O Estoque Atual Virgem aceita somente bobinas BOPP.')
+    if (data.tipoEstoque === 'VIRGEM' && !['BOPP', 'PEBD'].includes(data.registro.categoria)) throw new Error('O Estoque Atual Virgem aceita somente bobinas BOPP e PEBD.')
+    if (data.tipoEstoque === 'ADESIVADO' && data.registro.categoria === 'PEBD') throw new Error('PEBD é permitido somente no Estoque Atual Virgem.')
     const estoque = (client as any).schema('estoque_atual')
     const registro = { ...data.registro, data_entrada: data.registro.data_entrada || null, origem_arquivo: 'Cadastro manual no site' }
     const { data: created, error } = await estoque.from(tabelaEstoqueAtual(data.tipoEstoque)).insert(registro).select('*').single()
@@ -1680,7 +1684,8 @@ export const updateCurrentStockRecord = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({ tipoEstoque: tipoEstoqueAtualSchema, id: z.uuid(), registro: currentStockRecordSchema }))
   .handler(async ({ data }) => {
     const { client } = await requireCurrentStockEditor(data.accessToken, data.tipoEstoque)
-    if (data.tipoEstoque === 'VIRGEM' && data.registro.categoria !== 'BOPP') throw new Error('O Estoque Atual Virgem aceita somente bobinas BOPP.')
+    if (data.tipoEstoque === 'VIRGEM' && !['BOPP', 'PEBD'].includes(data.registro.categoria)) throw new Error('O Estoque Atual Virgem aceita somente bobinas BOPP e PEBD.')
+    if (data.tipoEstoque === 'ADESIVADO' && data.registro.categoria === 'PEBD') throw new Error('PEBD é permitido somente no Estoque Atual Virgem.')
     const estoque = (client as any).schema('estoque_atual')
     const { data: updated, error } = await estoque.from(tabelaEstoqueAtual(data.tipoEstoque))
       .update({ ...data.registro, data_entrada: data.registro.data_entrada || null })
