@@ -409,7 +409,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
         )
       })()}
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => setAba('ATIVAS')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'ATIVAS' ? 'bg-[#57534E] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>Estoque atual</button>
+        <button type="button" onClick={() => setAba('ATIVAS')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'ATIVAS' ? 'bg-[#57534E] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{tituloEstoque}</button>
         {isDeveloper && <button type="button" onClick={() => setAba('LIXEIRA')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'LIXEIRA' ? 'bg-[#57534E] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>Lixeira ({lixeira.length})</button>}
       </div>
 
