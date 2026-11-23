@@ -420,3 +420,18 @@ button:not([disabled]):active,
   color: #ffffff !important;
 }
 .csv-import-control svg { color: #ffffff !important; }
+
+
+/* Caixas de seleção e listas suspensas com área de clique maior e foco visual. */
+input[type='checkbox'] {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: #e3262e;
+  cursor: pointer;
+}
+label:has(input[type='checkbox']) {
+  cursor: pointer;
+}
+select {
+  cursor: pointer;
+}
