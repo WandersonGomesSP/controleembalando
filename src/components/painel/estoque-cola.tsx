@@ -3,7 +3,7 @@ import { ArrowDownToLine, ArrowUpFromLine, History, Package, RefreshCw, Send } f
 import { toast } from 'sonner'
 import { Field, Panel, PrimaryButton, TextInput } from '@/components/painel/fields'
 import { supabase } from '@/lib/supabase'
-import { listarControleCola, registrarEntradaCola, retirarContainersCola, atualizarContainersCola, excluirContainersCola, atualizarEntradasCola } from '@/lib/admin.functions'
+import { listarControleCola, registrarEntradaCola, retirarContainersCola, atualizarContainersCola, excluirContainersCola, atualizarEntradasCola, atualizarLeadTimeConsumoCola } from '@/lib/admin.functions'
 
 type Entrada = {
   id: number
@@ -31,9 +31,8 @@ type Container = {
   codigo: string
   status: string
   entrada_id: number | null
-  localizacao: 'ESTOQUE' | 'GALPAO_MARIO_COVAS'
   enviado_em: string | null
-  entrada: { data_chegada: string; nf: string; produto: string; lote: string; peso_por_container_kg: number; valor_por_container: number; fornecedor: string } | null
+  entrada: { data_chegada: string; nf: string; produto: string; lote: string; peso_por_container_kg: number; valor_por_container: number; fornecedor: string; localizacao: 'ESTOQUE' | 'GALPAO_MARIO_COVAS' } | null
 }
 type Indicadores = {
   bobinas_90_dias: number
@@ -43,9 +42,11 @@ type Indicadores = {
   estoque_minimo_25_dias_kg: number
   cola_disponivel_kg: number
   capacidade_producao_bobinas: number
+  lead_time_dias: number
+  consumo_medio_bobina_kg: number
 }
 type Dados = { entradas: Entrada[]; saldo: Saldo[]; historico: Historico[]; containers: Container[]; indicadores: Indicadores | null }
-type Aba = 'estoque' | 'entrada' | 'retirada' | 'historico'
+type Aba = 'estoque' | 'entrada' | 'retirada' | 'historico' | 'envios'
 
 const hoje = () => new Date().toLocaleDateString('en-CA')
 const dinheiro = (valor: number) => Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -63,6 +64,9 @@ export function EstoqueColaCobrideira() {
   })
   const [codigos, setCodigos] = React.useState('')
   const [abaEstoque, setAbaEstoque] = React.useState<'lotes' | 'detalhes'>('lotes')
+  const [loteExpandido, setLoteExpandido] = React.useState<number | null>(null)
+  const [leadTimeDias, setLeadTimeDias] = React.useState('25')
+  const [salvandoLeadTime, setSalvandoLeadTime] = React.useState(false)
   const [ordemEstoque, setOrdemEstoque] = React.useState<'desc' | 'asc'>('desc')
   const [selecionados, setSelecionados] = React.useState<string[]>([])
   const [editandoCodigo, setEditandoCodigo] = React.useState<string | null>(null)
@@ -85,6 +89,7 @@ export function EstoqueColaCobrideira() {
       if (sessionError || !sessionData.session?.access_token) throw new Error('Sua sessão expirou. Entre novamente.')
       const resultado = await listarControleCola({ data: { accessToken: sessionData.session.access_token } })
       setDados(resultado as Dados)
+      setLeadTimeDias(String((resultado as Dados).indicadores?.lead_time_dias ?? 25))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível carregar o estoque de cola.')
     } finally {
@@ -118,31 +123,38 @@ export function EstoqueColaCobrideira() {
   const todosContainersSelecionados = dados.containers.length > 0 && selecionados.length === dados.containers.length
 
   const historicoAgrupado = React.useMemo(() => {
-    const mapa = new Map<string, { codigo: string; bobinas: number; cola: number; dataEntrada: string; lote: string; fornecedor: string; status: string }>()
+    const mapa = new Map<string, { codigo: string; bobinas: number; cola: number; dataConsumo: string; lote: string; fornecedor: string; status: string }>()
     const containersPorCodigo = new Map(dados.containers.map((container) => [container.codigo, container]))
     for (const item of dados.historico) {
-      const codigoBruto = String(item.codigo_container || '').trim()
-      const codigo = !codigoBruto || /^0+(?:\.0+)?$/.test(codigoBruto) ? 'SEM CÓDIGO INFORMADO' : codigoBruto
+      const codigo = String(item.codigo_container || '').trim()
+      if (!/^\d{8}$/.test(codigo)) continue
       const container = containersPorCodigo.get(codigo)
       const atual = mapa.get(codigo) ?? {
-        codigo, bobinas: 0, cola: 0, dataEntrada: container?.entrada?.data_chegada || '',
+        codigo, bobinas: 0, cola: 0, dataConsumo: item.data_producao,
         lote: item.lote_cola || container?.entrada?.lote || '',
         fornecedor: item.fornecedor_cola || container?.entrada?.fornecedor || '',
         status: item.status_container || container?.status || 'HISTORICO_ANTERIOR',
       }
       atual.bobinas += 1
       atual.cola += Number(item.cola_liquida_kg || 0)
-      if (!atual.dataEntrada && container?.entrada?.data_chegada) atual.dataEntrada = container.entrada.data_chegada
+      if (item.data_producao > atual.dataConsumo) atual.dataConsumo = item.data_producao
       if (!atual.lote && item.lote_cola) atual.lote = item.lote_cola
       if (!atual.fornecedor && item.fornecedor_cola) atual.fornecedor = item.fornecedor_cola
       mapa.set(codigo, atual)
     }
     return [...mapa.values()].sort((a, b) =>
       ordemEstoque === 'desc'
-        ? b.dataEntrada.localeCompare(a.dataEntrada) || a.codigo.localeCompare(b.codigo)
-        : a.dataEntrada.localeCompare(b.dataEntrada) || a.codigo.localeCompare(b.codigo)
+        ? b.dataConsumo.localeCompare(a.dataConsumo) || a.codigo.localeCompare(b.codigo)
+        : a.dataConsumo.localeCompare(b.dataConsumo) || a.codigo.localeCompare(b.codigo)
     )
   }, [dados.historico, dados.containers, ordemEstoque])
+
+  const enviadosParaBahia = React.useMemo(() => dados.containers
+    .filter((item) => item.status === 'ENVIADO_BAHIA' && /^\d{8}$/.test(item.codigo))
+    .sort((a, b) => (b.enviado_em || '').localeCompare(a.enviado_em || '')),
+  [dados.containers])
+
+
 
   async function salvarEntrada(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -177,7 +189,7 @@ export function EstoqueColaCobrideira() {
   function abrirEdicaoContainer(container: Container) {
     setEditandoCodigo(container.codigo)
     setCodigoEditado(container.codigo)
-    setLocalizacaoEditada(container.localizacao || 'ESTOQUE')
+    setLocalizacaoEditada(container.entrada?.localizacao || 'ESTOQUE')
     setDataEntradaEditada(container.entrada?.data_chegada || '')
     setNfEditada(container.entrada?.nf || '')
     setProdutoEditado(container.entrada?.produto || '')
@@ -210,19 +222,18 @@ export function EstoqueColaCobrideira() {
       const { data: sessionData } = await supabase.auth.getSession()
       const accessToken = sessionData.session?.access_token
       if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
-      const mudouLocalizacao = Boolean(localizacaoEditada)
       const mudouCodigo = !editandoEmLote && Boolean(codigoEditado.trim()) && codigoEditado.trim() !== editandoCodigo
-      if (mudouLocalizacao || mudouCodigo) {
+      if (mudouCodigo) {
         await atualizarContainersCola({ data: {
           accessToken,
           itens: itensBase.map((item) => ({
             codigo_atual: item.codigo,
-            codigo_novo: editandoEmLote ? item.codigo : codigoEditado.trim(),
-            ...(localizacaoEditada ? { localizacao: localizacaoEditada } : {}),
+            codigo_novo: codigoEditado.trim(),
           })),
         } })
       }
       const atualizacoes: Record<string, string | number> = {}
+      if (localizacaoEditada) atualizacoes.localizacao = localizacaoEditada
       if (dataEntradaEditada) atualizacoes.data_chegada = dataEntradaEditada
       if (nfEditada.trim()) atualizacoes.nf = nfEditada.trim()
       if (produtoEditado.trim()) atualizacoes.produto = produtoEditado.trim()
@@ -263,6 +274,27 @@ export function EstoqueColaCobrideira() {
       toast.error(error instanceof Error ? error.message : 'Não foi possível excluir os containers.')
     } finally {
       setSalvandoEdicao(false)
+    }
+  }
+
+  async function salvarLeadTimeConsumo() {
+    const valor = Number(leadTimeDias)
+    if (!Number.isInteger(valor) || valor < 0 || valor > 365) {
+      toast.error('Informe um lead time entre 0 e 365 dias.')
+      return
+    }
+    setSalvandoLeadTime(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
+      await atualizarLeadTimeConsumoCola({ data: { accessToken, lead_time_dias: valor } })
+      toast.success('Lead time do consumo móvel atualizado.')
+      await carregar()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível salvar o lead time.')
+    } finally {
+      setSalvandoLeadTime(false)
     }
   }
 
