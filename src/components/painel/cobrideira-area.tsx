@@ -632,7 +632,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     { campo: 'kg_cola', label: 'Cola (kg)' },
     { campo: 'pigmento_kg', label: 'Pigmento (kg)' },
   ]
-  const valoresResumo = registrosFiltrados.map((registro) => {
+  const registrosParaCalculo = selecionadas.size > 0 ? registrosFiltrados.filter((registro) => selecionadas.has(registro.numero_bobina)) : registrosFiltrados
+  const valoresResumo = registrosParaCalculo.map((registro) => {
     const valor = campoResumo === 'peso_bruto'
       ? pesoBrutoContabilizado(registro)
       : Number(registro[campoResumo] ?? 0)
@@ -641,7 +642,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const resultadoResumo = operacaoResumo === 'soma'
     ? valoresResumo.reduce((total, valor) => total + valor, 0)
     : operacaoResumo === 'contar'
-      ? registrosFiltrados.length
+      ? registrosParaCalculo.length
       : valoresResumo.filter((valor) => valor !== 0).length
 
   const registrosOrdenados = [...registrosFiltrados].sort((a, b) => {
@@ -1646,7 +1647,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               {selecionadas.size > 0 && (
                 <>
                   <span className="text-sm font-semibold">{selecionadas.size} selecionada(s)</span>
-                  <button type="button" onClick={() => void moverSelecionadasParaLixeira()} className="inline-flex h-10 items-center gap-2 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-black hover:bg-[#ff3b42]"><Trash2 className="size-4" /> Mover selecionadas para lixeira</button>
+                  <button type="button" onClick={() => void moverSelecionadasParaLixeira()} className="inline-flex h-10 items-center gap-2 rounded-full bg-[#e3262e] px-4 text-sm font-bold text-white hover:bg-[#c91f27]"><Trash2 className="size-4" /> Mover selecionadas para lixeira</button>
                 </>
               )}
             </div>
@@ -1721,9 +1722,9 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   </select>
                 </div>
                 <div className="flex flex-wrap items-end gap-3">
-                  <button type="button" onClick={() => setPaginaRegistros(0)} className="h-10 rounded-md bg-[#57534E] px-5 text-sm font-semibold text-white transition-all hover:brightness-110">Calcular</button>
+                  
                   <div className="min-w-36">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#57534E]">Resultado dos filtros</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#57534E]">{selecionadas.size > 0 ? `Resultado das ${registrosParaCalculo.length} selecionadas` : "Resultado dos filtros"}</p>
                     <p className="text-lg font-bold tabular-nums text-[#292524]">{operacaoResumo === 'soma' ? new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(resultadoResumo) : resultadoResumo.toLocaleString('pt-BR')}</p>
                     <p className="text-[11px] text-[#57534E]">{operacaoResumo === 'soma' ? camposResumo.find((item) => item.campo === campoResumo)?.label : operacaoResumo === 'contar' ? 'bobinas encontradas' : 'valores preenchidos'}</p>
                   </div>
