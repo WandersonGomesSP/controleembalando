@@ -1843,6 +1843,13 @@ export const atualizarContainersCola = createServerFn({ method: 'POST' })
     const cola = (client as any).schema('cobrideira')
     const atualizados: string[] = []
     for (const item of data.itens) {
+      if (item.codigo_novo !== item.codigo_atual) {
+        const { data: atual, error: consultaError } = await cola.from('estoque_cola_containers')
+          .select('status').eq('codigo', item.codigo_atual).maybeSingle()
+        if (consultaError) throw new Error(`Não foi possível consultar o container ${item.codigo_atual}: ${consultaError.message}`)
+        if (!atual) throw new Error(`O container ${item.codigo_atual} não foi encontrado.`)
+        if (atual.status !== 'DISPONIVEL') throw new Error(`Só é permitido alterar o código de containers ainda disponíveis: ${item.codigo_atual}`)
+      }
       const { data: registro, error } = await cola.from('estoque_cola_containers')
         .update({ codigo: item.codigo_novo, localizacao: item.localizacao })
         .eq('codigo', item.codigo_atual)
