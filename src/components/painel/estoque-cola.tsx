@@ -263,14 +263,15 @@ export function EstoqueColaCobrideira() {
   }
 
   async function excluirSelecionados() {
-    if (!selecionados.length) return
-    if (!window.confirm(`Excluir ${selecionados.length} container(s) selecionado(s)?`)) return
+    const codigosDisponiveisSelecionados = containersSelecionados.map((item) => item.codigo)
+    if (!codigosDisponiveisSelecionados.length) return
+    if (!window.confirm(`Excluir ${codigosDisponiveisSelecionados.length} container(s) selecionado(s)?`)) return
     setSalvandoEdicao(true)
     try {
       const { data: sessionData } = await supabase.auth.getSession()
       const accessToken = sessionData.session?.access_token
       if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
-      const resultado = await excluirContainersCola({ data: { accessToken, codigos: containersSelecionados.map((item) => item.codigo) } })
+      const resultado = await excluirContainersCola({ data: { accessToken, codigos: codigosDisponiveisSelecionados } })
       toast.success(`${resultado.removidos.length} container(s) excluído(s).`)
       setSelecionados([])
       await carregar()
@@ -444,8 +445,8 @@ export function EstoqueColaCobrideira() {
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs text-slate-600">{containersSelecionados.length} selecionado(s) de {containersDisponiveis.length} disponíveis</p>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={abrirEdicaoEmLote} disabled={!selecionados.length} className="rounded-lg bg-[#c91d26] px-3 py-2 text-xs font-semibold text-white hover:bg-[#e3262e] disabled:opacity-50">Alterar selecionados</button>
-                  <button type="button" onClick={() => void excluirSelecionados()} disabled={!selecionados.length || salvandoEdicao} className="rounded-lg bg-[#c91d26] px-3 py-2 text-xs font-semibold text-white hover:bg-[#e3262e] disabled:opacity-50">Excluir selecionados</button>
+                  <button type="button" onClick={abrirEdicaoEmLote} disabled={!containersSelecionados.length} className="rounded-lg bg-[#c91d26] px-3 py-2 text-xs font-semibold text-white hover:bg-[#e3262e] disabled:opacity-50">Alterar selecionados</button>
+                  <button type="button" onClick={() => void excluirSelecionados()} disabled={!containersSelecionados.length || salvandoEdicao} className="rounded-lg bg-[#c91d26] px-3 py-2 text-xs font-semibold text-white hover:bg-[#e3262e] disabled:opacity-50">Excluir selecionados</button>
                 </div>
               </div>
               <div className="overflow-x-auto">
