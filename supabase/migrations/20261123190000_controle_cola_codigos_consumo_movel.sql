@@ -150,6 +150,53 @@ $$;
 revoke all on function cobrideira.registrar_entrada_cola(date,text,text,text,integer,numeric,numeric,text,text,uuid) from public,anon,authenticated;
 grant execute on function cobrideira.registrar_entrada_cola(date,text,text,text,integer,numeric,numeric,text,text,uuid) to service_role;
 
+-- Gera códigos para entradas antigas que ainda não tinham registros individuais.
+do $
+declare e record; v_inicio integer; v_codigo text; v_data text; v_faltam integer; i integer;
+begin
+ for e in
+  select en.*,
+   en.quantidade_containers-(select count(*) from cobrideira.estoque_cola_containers c where c.entrada_id=en.id) faltam
+  from cobrideira.estoque_cola_entradas en
+ loop
+  v_faltam:=greatest(e.faltam,0);
+  if v_faltam=0 then continue; end if;
+  v_data:=to_char(e.data_chegada,'DDMMYY');
+  perform pg_advisory_xact_lock(hashtext('cola-container-'||v_data));
+  select coalesce(max(left(codigo,length(codigo)-6)::integer),0) into v_inicio
+  from cobrideira.estoque_cola_containers where codigo ~ '^[0-9]{7,} cobrideira.vw_consumo_movel_cola
+with (security_invoker=true)
+as
+with producao as (
+  select count(*)::numeric as bobinas_90_dias
+  from cobrideira.bobinas
+  where data >= current_date-89 and data <= current_date
+), estoque as (
+  select coalesce(sum(greatest(containers_disponiveis,0)*peso_por_container_kg),0)::numeric as cola_disponivel_kg
+  from cobrideira.vw_estoque_cola_saldo
+)
+select
+  p.bobinas_90_dias,
+  p.bobinas_90_dias*300 as consumo_90_dias_kg,
+  p.bobinas_90_dias*300/3 as consumo_movel_mensal_kg,
+  p.bobinas_90_dias*300/90 as consumo_diario_kg,
+  p.bobinas_90_dias*300/90*25 as estoque_minimo_25_dias_kg,
+  e.cola_disponivel_kg,
+  e.cola_disponivel_kg/300 as capacidade_producao_bobinas
+from producao p cross join estoque e;
+
+grant select on cobrideira.vw_consumo_movel_cola to service_role;
+commit;
+ and right(codigo,6)=v_data;
+  for i in 1..v_faltam loop
+   v_codigo:=lpad((v_inicio+i)::text,2,'0')||v_data;
+   insert into cobrideira.estoque_cola_containers(codigo,status,entrada_id,localizacao)
+   values(v_codigo,'DISPONIVEL',e.id,'ESTOQUE')
+   on conflict(codigo) do nothing;
+  end loop;
+ end loop;
+end $;
+
 create or replace view cobrideira.vw_consumo_movel_cola
 with (security_invoker=true)
 as
