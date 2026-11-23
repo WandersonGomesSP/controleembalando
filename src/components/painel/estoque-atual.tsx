@@ -13,7 +13,7 @@ import {
   importCurrentStockCsv,
 } from '@/lib/admin.functions'
 
-type Categoria = 'BOPP' | 'CREPE' | 'KRAFT' | 'DUPLA FACE'
+type Categoria = 'BOPP' | 'PEBD' | 'CREPE' | 'KRAFT' | 'DUPLA FACE'
 type BobinaEstoque = {
   id: string; categoria: Categoria; data_entrada: string | null; fornecedor: string | null
   medida: number | null; peso_kg: number | null; metragem_m: number | null; codigo: string | null
@@ -34,7 +34,7 @@ type FormEstoque = {
 const vazio: FormEstoque = { categoria: 'BOPP', data_entrada: new Date().toISOString().slice(0, 10), fornecedor: '', medida: '', peso_kg: '', metragem_m: '', codigo: '', cor: '', cliente: '', linha: '', observacoes: '' }
 const numero = (v: number | null | undefined) => Number(v ?? 0)
 const fmt = (v: number | null | undefined, casas = 0) => numero(v).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
-const categorias: Categoria[] = ['BOPP', 'CREPE', 'KRAFT', 'DUPLA FACE']
+const categorias: Categoria[] = ['BOPP', 'PEBD', 'CREPE', 'KRAFT', 'DUPLA FACE']
 const fmtMedida = (v: number | null | undefined) => v == null ? '—' : Number(v).toFixed(2)
 const chaveAlertaEstoque = (valor: string) => valor.trim().toLocaleLowerCase('pt-BR')
 function normalizarCabecalho(valor: string) {
@@ -118,7 +118,7 @@ function lerCsv(texto: string, nomeArquivo: string) {
       : categoriaDoArquivo
     const codigo = valor(colunas, 'codigo', 'codigo_bobina', 'codigo_da_bobina', 'cod_bob', 'cod_bobina', 'numero_bobina', 'numero_da_bobina', 'numero', 'id_bobina', 'identificacao')
     if (!colunas.some((v) => v.trim()) || !codigo) return null
-    if (!categoria) throw new Error(`${nomeArquivo}: informe a categoria em cada linha ou use BOPP, CREPE, KRAFT ou DUPLA_FACE no nome do arquivo (linha ${indiceLinha + 2}).`)
+    if (!categoria) throw new Error(`${nomeArquivo}: informe a categoria em cada linha ou use BOPP, PEBD, CREPE, KRAFT ou DUPLA_FACE no nome do arquivo (linha ${indiceLinha + 2}).`)
     const medida = converterNumero(valor(colunas, 'medida', 'medidas', 'largura', 'largura_bobina', 'largura_bobina_texto', 'medida_texto', 'especificacao', 'medida_produto'))
     const peso = converterNumero(valor(colunas, 'peso_kg', 'peso', 'peso_bobina', 'peso_bobina_kg', 'peso_bobina_texto', 'peso_atual', 'kg'))
     const metragem = converterNumero(valor(colunas, 'metragem_m', 'metragem', 'metros', 'metragem_disponivel_m', 'metragem_bobina_texto', 'comprimento', 'metragem_unica'))
@@ -153,7 +153,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
   const [form, setForm] = React.useState<FormEstoque>(vazio)
   const [editando, setEditando] = React.useState<string | null>(null)
   const [formAberto, setFormAberto] = React.useState(false)
-  const categoriasVisiveis: Categoria[] = tipoEstoque === 'VIRGEM' ? ['BOPP'] : categorias
+  const categoriasVisiveis: Categoria[] = tipoEstoque === 'VIRGEM' ? ['BOPP', 'PEBD'] : categorias.filter((categoria) => categoria !== 'PEBD')
   const tituloEstoque = tipoEstoque === 'VIRGEM' ? 'Estoque Atual Virgem' : 'Estoque Atual Adesivado'
 
   async function carregar() {
