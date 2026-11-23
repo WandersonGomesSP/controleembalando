@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev --port 3000",
+    "dev": "node -e \"for (const p of ['.tanstack','node_modules/.vite']) require('node:fs').rmSync(p,{recursive:true,force:true})\" && vite dev --port 3000 --force",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
