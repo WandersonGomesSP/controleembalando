@@ -303,7 +303,7 @@ export function HistoricoProducao({ onChangeArea }: Props) {
       setErro(erroProducao)
       toast.error('Falha ao carregar os lançamentos de produção.', { description: erroProducao })
     } else {
-      setRegistros(producaoRows)
+      setRegistros(producaoRows.filter((item) => item.status_baixa !== 'EXCLUIDA'))
       setAlertas((alertasResult.data ?? []) as RebobinadeiraAlertaBobinaRow[])
       setSaldos((saldosResult.data ?? []) as RebobinadeiraSaldoBobinaRow[])
       setOrigens(origensRows.reduce<Record<string, BobinaOrigemDetalhe>>((mapa, row) => { const chave = row.numero_bobina.replace(/\D/g, ''); if (!mapa[chave]) mapa[chave] = row; return mapa }, {}))
