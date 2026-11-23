@@ -461,6 +461,26 @@ export const deleteAdminSummaryRecord = createServerFn({ method: 'POST' })
   })
 
 
+export const excluirLancamentosRebobinadeira = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ ids: z.array(z.number().int().positive()).min(1).max(1000) }))
+  .handler(async ({ data }) => {
+    const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const ids = [...new Set(data.ids)]
+    const { data: rows, error: readError } = await client.schema('rebobinadeira').from('bobinas').select('id,status_baixa').in('id', ids).order('data', { ascending: true }).order('id', { ascending: true })
+    if (readError) throw new Error('Não foi possível localizar os lançamentos selecionados: ' + readError.message)
+    if (!rows?.length || rows.length !== ids.length) throw new Error('Um ou mais lançamentos não foram encontrados. Atualize o histórico.')
+    for (const row of rows) {
+      if (row.status_baixa !== 'EXCLUIDA' && row.status_baixa !== 'ESTORNADA') {
+        const { error } = await client.schema('rebobinadeira').rpc('estornar_producao', { p_producao_id: row.id, p_motivo: 'Exclusão do lançamento pelo histórico da Rebobinadeira' })
+        if (error) throw new Error('Não foi possível recompor o saldo da bobina no lançamento #' + row.id + ': ' + error.message)
+      }
+    }
+    const { error: updateError } = await client.schema('rebobinadeira').from('bobinas').update({ status_baixa: 'EXCLUIDA' }).in('id', ids)
+    if (updateError) throw new Error('Não foi possível ocultar os lançamentos do histórico: ' + updateError.message)
+    await client.schema('rebobinadeira').from('alertas_bobinas').update({ status: 'RESOLVIDO', resolvido_em: new Date().toISOString() }).in('producao_id', ids).eq('status', 'ABERTO')
+    return { success: true, quantidade: ids.length }
+  })
+
 export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
   .validator(
     tokenInput.extend({
