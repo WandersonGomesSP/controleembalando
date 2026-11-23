@@ -32,10 +32,26 @@ function formatar(valor: number | null | undefined, casas = false) {
 }
 
 export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
-  return <HistoricoProducao onChangeArea={onChangeArea} isDeveloper={isDeveloper} />
+  const [tela, setTela] = React.useState<'historico' | 'estoque-minimo'>('historico')
+  return tela === 'historico'
+    ? <HistoricoProducao onChangeArea={onChangeArea} isDeveloper={isDeveloper} onOpenEstoqueMinimo={() => setTela('estoque-minimo')} />
+    : <EstoqueMinimoView onChangeArea={onChangeArea} isDeveloper={isDeveloper} onOpenHistorico={() => setTela('historico')} />
 }
 
-export function EstoqueMinimoCobrideira({ isDeveloper }: { isDeveloper: boolean }) { return <EstoqueMinimoView onChangeArea={() => {}} isDeveloper={isDeveloper} embedded /> }
+export function EstoqueMinimoCobrideira({ isDeveloper }: { isDeveloper: boolean }) {
+  return (
+    <section className="rounded-xl border border-border bg-card p-5">
+      <h2 className="text-lg font-semibold">Estoque Mínimo Virgem</h2>
+      <p className="mt-1 text-sm text-muted-foreground">O estoque mínimo da Cobrideira é independente do cálculo de adesivados da Rebobinadeira.</p>
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-lg border border-border bg-background p-4"><p className="text-xs text-muted-foreground">Produtos cadastrados</p><p className="mt-1 text-2xl font-semibold tabular-nums">0</p></div>
+        <div className="rounded-lg border border-border bg-background p-4"><p className="text-xs text-muted-foreground">Estoque mínimo</p><p className="mt-1 text-2xl font-semibold tabular-nums">0</p></div>
+        <div className="rounded-lg border border-border bg-background p-4"><p className="text-xs text-muted-foreground">Alertas</p><p className="mt-1 text-2xl font-semibold tabular-nums">0</p></div>
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground">Nenhum dado de estoque mínimo foi cadastrado para a Cobrideira ainda.</p>
+    </section>
+  )
+}
 
 function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpenHistorico }: Props & { embedded?: boolean }) {
   const [registros, setRegistros] = React.useState<RebobinadeiraEstoqueMinimoRow[]>([])
