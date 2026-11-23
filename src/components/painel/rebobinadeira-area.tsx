@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
-import { carregarIndicadoresEstoqueMinimoRebobinadeira } from '@/lib/admin.functions'
+import { carregarIndicadoresEstoqueMinimoRebobinadeira } from '@/lib/rebobinadeira-indicadores.functions'
 import { HistoricoProducao } from '@/components/painel/historico-producao'
 import type { RebobinadeiraEstoqueMinimoRow } from '@/lib/database.types'
 
