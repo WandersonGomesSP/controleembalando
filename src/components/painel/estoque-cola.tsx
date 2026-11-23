@@ -112,15 +112,19 @@ export function EstoqueColaCobrideira() {
       ? b.data_chegada.localeCompare(a.data_chegada) || b.id - a.id
       : a.data_chegada.localeCompare(b.data_chegada) || a.id - b.id
   ), [dados.saldo, ordemEstoque])
-  const containersOrdenados = React.useMemo(() => [...dados.containers].sort((a, b) => {
+  const containersDisponiveis = React.useMemo(
+    () => dados.containers.filter((item) => item.status === 'DISPONIVEL'),
+    [dados.containers],
+  )
+  const containersOrdenados = React.useMemo(() => [...containersDisponiveis].sort((a, b) => {
     const dataA = a.entrada?.data_chegada || ''
     const dataB = b.entrada?.data_chegada || ''
     return ordemEstoque === 'desc'
       ? dataB.localeCompare(dataA) || b.codigo.localeCompare(a.codigo)
       : dataA.localeCompare(dataB) || a.codigo.localeCompare(b.codigo)
-  }), [dados.containers, ordemEstoque])
-  const containersSelecionados = dados.containers.filter((item) => selecionados.includes(item.codigo))
-  const todosContainersSelecionados = dados.containers.length > 0 && selecionados.length === dados.containers.length
+  }), [containersDisponiveis, ordemEstoque])
+  const containersSelecionados = containersDisponiveis.filter((item) => selecionados.includes(item.codigo))
+  const todosContainersSelecionados = containersDisponiveis.length > 0 && containersSelecionados.length === containersDisponiveis.length
 
   const historicoAgrupado = React.useMemo(() => {
     const mapa = new Map<string, { codigo: string; bobinas: number; cola: number; dataConsumo: string; lote: string; fornecedor: string; status: string }>()
@@ -266,7 +270,7 @@ export function EstoqueColaCobrideira() {
       const { data: sessionData } = await supabase.auth.getSession()
       const accessToken = sessionData.session?.access_token
       if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
-      const resultado = await excluirContainersCola({ data: { accessToken, codigos: selecionados } })
+      const resultado = await excluirContainersCola({ data: { accessToken, codigos: containersSelecionados.map((item) => item.codigo) } })
       toast.success(`${resultado.removidos.length} container(s) excluído(s).`)
       setSelecionados([])
       await carregar()
@@ -395,15 +399,16 @@ export function EstoqueColaCobrideira() {
                 <table className="w-full min-w-[1100px] text-left text-xs">
                   <thead className="bg-slate-100 text-slate-700"><tr>
                     <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de entrada {ordemEstoque === 'desc' ? '↓' : '↑'}</button></th>
-                    {['NF','Produto','Lote','Detalhes','Fornecedor','Containers recebidos','Disponíveis','Peso por container','Valor/kg'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
+                    {['NF','Produto','Lote','Localização','Detalhes','Fornecedor','Containers recebidos','Disponíveis','Peso por container','Valor/kg'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
                   </tr></thead>
                   <tbody>{saldoOrdenado.map((item) => {
-                    const codigosLote = dados.containers.filter((container) => container.entrada_id === item.id).map((container) => container.codigo)
+                    const codigosLote = dados.containers.filter((container) => container.entrada_id === item.id && container.status === 'DISPONIVEL').map((container) => container.codigo)
                     return (
                       <React.Fragment key={item.id}>
-                        <tr className={'border-b border-slate-100 ' + (item.entrada?.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-100' : '')}>
+                        <tr className={'border-b border-slate-100 ' + (item.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-100' : '')}>
                           <td className="px-3 py-2">{new Date(item.data_chegada + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
                           <td className="px-3 py-2">{item.nf}</td><td className="px-3 py-2">{item.produto}</td><td className="px-3 py-2">{item.lote}</td>
+                          <td className="px-3 py-2"><span className={item.localizacao === 'GALPAO_MARIO_COVAS' ? 'inline-flex rounded-full bg-yellow-300 px-2 py-1 font-semibold text-yellow-950' : 'text-slate-600'}>{item.localizacao === 'GALPAO_MARIO_COVAS' ? 'Galpão da Mario Covas' : 'Estoque'}</span></td>
                           <td className="px-3 py-2">
                             <button type="button" onClick={() => setLoteExpandido((atual) => atual === item.id ? null : item.id)} className="inline-flex items-center rounded-md bg-[#c91d26] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#e3262e]">
                               {loteExpandido === item.id ? 'Ocultar códigos' : 'Detalhes (' + codigosLote.length + ')'}
@@ -415,9 +420,9 @@ export function EstoqueColaCobrideira() {
                         </tr>
                         {loteExpandido === item.id && (
                           <tr className={item.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-50' : 'bg-slate-50'}>
-                            <td colSpan={10} className="px-4 py-3">
+                            <td colSpan={11} className="px-4 py-3">
                               <div className="mb-2 flex items-center justify-between gap-2">
-                                <span className="text-xs font-semibold text-slate-700">Códigos internos do lote {item.lote}</span>
+                                <span className="text-xs font-semibold text-slate-700">Containers disponíveis do lote {item.lote}</span>
                                 {item.localizacao === 'GALPAO_MARIO_COVAS' && <span className="rounded-full bg-yellow-300 px-2 py-1 text-[11px] font-semibold text-yellow-950">Galpão da Mario Covas</span>}
                               </div>
                               <div className="flex flex-wrap gap-2">
@@ -437,7 +442,7 @@ export function EstoqueColaCobrideira() {
           ) : (
             <Panel title="Detalhes dos containers" description="Selecione um ou mais códigos para alterar a localização ou excluir os registros permitidos. Containers no Galpão da Mario Covas ficam destacados em amarelo.">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-slate-600">{selecionados.length} selecionado(s) de {dados.containers.length}</p>
+                <p className="text-xs text-slate-600">{containersSelecionados.length} selecionado(s) de {containersDisponiveis.length} disponíveis</p>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={abrirEdicaoEmLote} disabled={!selecionados.length} className="rounded-lg bg-[#c91d26] px-3 py-2 text-xs font-semibold text-white hover:bg-[#e3262e] disabled:opacity-50">Alterar selecionados</button>
                   <button type="button" onClick={() => void excluirSelecionados()} disabled={!selecionados.length || salvandoEdicao} className="rounded-lg bg-[#c91d26] px-3 py-2 text-xs font-semibold text-white hover:bg-[#e3262e] disabled:opacity-50">Excluir selecionados</button>
@@ -446,7 +451,7 @@ export function EstoqueColaCobrideira() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[900px] text-left text-xs">
                   <thead className="bg-slate-100 text-slate-700"><tr>
-                    <th className="px-3 py-2"><input type="checkbox" checked={todosContainersSelecionados} onChange={(e) => setSelecionados(e.target.checked ? dados.containers.map((item) => item.codigo) : [])} /></th>
+                    <th className="px-3 py-2"><input type="checkbox" checked={todosContainersSelecionados} onChange={(e) => setSelecionados(e.target.checked ? containersDisponiveis.map((item) => item.codigo) : [])} /></th>
                     <th className="px-3 py-2">Código do container</th>
                     <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de entrada {ordemEstoque === 'desc' ? '↓' : '↑'}</button></th>
                     {['Lote','NF','Fornecedor','Situação','Localização','Ações'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
@@ -462,7 +467,7 @@ export function EstoqueColaCobrideira() {
                     <td className="px-3 py-2"><button type="button" onClick={() => { setSelecionados([item.codigo]); abrirEdicaoContainer(item) }} className="rounded-md bg-[#c91d26] px-3 py-1.5 font-semibold text-white hover:bg-[#e3262e]">Editar</button></td>
                   </tr>)}</tbody>
                 </table>
-                {!dados.containers.length && <p className="py-8 text-center text-sm text-slate-500">Nenhum container cadastrado.</p>}
+                {!containersOrdenados.length && <p className="py-8 text-center text-sm text-slate-500">Nenhum container disponível no estoque. Os containers já utilizados ou enviados ficam somente nos históricos.</p>}
               </div>
             </Panel>
           )}
