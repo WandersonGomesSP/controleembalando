@@ -1851,7 +1851,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                               <tr className="border-b border-border/70">
                                 <td className="px-2 py-3">
                                   <div className="flex items-center gap-2">
-                                    <input type="checkbox" aria-label={`Selecionar bobina ${registro.numero_bobina}`} checked={selecionadas.has(registro.numero_bobina)} onChange={() => alternarSelecao(registro.numero_bobina)} />
+                                    <label className="inline-flex min-h-10 min-w-10 cursor-pointer items-center justify-center"><input type="checkbox" className="size-5 cursor-pointer accent-[#e3262e]" aria-label={`Selecionar bobina ${registro.numero_bobina}`} checked={selecionadas.has(registro.numero_bobina)} onChange={() => alternarSelecao(registro.numero_bobina)}  /></label>
                                   </div>
                                 </td>
                                 <td className="px-3 py-3 font-mono">{registro.numero_bobina}</td>
