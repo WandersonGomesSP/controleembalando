@@ -165,9 +165,9 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpen
   const totalMetros = filtrados.reduce((total, item) => total + Number(item.estoque_minimo_m || 0) * multiplicador(item), 0)
 
   return (
-    <div className="min-h-screen bg-background">
-      {!embedded && <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[96rem] flex-col gap-3 px-4 py-4 sm:px-6">
+    <div className="min-h-screen">
+      {!embedded && <header className="sticky top-0 z-30 border-b border-[#e2e8f0] bg-white">
+        <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-7 pt-[18px] pb-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <img src="/embalando-logo.svg" alt="Embalando Fitas Adesivas" className="h-12 w-48 object-contain" />
