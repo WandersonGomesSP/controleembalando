@@ -21,6 +21,9 @@ type Props = {
   onChangeArea: () => void
   isDeveloper: boolean
   onOpenEstoqueAtual?: () => void
+  onOpenCadastro?: () => void
+  onOpenHistorico?: () => void
+  onOpenLixeira?: () => void
 }
 
 const numero = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
@@ -32,10 +35,23 @@ function formatar(valor: number | null | undefined, casas = false) {
 }
 
 export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
-  const [tela, setTela] = React.useState<'historico' | 'estoque-atual' | 'estoque-minimo'>('historico')
-  return tela === 'estoque-minimo'
-    ? <EstoqueMinimoView onChangeArea={onChangeArea} isDeveloper={isDeveloper} onOpenEstoqueAtual={() => setTela('estoque-atual')} />
-    : <HistoricoProducao onChangeArea={onChangeArea} isDeveloper={isDeveloper} initialTela={tela === 'estoque-atual' ? 'indicadores' : 'historico'} onOpenEstoqueMinimo={() => setTela('estoque-minimo')} />
+  const [tela, setTela] = React.useState<'historico' | 'cadastro' | 'indicadores' | 'lixeira' | 'estoque-minimo'>('historico')
+  if (tela === 'estoque-minimo') {
+    return <EstoqueMinimoView
+      onChangeArea={onChangeArea}
+      isDeveloper={isDeveloper}
+      onOpenEstoqueAtual={() => setTela('indicadores')}
+      onOpenCadastro={() => setTela('cadastro')}
+      onOpenHistorico={() => setTela('historico')}
+      onOpenLixeira={() => setTela('lixeira')}
+    />
+  }
+  return <HistoricoProducao
+    onChangeArea={onChangeArea}
+    isDeveloper={isDeveloper}
+    initialTela={tela}
+    onOpenEstoqueMinimo={() => setTela('estoque-minimo')}
+  />
 }
 
 export function EstoqueMinimoCobrideira(_props: { isDeveloper: boolean }) {
@@ -184,20 +200,29 @@ function EstoqueMinimoView({ onChangeArea, isDeveloper, embedded = false, onOpen
               <ArrowLeft className="size-4" /> Trocar de setor
             </button>
           </div>
-          <nav aria-label="Menu principal" className="flex items-center gap-2 border-t border-border pt-3">
-            <span className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">
+          <nav aria-label="Menus da Rebobinadeira" className="grid grid-cols-2 gap-2 border-t border-border pt-3 pb-0 sm:flex sm:flex-wrap">
+            <button type="button" onClick={onOpenCadastro} className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg bg-[#c91d26] px-3 text-center text-xs font-semibold text-white whitespace-nowrap hover:bg-[#e3262e] sm:gap-2 sm:px-4 sm:text-sm">
+              <PackageCheck className="size-4" /> Cadastrar produção
+            </button>
+            <button type="button" onClick={onOpenHistorico} className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg bg-[#c91d26] px-3 text-center text-xs font-semibold text-white whitespace-nowrap hover:bg-[#e3262e] sm:gap-2 sm:px-4 sm:text-sm">
+              <History className="size-4" /> Histórico de produção
+            </button>
+            <span aria-current="page" className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg bg-[#e3262e] px-3 text-center text-xs font-semibold text-white whitespace-nowrap shadow-sm sm:gap-2 sm:px-4 sm:text-sm">
               <ChartNoAxesCombined className="size-4" /> Indicadores
             </span>
+            <button type="button" onClick={onOpenLixeira} className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg bg-[#c91d26] px-3 text-center text-xs font-semibold text-white whitespace-nowrap hover:bg-[#e3262e] sm:gap-2 sm:px-4 sm:text-sm">
+              <History className="size-4" /> Lixeira
+            </button>
           </nav>
-          <nav aria-label="Indicadores" className="flex items-center gap-2 pl-3">
-            {onOpenEstoqueAtual && <button type="button" onClick={onOpenEstoqueAtual} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-[#c91d26] transition hover:bg-red-50"><PackageCheck className="size-4" /> Estoque Atual Adesivado</button>}
-            <span className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#e3262e]/30 bg-[#e3262e]/10 px-3 text-sm font-medium text-[#9f1720]"><PackageCheck className="size-4" /> Estoque Mínimo</span>
+          <nav aria-label="Submenus de Indicadores" className="flex flex-wrap items-center gap-2 pl-3">
+            {onOpenEstoqueAtual && <button type="button" onClick={onOpenEstoqueAtual} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#e3262e] bg-white px-3 text-sm font-medium text-[#c91d26] transition hover:bg-red-50"><PackageCheck className="size-4" /> Estoque Atual Adesivado</button>}
+            <span aria-current="page" className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#e3262e]/30 bg-[#e3262e]/10 px-3 text-sm font-medium text-[#9f1720]"><PackageCheck className="size-4" /> Estoque Mínimo</span>
           </nav>
         </div>
       </header>}
       {!embedded && <div className="h-3 w-full bg-[#4b4642]" />}
 
-      <main className={embedded ? "mx-auto max-w-[96rem] space-y-6 px-1 py-2 sm:px-2" : "mx-auto max-w-[96rem] space-y-6 px-4 py-6 sm:px-6 sm:py-8"}>
+      <main className={embedded ? "mx-auto max-w-[96rem] space-y-6 px-1 py-2 sm:px-2" : "mx-auto w-full max-w-[96rem] space-y-4 rounded-2xl bg-white p-3 sm:p-4"}>
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Indicadores / Estoque Mínimo</p>
