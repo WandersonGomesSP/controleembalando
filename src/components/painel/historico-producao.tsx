@@ -791,7 +791,7 @@ export function HistoricoProducao({ onChangeArea, isDeveloper, onOpenEstoqueMini
           </nav>
           {tela === 'indicadores' && <nav aria-label="Submenus de Indicadores" className="flex flex-wrap items-center gap-2 pl-3">
             <span className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#e3262e]/30 bg-[#e3262e]/10 px-3 text-sm font-medium text-[#9f1720]"><Package className="size-4" /> Estoque Atual Adesivado</span>
-            {onOpenEstoqueMinimo && <button type="button" onClick={onOpenEstoqueMinimo} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#e3262e] bg-white px-3 text-sm font-medium text-[#c91d26] transition hover:bg-red-50"><Package className="size-4" /> Estoque Mínimo</button>}
+            {onOpenEstoqueMinimo && <button type="button" onClick={onOpenEstoqueMinimo} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#e3262e] bg-white px-3 text-sm font-medium text-[#c91d26] transition hover:bg-red-50"><Package className="size-4" /> Estoque Mínimo Adesivado</button>}
           </nav>}
         </div>
       </header>
