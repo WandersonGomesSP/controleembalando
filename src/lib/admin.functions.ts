@@ -1774,14 +1774,15 @@ export const listarControleCola = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const { client } = await requireCobrideiraEditor(data.accessToken)
     const cola = (client as any).schema('cobrideira')
-    const [entradasResult, saldoResult, historicoResult, containersResult, indicadoresResult] = await Promise.all([
+    const [entradasResult, saldoResult, historicoResult, containersResult, indicadoresResult, enviosResult] = await Promise.all([
       cola.from('estoque_cola_entradas').select('*').order('data_chegada', { ascending: false }).order('id', { ascending: false }).limit(500),
       cola.from('vw_estoque_cola_saldo').select('*').order('data_chegada', { ascending: false }).order('id', { ascending: false }).limit(500),
       cola.from('vw_historico_cola').select('*').order('data_producao', { ascending: false }).order('numero_bobina', { ascending: false }).limit(2000),
       cola.from('estoque_cola_containers').select('codigo,status,entrada_id,enviado_em,entrada:estoque_cola_entradas(data_chegada,nf,produto,lote,peso_por_container_kg,valor_por_container,fornecedor,localizacao)').order('criado_em', { ascending: false }).limit(5000),
       cola.from('vw_consumo_movel_cola').select('*').single(),
+      cola.from('historico_envios_bahia').select('*').order('data_envio', { ascending: false }).order('codigo_container', { ascending: true }).limit(5000),
     ])
-    for (const result of [entradasResult, saldoResult, historicoResult, containersResult, indicadoresResult]) {
+    for (const result of [entradasResult, saldoResult, historicoResult, containersResult, indicadoresResult, enviosResult]) {
       if (result.error) throw new Error(`Não foi possível carregar o controle de cola: ${result.error.message}`)
     }
     return {
@@ -1790,6 +1791,7 @@ export const listarControleCola = createServerFn({ method: 'POST' })
       historico: historicoResult.data ?? [],
       containers: containersResult.data ?? [],
       indicadores: indicadoresResult.data ?? null,
+      envios: enviosResult.data ?? [],
     }
   })
 
