@@ -1774,13 +1774,14 @@ export const listarControleCola = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const { client } = await requireCobrideiraEditor(data.accessToken)
     const cola = (client as any).schema('cobrideira')
-    const [entradasResult, saldoResult, historicoResult, containersResult] = await Promise.all([
+    const [entradasResult, saldoResult, historicoResult, containersResult, indicadoresResult] = await Promise.all([
       cola.from('estoque_cola_entradas').select('*').order('data_chegada', { ascending: false }).order('id', { ascending: false }).limit(500),
       cola.from('vw_estoque_cola_saldo').select('*').order('data_chegada', { ascending: false }).order('id', { ascending: false }).limit(500),
       cola.from('vw_historico_cola').select('*').order('data_producao', { ascending: false }).order('numero_bobina', { ascending: false }).limit(2000),
-      cola.from('estoque_cola_containers').select('codigo,status,entrada_id,primeira_bobina,primeiro_uso_em,enviado_em').order('criado_em', { ascending: false }).limit(2000),
+      cola.from('estoque_cola_containers').select('codigo,status,entrada_id,localizacao,enviado_em,entrada:estoque_cola_entradas(data_chegada,nf,produto,lote,peso_por_container_kg,fornecedor)').order('criado_em', { ascending: false }).limit(5000),
+      cola.from('vw_consumo_movel_cola').select('*').single(),
     ])
-    for (const result of [entradasResult, saldoResult, historicoResult, containersResult]) {
+    for (const result of [entradasResult, saldoResult, historicoResult, containersResult, indicadoresResult]) {
       if (result.error) throw new Error(`Não foi possível carregar o controle de cola: ${result.error.message}`)
     }
     return {
@@ -1788,6 +1789,7 @@ export const listarControleCola = createServerFn({ method: 'POST' })
       saldo: saldoResult.data ?? [],
       historico: historicoResult.data ?? [],
       containers: containersResult.data ?? [],
+      indicadores: indicadoresResult.data ?? null,
     }
   })
 
@@ -1795,23 +1797,20 @@ export const registrarEntradaCola = createServerFn({ method: 'POST' })
   .validator(entradaColaSchema)
   .handler(async ({ data }) => {
     const { client, user } = await requireCobrideiraEditor(data.accessToken)
-    const { data: entrada, error } = await (client as any).schema('cobrideira').from('estoque_cola_entradas')
-      .insert({
-        data_chegada: data.data_chegada,
-        nf: data.nf,
-        produto: data.produto,
-        lote: data.lote,
-        quantidade_containers: data.quantidade_containers,
-        peso_por_container_kg: data.peso_por_container_kg,
-        valor_por_container: data.valor_por_container,
-        fornecedor: data.fornecedor,
-        observacoes: data.observacoes ?? null,
-        criado_por: user.id,
-      })
-      .select('*')
-      .single()
+    const { data: resultado, error } = await (client as any).schema('cobrideira').rpc('registrar_entrada_cola', {
+      p_data_chegada: data.data_chegada,
+      p_nf: data.nf,
+      p_produto: data.produto,
+      p_lote: data.lote,
+      p_quantidade_containers: data.quantidade_containers,
+      p_peso_por_container_kg: data.peso_por_container_kg,
+      p_valor_por_container: data.valor_por_container,
+      p_fornecedor: data.fornecedor,
+      p_observacoes: data.observacoes ?? null,
+      p_user_id: user.id,
+    })
     if (error) throw new Error(`Não foi possível registrar a entrada de cola: ${error.message}`)
-    return entrada
+    return resultado as { entrada_id: number; codigos: string[] }
   })
 
 export const retirarContainersCola = createServerFn({ method: 'POST' })
@@ -1826,4 +1825,51 @@ export const retirarContainersCola = createServerFn({ method: 'POST' })
     })
     if (error) throw new Error(`Não foi possível registrar a retirada: ${error.message}`)
     return resultado as { retirados: number; ja_enviados: string[] }
+  })
+
+
+const atualizarContainersColaSchema = tokenInput.extend({
+  itens: z.array(z.object({
+    codigo_atual: z.string().trim().min(1).max(100),
+    codigo_novo: z.string().trim().min(1).max(100),
+    localizacao: z.enum(['ESTOQUE', 'GALPAO_MARIO_COVAS']),
+  })).min(1).max(500),
+})
+
+export const atualizarContainersCola = createServerFn({ method: 'POST' })
+  .validator(atualizarContainersColaSchema)
+  .handler(async ({ data }) => {
+    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const cola = (client as any).schema('cobrideira')
+    const atualizados: string[] = []
+    for (const item of data.itens) {
+      const { data: registro, error } = await cola.from('estoque_cola_containers')
+        .update({ codigo: item.codigo_novo, localizacao: item.localizacao })
+        .eq('codigo', item.codigo_atual)
+        .select('codigo')
+        .maybeSingle()
+      if (error) throw new Error(`Não foi possível atualizar o container ${item.codigo_atual}: ${error.message}`)
+      if (!registro) throw new Error(`O container ${item.codigo_atual} não foi encontrado.`)
+      atualizados.push(registro.codigo)
+    }
+    return { atualizados }
+  })
+
+export const excluirContainersCola = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ codigos: z.array(z.string().trim().min(1).max(100)).min(1).max(500) }))
+  .handler(async ({ data }) => {
+    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const cola = (client as any).schema('cobrideira')
+    const { data: registros, error: buscaError } = await cola.from('estoque_cola_containers')
+      .select('codigo,status')
+      .in('codigo', data.codigos)
+    if (buscaError) throw new Error(`Não foi possível consultar os containers: ${buscaError.message}`)
+    const bloqueados = (registros ?? []).filter((item: { status: string }) => ['CONSUMIDO_PRODUCAO', 'ENVIADO_BAHIA'].includes(item.status))
+    if (bloqueados.length) throw new Error(`Não é possível excluir containers já utilizados ou enviados: ${bloqueados.map((item: { codigo: string }) => item.codigo).join(', ')}`)
+    const { data: removidos, error } = await cola.from('estoque_cola_containers')
+      .delete()
+      .in('codigo', data.codigos)
+      .select('codigo')
+    if (error) throw new Error(`Não foi possível excluir os containers: ${error.message}`)
+    return { removidos: removidos?.map((item: { codigo: string }) => item.codigo) ?? [] }
   })
