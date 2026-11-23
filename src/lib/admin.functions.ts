@@ -1506,18 +1506,31 @@ const currentStockRecordSchema = z.object({
   observacoes: z.string().max(1000).nullable(),
 }).strict()
 
+
+const tipoEstoqueAtualSchema = z.enum(['VIRGEM', 'ADESIVADO']).default('VIRGEM')
+type TipoEstoqueAtual = 'VIRGEM' | 'ADESIVADO'
+const tabelaEstoqueAtual = (tipo: TipoEstoqueAtual) => tipo === 'ADESIVADO' ? 'bobinas_estoque' : 'bobinas_estoque_virgem'
+const tabelaLixeiraEstoqueAtual = (tipo: TipoEstoqueAtual) => tipo === 'ADESIVADO' ? 'bobinas_estoque_lixeira' : 'bobinas_estoque_virgem_lixeira'
+
+async function requireCurrentStockEditor(accessToken: string, tipo: TipoEstoqueAtual) {
+  return tipo === 'ADESIVADO'
+    ? await requireRebobinadeiraEditor(accessToken)
+    : await requireCobrideiraEditor(accessToken)
+}
+
 export const importCurrentStockCsv = createServerFn({ method: 'POST' })
-  .validator(tokenInput.extend({ registros: z.array(currentStockRecordSchema).min(1).max(1000) }))
+  .validator(tokenInput.extend({ tipoEstoque: tipoEstoqueAtualSchema, registros: z.array(currentStockRecordSchema).min(1).max(1000) }))
   .handler(async ({ data }) => {
-    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const { client } = await requireCurrentStockEditor(data.accessToken, data.tipoEstoque)
     const estoque = (client as any).schema('estoque_atual')
+    const tabela = tabelaEstoqueAtual(data.tipoEstoque)
     const codigos = [...new Set(data.registros.map((r) => r.codigo).filter((v): v is string => Boolean(v)))]
     const existentes: any[] = []
     for (let i = 0; i < codigos.length; i += 200) {
       const lote = codigos.slice(i, i + 200)
       const categorias = [...new Set(data.registros.filter((r) => r.codigo && lote.includes(r.codigo)).map((r) => r.categoria))]
       for (const categoria of categorias) {
-        const { data: encontrados, error } = await estoque.from('bobinas_estoque')
+        const { data: encontrados, error } = await estoque.from(tabela)
           .select('*').eq('categoria', categoria).in('codigo', lote)
         if (error) throw new Error(`Não foi possível conferir os códigos existentes: ${error.message}`)
         existentes.push(...(encontrados ?? []))
@@ -1525,10 +1538,12 @@ export const importCurrentStockCsv = createServerFn({ method: 'POST' })
     }
     const existentesPorCodigo = new Map(existentes.map((r) => [`${r.categoria}|${r.codigo}`, r]))
     const registros = data.registros.map((r) => {
+      if (data.tipoEstoque === 'VIRGEM' && r.categoria !== 'BOPP') {
+        throw new Error('O Estoque Atual Virgem aceita somente bobinas BOPP.')
+      }
       const anterior = existentesPorCodigo.get(`${r.categoria}|${r.codigo}`)
       return {
-        ...anterior,
-        ...r,
+        ...anterior, ...r,
         data_entrada: r.data_entrada ?? anterior?.data_entrada ?? null,
         fornecedor: r.fornecedor ?? anterior?.fornecedor ?? null,
         medida: r.medida ?? anterior?.medida ?? null,
@@ -1541,20 +1556,22 @@ export const importCurrentStockCsv = createServerFn({ method: 'POST' })
         origem_arquivo: 'Importação CSV unificado',
       }
     })
-    const { data: gravados, error } = await estoque.from('bobinas_estoque')
+    const { data: gravados, error } = await estoque.from(tabela)
       .upsert(registros, { onConflict: 'categoria,codigo' }).select('id')
     if (error) throw new Error(`Não foi possível importar o CSV: ${error.message}`)
     return { importados: gravados?.length ?? registros.length }
   })
 
 export const listCurrentStock = createServerFn({ method: 'POST' })
-  .validator(tokenInput)
+  .validator(tokenInput.extend({ tipoEstoque: tipoEstoqueAtualSchema }))
   .handler(async ({ data }) => {
-    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const { client } = await requireCurrentStockEditor(data.accessToken, data.tipoEstoque)
     const estoque = (client as any).schema('estoque_atual')
     const [bobinasResult, resumosResult] = await Promise.all([
-      estoque.from('bobinas_estoque').select('*').order('data_entrada', { ascending: false }).order('codigo'),
-      estoque.from('resumo_estoque_produtos').select('*').order('categoria').order('medida_produto'),
+      estoque.from(tabelaEstoqueAtual(data.tipoEstoque)).select('*').order('data_entrada', { ascending: false }).order('codigo'),
+      data.tipoEstoque === 'ADESIVADO'
+        ? estoque.from('resumo_estoque_produtos').select('*').order('categoria').order('medida_produto')
+        : Promise.resolve({ data: [], error: null }),
     ])
     if (bobinasResult.error) throw new Error(`Não foi possível carregar as bobinas do estoque: ${bobinasResult.error.message}`)
     if (resumosResult.error) throw new Error(`Não foi possível carregar o resumo do estoque: ${resumosResult.error.message}`)
@@ -1562,23 +1579,25 @@ export const listCurrentStock = createServerFn({ method: 'POST' })
   })
 
 export const createCurrentStockRecord = createServerFn({ method: 'POST' })
-  .validator(tokenInput.extend({ registro: currentStockRecordSchema }))
+  .validator(tokenInput.extend({ tipoEstoque: tipoEstoqueAtualSchema, registro: currentStockRecordSchema }))
   .handler(async ({ data }) => {
-    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const { client } = await requireCurrentStockEditor(data.accessToken, data.tipoEstoque)
+    if (data.tipoEstoque === 'VIRGEM' && data.registro.categoria !== 'BOPP') throw new Error('O Estoque Atual Virgem aceita somente bobinas BOPP.')
     const estoque = (client as any).schema('estoque_atual')
     const registro = { ...data.registro, data_entrada: data.registro.data_entrada || null, origem_arquivo: 'Cadastro manual no site' }
-    const { data: created, error } = await estoque.from('bobinas_estoque').insert(registro).select('*').single()
+    const { data: created, error } = await estoque.from(tabelaEstoqueAtual(data.tipoEstoque)).insert(registro).select('*').single()
     if (error?.code === '23505') throw new Error('Já existe uma bobina com esse código. Confira o cadastro.')
     if (error) throw new Error(`Não foi possível adicionar a bobina: ${error.message}`)
     return created
   })
 
 export const updateCurrentStockRecord = createServerFn({ method: 'POST' })
-  .validator(tokenInput.extend({ id: z.uuid(), registro: currentStockRecordSchema }))
+  .validator(tokenInput.extend({ tipoEstoque: tipoEstoqueAtualSchema, id: z.uuid(), registro: currentStockRecordSchema }))
   .handler(async ({ data }) => {
-    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const { client } = await requireCurrentStockEditor(data.accessToken, data.tipoEstoque)
+    if (data.tipoEstoque === 'VIRGEM' && data.registro.categoria !== 'BOPP') throw new Error('O Estoque Atual Virgem aceita somente bobinas BOPP.')
     const estoque = (client as any).schema('estoque_atual')
-    const { data: updated, error } = await estoque.from('bobinas_estoque')
+    const { data: updated, error } = await estoque.from(tabelaEstoqueAtual(data.tipoEstoque))
       .update({ ...data.registro, data_entrada: data.registro.data_entrada || null })
       .eq('id', data.id).select('*').maybeSingle()
     if (error?.code === '23505') throw new Error('Já existe outra bobina com esse código.')
@@ -1588,64 +1607,59 @@ export const updateCurrentStockRecord = createServerFn({ method: 'POST' })
   })
 
 export const listCurrentStockTrash = createServerFn({ method: 'POST' })
-  .validator(tokenInput)
+  .validator(tokenInput.extend({ tipoEstoque: tipoEstoqueAtualSchema }))
   .handler(async ({ data }) => {
     const { client } = await requireDeveloper(data.accessToken)
     const estoque = (client as any).schema('estoque_atual')
-    const { data: registros, error } = await estoque.from('bobinas_estoque_lixeira')
+    const { data: registros, error } = await estoque.from(tabelaLixeiraEstoqueAtual(data.tipoEstoque))
       .select('*').order('excluida_em', { ascending: false })
     if (error) throw new Error(`Não foi possível carregar a lixeira do estoque: ${error.message}`)
     return registros ?? []
   })
 
 export const moveCurrentStockToTrash = createServerFn({ method: 'POST' })
-  .validator(tokenInput.extend({ id: z.uuid() }))
+  .validator(tokenInput.extend({ tipoEstoque: tipoEstoqueAtualSchema, id: z.uuid() }))
   .handler(async ({ data }) => {
     const { client, user } = await requireDeveloper(data.accessToken)
     const estoque = (client as any).schema('estoque_atual')
-    const { data: bobina, error: readError } = await estoque.from('bobinas_estoque')
-      .select('*').eq('id', data.id).maybeSingle()
+    const tabela = tabelaEstoqueAtual(data.tipoEstoque)
+    const tabelaLixeira = tabelaLixeiraEstoqueAtual(data.tipoEstoque)
+    const { data: bobina, error: readError } = await estoque.from(tabela).select('*').eq('id', data.id).maybeSingle()
     if (readError || !bobina) throw new Error('Bobina não encontrada no Estoque Atual.')
     if (!bobina.codigo) throw new Error('A bobina precisa ter um código para ser arquivada na lixeira.')
-    const { error: archiveError } = await estoque.from('bobinas_estoque_lixeira').upsert({
-      bobina_id: bobina.id,
-      categoria: bobina.categoria,
-      codigo: bobina.codigo,
-      dados: bobina,
-      excluida_por: user.id,
-      excluida_em: new Date().toISOString(),
+    const { error: archiveError } = await estoque.from(tabelaLixeira).upsert({
+      bobina_id: bobina.id, categoria: bobina.categoria, codigo: bobina.codigo,
+      dados: bobina, excluida_por: user.id, excluida_em: new Date().toISOString(),
     }, { onConflict: 'categoria,codigo' })
     if (archiveError) throw new Error(`Não foi possível arquivar a bobina: ${archiveError.message}`)
-    const { error: deleteError, count } = await estoque.from('bobinas_estoque')
-      .delete({ count: 'exact' }).eq('id', data.id)
-    if (deleteError || count === 0) {
-      throw new Error(`A cópia foi guardada na lixeira, mas a bobina ativa não foi removida: ${deleteError?.message ?? 'registro não removido'}`)
-    }
+    const { error: deleteError, count } = await estoque.from(tabela).delete({ count: 'exact' }).eq('id', data.id)
+    if (deleteError || count === 0) throw new Error(`A cópia foi guardada na lixeira, mas a bobina ativa não foi removida: ${deleteError?.message ?? 'registro não removido'}`)
     return { success: true }
   })
 
 export const restoreCurrentStockRecord = createServerFn({ method: 'POST' })
-  .validator(tokenInput.extend({ id: z.uuid() }))
+  .validator(tokenInput.extend({ tipoEstoque: tipoEstoqueAtualSchema, id: z.uuid() }))
   .handler(async ({ data }) => {
     const { client } = await requireDeveloper(data.accessToken)
     const estoque = (client as any).schema('estoque_atual')
-    const { data: arquivada, error: readError } = await estoque.from('bobinas_estoque_lixeira')
-      .select('*').eq('id', data.id).maybeSingle()
+    const tabela = tabelaEstoqueAtual(data.tipoEstoque)
+    const tabelaLixeira = tabelaLixeiraEstoqueAtual(data.tipoEstoque)
+    const { data: arquivada, error: readError } = await estoque.from(tabelaLixeira).select('*').eq('id', data.id).maybeSingle()
     if (readError || !arquivada) throw new Error('Bobina não encontrada na lixeira do estoque.')
-    const { error: restoreError } = await estoque.from('bobinas_estoque').insert(arquivada.dados)
+    const { error: restoreError } = await estoque.from(tabela).insert(arquivada.dados)
     if (restoreError?.code === '23505') throw new Error('Já existe uma bobina ativa com esse código. Confira o estoque antes de restaurar.')
     if (restoreError) throw new Error(`Não foi possível restaurar a bobina: ${restoreError.message}`)
-    const { error: removeError } = await estoque.from('bobinas_estoque_lixeira').delete().eq('id', data.id)
+    const { error: removeError } = await estoque.from(tabelaLixeira).delete().eq('id', data.id)
     if (removeError) throw new Error(`Bobina restaurada, mas não foi possível removê-la da lixeira: ${removeError.message}`)
     return { success: true }
   })
 
 export const permanentlyDeleteCurrentStockTrashRecord = createServerFn({ method: 'POST' })
-  .validator(tokenInput.extend({ id: z.uuid() }))
+  .validator(tokenInput.extend({ tipoEstoque: tipoEstoqueAtualSchema, id: z.uuid() }))
   .handler(async ({ data }) => {
     const { client } = await requireDeveloper(data.accessToken)
     const estoque = (client as any).schema('estoque_atual')
-    const { error, count } = await estoque.from('bobinas_estoque_lixeira')
+    const { error, count } = await estoque.from(tabelaLixeiraEstoqueAtual(data.tipoEstoque))
       .delete({ count: 'exact' }).eq('id', data.id)
     if (error) throw new Error(`Não foi possível excluir definitivamente a bobina: ${error.message}`)
     if (count === 0) throw new Error('A bobina não está mais na lixeira.')
