@@ -112,6 +112,7 @@ function lerCsv(texto: string, nomeArquivo: string) {
   const registros = linhas.slice(1).map((colunas, indiceLinha) => {
     const categoriaBruta = valor(colunas, 'categoria', 'tipo_categoria').toUpperCase().replace(/_/g, ' ')
     const categoria: Categoria | null = categoriaBruta === 'BOPP' ? 'BOPP'
+      : categoriaBruta === 'PEBD' ? 'PEBD'
       : categoriaBruta === 'CREPE' ? 'CREPE'
       : categoriaBruta === 'KRAFT' ? 'KRAFT'
       : categoriaBruta === 'DUPLA FACE' ? 'DUPLA FACE'
