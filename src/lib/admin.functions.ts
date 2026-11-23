@@ -1814,7 +1814,7 @@ export const registrarEntradaCola = createServerFn({ method: 'POST' })
   })
 
 export const retirarContainersCola = createServerFn({ method: 'POST' })
-  .validator(tokenInput.extend({ codigos: z.array(z.string().trim().min(1).max(100)).min(1).max(500) }))
+  .validator(tokenInput.extend({ codigos: z.array(z.string().trim().regex(/^\\d+$/, 'O código do container deve conter somente números.').max(100)).min(1).max(500) }))
   .handler(async ({ data }) => {
     const { client, user } = await requireCobrideiraEditor(data.accessToken)
     const codigos = [...new Set(data.codigos.map((codigo) => codigo.trim()).filter(Boolean))]
@@ -1830,8 +1830,8 @@ export const retirarContainersCola = createServerFn({ method: 'POST' })
 
 const atualizarContainersColaSchema = tokenInput.extend({
   itens: z.array(z.object({
-    codigo_atual: z.string().trim().min(1).max(100),
-    codigo_novo: z.string().trim().min(1).max(100),
+    codigo_atual: z.string().trim().regex(/^\\d+$/, 'O código atual deve conter somente números.').max(100),
+    codigo_novo: z.string().trim().regex(/^\\d+$/, 'O novo código deve conter somente números.').max(100),
     localizacao: z.enum(['ESTOQUE', 'GALPAO_MARIO_COVAS']).optional(),
   })).min(1).max(500),
 })
@@ -1868,7 +1868,7 @@ export const atualizarContainersCola = createServerFn({ method: 'POST' })
   })
 
 export const excluirContainersCola = createServerFn({ method: 'POST' })
-  .validator(tokenInput.extend({ codigos: z.array(z.string().trim().min(1).max(100)).min(1).max(500) }))
+  .validator(tokenInput.extend({ codigos: z.array(z.string().trim().regex(/^\\d+$/, 'O código do container deve conter somente números.').max(100)).min(1).max(500) }))
   .handler(async ({ data }) => {
     const { client } = await requireCobrideiraEditor(data.accessToken)
     const cola = (client as any).schema('cobrideira')
