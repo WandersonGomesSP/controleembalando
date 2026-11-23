@@ -1221,7 +1221,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                 <PackagePlus className="size-4" /> Estoque Atual Virgem
               </button>
               <button type="button" onClick={() => setSecao('estoque-minimo')} aria-current={secao === 'estoque-minimo' ? 'page' : undefined} className={`inline-flex min-h-8 items-center gap-2 rounded-lg border px-3 text-xs font-semibold ${secao === 'estoque-minimo' ? 'border-[#e3262e] bg-[#fff1f2] text-[#7f1d1d]' : 'border-[#e2e8f0] bg-white text-[#475569] hover:bg-slate-50'}`}>
-                <ChartNoAxesCombined className="size-4" /> Estoque Mínimo
+                <ChartNoAxesCombined className="size-4" /> Estoque Mínimo Virgem
               </button>
               <button type="button" onClick={() => setSecao('estoque-cola')} aria-current={secao === 'estoque-cola' ? 'page' : undefined} className={`inline-flex min-h-8 items-center gap-2 rounded-lg border px-3 text-xs font-semibold ${secao === 'estoque-cola' ? 'border-[#e3262e] bg-[#fff1f2] text-[#7f1d1d]' : 'border-[#e2e8f0] bg-white text-[#475569] hover:bg-slate-50'}`}>
                 <PackagePlus className="size-4" /> Estoque de Cola
