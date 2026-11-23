@@ -323,7 +323,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
       if (tipoEstoque === 'VIRGEM' && registros.some((registro) => !['BOPP', 'PEBD'].includes(registro.categoria))) throw new Error('O Estoque Atual Virgem aceita somente BOPP e PEBD.')
         if (registros.length) arquivosLidos++
         for (const registro of registros) {
-          const chave = `${registro.categoria}|${registro.codigo}`
+          const chave = tipoEstoque === 'VIRGEM' ? `${registro.categoria}|${registro.medida_texto ?? ''}|${registro.codigo}` : `${registro.categoria}|${registro.codigo}`
           const anterior = consolidados.get(chave)
           consolidados.set(chave, anterior ? {
             ...anterior,
