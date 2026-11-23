@@ -461,25 +461,110 @@ export const deleteAdminSummaryRecord = createServerFn({ method: 'POST' })
   })
 
 
+
 export const excluirLancamentosRebobinadeira = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({ ids: z.array(z.number().int().positive()).min(1).max(1000) }))
   .handler(async ({ data }) => {
-    const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const { client, user } = await requireRebobinadeiraEditor(data.accessToken)
+    const schema = client.schema('rebobinadeira')
     const ids = [...new Set(data.ids)]
-    const { data: rows, error: readError } = await client.schema('rebobinadeira').from('bobinas').select('id,status_baixa').in('id', ids).order('data', { ascending: true }).order('id', { ascending: true })
+    const { data: rows, error: readError } = await schema.from('bobinas').select('*').in('id', ids).order('data', { ascending: true }).order('id', { ascending: true })
     if (readError) throw new Error('Não foi possível localizar os lançamentos selecionados: ' + readError.message)
     if (!rows?.length || rows.length !== ids.length) throw new Error('Um ou mais lançamentos não foram encontrados. Atualize o histórico.')
-    for (const row of rows) {
-      if (row.status_baixa !== 'EXCLUIDA' && row.status_baixa !== 'ESTORNADA') {
-        const { error } = await client.schema('rebobinadeira').rpc('estornar_producao', { p_producao_id: row.id, p_motivo: 'Exclusão do lançamento pelo histórico da Rebobinadeira' })
+    const ativos = rows.filter((row) => row.status_baixa !== 'EXCLUIDA')
+    if (!ativos.length) return { success: true, quantidade: 0 }
+    const { data: movimentos, error: movementError } = await schema.from('movimentacoes_bobinas')
+      .select('*').in('producao_id', ativos.map((row) => row.id)).in('tipo_movimento', ['CONSUMO', 'DEVOLUCAO'])
+    if (movementError) throw new Error('Não foi possível guardar os movimentos para permitir a restauração: ' + movementError.message)
+    const movimentosPorId = new Map<number, unknown[]>()
+    for (const movimento of movimentos ?? []) {
+      const lista = movimentosPorId.get(movimento.producao_id) ?? []
+      lista.push(movimento)
+      movimentosPorId.set(movimento.producao_id, lista)
+    }
+    const snapshots = ativos.map((row) => ({
+      producao_id: row.id,
+      numero_bobina: row.numero_bobina,
+      dados: row,
+      movimentos: movimentosPorId.get(row.id) ?? [],
+      excluida_por: user.id,
+      excluida_em: new Date().toISOString(),
+    }))
+    const { error: archiveError } = await schema.from('lancamentos_lixeira').upsert(snapshots, { onConflict: 'producao_id' })
+    if (archiveError) throw new Error('Não foi possível guardar os lançamentos na lixeira: ' + archiveError.message)
+    for (const row of ativos) {
+      if (row.status_baixa !== 'ESTORNADA') {
+        const { error } = await schema.rpc('estornar_producao', { p_producao_id: row.id, p_motivo: 'Movido para a lixeira do histórico da Rebobinadeira' })
         if (error) throw new Error('Não foi possível recompor o saldo da bobina no lançamento #' + row.id + ': ' + error.message)
       }
     }
-    const { error: updateError } = await client.schema('rebobinadeira').from('bobinas').update({ status_baixa: 'EXCLUIDA' }).in('id', ids)
-    if (updateError) throw new Error('Não foi possível ocultar os lançamentos do histórico: ' + updateError.message)
-    await client.schema('rebobinadeira').from('alertas_bobinas').update({ status: 'RESOLVIDO', resolvido_em: new Date().toISOString() }).in('producao_id', ids).eq('status', 'ABERTO')
-    return { success: true, quantidade: ids.length }
+    const { error: updateError } = await schema.from('bobinas').update({ status_baixa: 'EXCLUIDA' }).in('id', ativos.map((row) => row.id))
+    if (updateError) throw new Error('Os movimentos foram estornados, mas não foi possível concluir a movimentação para a lixeira: ' + updateError.message)
+    await schema.from('alertas_bobinas').update({ status: 'RESOLVIDO', resolvido_em: new Date().toISOString() }).in('producao_id', ativos.map((row) => row.id)).eq('status', 'ABERTO')
+    return { success: true, quantidade: ativos.length }
   })
+
+export const listarLixeiraRebobinadeira = createServerFn({ method: 'POST' })
+  .validator(tokenInput)
+  .handler(async ({ data }) => {
+    const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const { data: registros, error } = await client.schema('rebobinadeira').from('lancamentos_lixeira')
+      .select('*').order('excluida_em', { ascending: false }).order('producao_id', { ascending: false })
+    if (error) throw new Error('Não foi possível carregar a lixeira da Rebobinadeira: ' + error.message)
+    return registros ?? []
+  })
+
+export const restaurarLancamentosRebobinadeira = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ ids: z.array(z.string().uuid()).min(1).max(1000) }))
+  .handler(async ({ data }) => {
+    const { client } = await requireRebobinadeiraEditor(data.accessToken)
+    const schema = client.schema('rebobinadeira')
+    const ids = [...new Set(data.ids)]
+    const { data: registros, error: readError } = await schema.from('lancamentos_lixeira').select('*').in('id', ids)
+    if (readError) throw new Error('Não foi possível localizar os itens da lixeira: ' + readError.message)
+    if (!registros?.length || registros.length !== ids.length) throw new Error('Um ou mais itens não foram encontrados na lixeira.')
+    for (const item of registros) {
+      const original = item.dados as Record<string, unknown>
+      if (original.status_baixa !== 'ESTORNADA') {
+        const { error: movementError } = await schema.from('movimentacoes_bobinas').delete()
+          .eq('producao_id', item.producao_id).eq('tipo_movimento', 'ESTORNO')
+        if (movementError) throw new Error('Não foi possível reverter o estorno da bobina ' + item.numero_bobina + ': ' + movementError.message)
+      }
+      const { error: updateError } = await schema.from('bobinas').update({
+        status_baixa: original.status_baixa,
+        metros_consumidos: original.metros_consumidos,
+        peso_consumido_kg: original.peso_consumido_kg,
+        metragem_unica_m: original.metragem_unica_m,
+        observacoes: original.observacoes,
+      }).eq('id', item.producao_id)
+      if (updateError) throw new Error('Não foi possível restaurar o lançamento #' + item.producao_id + ': ' + updateError.message)
+    }
+    const { error: removeError } = await schema.from('lancamentos_lixeira').delete().in('id', ids)
+    if (removeError) throw new Error('Os lançamentos foram restaurados, mas não foi possível limpar a lixeira: ' + removeError.message)
+    return { success: true, quantidade: registros.length }
+  })
+
+export const excluirDefinitivamenteLixeiraRebobinadeira = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ ids: z.array(z.string().uuid()).min(1).max(1000) }))
+  .handler(async ({ data }) => {
+    const { client } = await requireDeveloper(data.accessToken)
+    const schema = client.schema('rebobinadeira')
+    const ids = [...new Set(data.ids)]
+    const { data: registros, error: readError } = await schema.from('lancamentos_lixeira').select('id,producao_id').in('id', ids)
+    if (readError) throw new Error('Não foi possível localizar os itens da lixeira: ' + readError.message)
+    if (!registros?.length || registros.length !== ids.length) throw new Error('Um ou mais itens não foram encontrados na lixeira.')
+    const producaoIds = registros.map((item) => item.producao_id)
+    const { error: alertError } = await schema.from('alertas_bobinas').delete().in('producao_id', producaoIds)
+    if (alertError) throw new Error('Não foi possível remover os alertas vinculados: ' + alertError.message)
+    const { error: movementError } = await schema.from('movimentacoes_bobinas').delete().in('producao_id', producaoIds)
+    if (movementError) throw new Error('Não foi possível remover os movimentos vinculados: ' + movementError.message)
+    const { error: rowError } = await schema.from('bobinas').delete().in('id', producaoIds)
+    if (rowError) throw new Error('Não foi possível excluir definitivamente os lançamentos: ' + rowError.message)
+    const { error: trashError } = await schema.from('lancamentos_lixeira').delete().in('id', ids)
+    if (trashError) throw new Error('Os lançamentos foram removidos, mas não foi possível limpar a lixeira: ' + trashError.message)
+    return { success: true, quantidade: registros.length }
+  })
+
 
 export const importarCsvRebobinadeira = createServerFn({ method: 'POST' })
   .validator(
