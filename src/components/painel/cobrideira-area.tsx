@@ -1229,9 +1229,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
 
       <main className="mx-auto grid max-w-[96rem] gap-3 px-3 py-3 sm:px-4 sm:py-4">
         {secao === 'estoque-atual' ? (
-          <Panel title="Indicadores · Estoque Atual Virgem" description="Visão do saldo físico, com edição independente do histórico de produção.">
-            <EstoqueAtualCobrideira isDeveloper={isDeveloper} tipoEstoque="VIRGEM" />
-          </Panel>
+          <EstoqueAtualCobrideira isDeveloper={isDeveloper} tipoEstoque="VIRGEM" />
         ) : secao === 'estoque-minimo' ? (
           <Panel title="Indicadores · Estoque Mínimo" description="Comparativo dos estoques mínimos por peso e por metragem.">
             <EstoqueMinimoCobrideira isDeveloper={isDeveloper} />
