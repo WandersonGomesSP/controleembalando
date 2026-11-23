@@ -136,8 +136,12 @@ export function EstoqueColaCobrideira() {
       if (!atual.fornecedor && item.fornecedor_cola) atual.fornecedor = item.fornecedor_cola
       mapa.set(codigo, atual)
     }
-    return [...mapa.values()].sort((a, b) => b.dataEntrada.localeCompare(a.dataEntrada) || a.codigo.localeCompare(b.codigo))
-  }, [dados.historico, dados.containers])
+    return [...mapa.values()].sort((a, b) =>
+      ordemEstoque === 'desc'
+        ? b.dataEntrada.localeCompare(a.dataEntrada) || a.codigo.localeCompare(b.codigo)
+        : a.dataEntrada.localeCompare(b.dataEntrada) || a.codigo.localeCompare(b.codigo)
+    )
+  }, [dados.historico, dados.containers, ordemEstoque])
 
   async function salvarEntrada(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -431,7 +435,11 @@ export function EstoqueColaCobrideira() {
         <Panel title="Histórico de cola por código" description="A quantidade de cola líquida é acumulada automaticamente conforme as bobinas utilizam o mesmo código interno.">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[850px] text-left text-xs">
-              <thead className="bg-slate-100 text-slate-700"><tr>{['Código do container','Data de entrada','Bobinas','Cola líquida utilizada','Lote','Fornecedor','Situação'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}</tr></thead>
+              <thead className="bg-slate-100 text-slate-700"><tr>
+                <th className="px-3 py-2">Código do container</th>
+                <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de entrada {ordemEstoque === 'desc' ? '↓' : '↑'}</button></th>
+                {['Bobinas','Cola líquida utilizada','Lote','Fornecedor','Situação'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
+              </tr></thead>
               <tbody>{historicoAgrupado.map((item) => <tr key={item.codigo} className="border-b border-slate-100"><td className="px-3 py-2 font-semibold">{item.codigo}</td><td className="px-3 py-2">{item.dataEntrada ? new Date(item.dataEntrada + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td><td className="px-3 py-2">{item.bobinas}</td><td className="px-3 py-2 font-bold">{kg(item.cola)}</td><td className="px-3 py-2">{item.lote || '—'}</td><td className="px-3 py-2">{item.fornecedor || '—'}</td><td className="px-3 py-2">{item.status === 'ENVIADO_BAHIA' ? 'Enviado para Bahia' : item.status === 'CONSUMIDO_PRODUCAO' ? 'Utilizado na produção' : 'Histórico anterior'}</td></tr>)}</tbody>
             </table>
             {!historicoAgrupado.length && <p className="py-8 text-center text-sm text-slate-500">Ainda não há consumo registrado.</p>}
