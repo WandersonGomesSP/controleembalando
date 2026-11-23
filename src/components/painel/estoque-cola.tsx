@@ -64,7 +64,7 @@ export function EstoqueColaCobrideira() {
   React.useEffect(() => { void carregar() }, [carregar])
 
   const atualizar = (campo: keyof typeof form, valor: string) => setForm((atual) => ({ ...atual, [campo]: valor }))
-  const numero = (valor: string) => Number(valor.trim().replace(/\./g, '').replace(',', '.'))
+  const numero = (valor: string) => { const texto = valor.trim(); return Number(texto.includes(',') && texto.includes('.') ? texto.replace(/\./g, '').replace(',', '.') : texto.replace(',', '.')) }
   const valorKg = numero(form.peso_por_container_kg) > 0
     ? numero(form.valor_por_container) / numero(form.peso_por_container_kg)
     : 0
