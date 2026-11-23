@@ -1190,21 +1190,21 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             </button>
             <button
               type="button"
-              aria-current={secao === 'estoque-atual' || secao === 'estoque-minimo' ? 'page' : undefined}
-              onClick={() => setSecao('estoque-atual')}
-              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'estoque-atual' || secao === 'estoque-minimo' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
-            >
-              <ChartNoAxesCombined className="size-4" />
-              Indicadores
-            </button>
-            <button
-              type="button"
               aria-current={secao === 'registros' ? 'page' : undefined}
               onClick={() => setSecao('registros')}
               className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'registros' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
             >
               <ClipboardList className="size-4" />
               Histórico de produção
+            </button>
+            <button
+              type="button"
+              aria-current={secao === 'estoque-atual' || secao === 'estoque-minimo' ? 'page' : undefined}
+              onClick={() => setSecao('estoque-atual')}
+              className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'estoque-atual' || secao === 'estoque-minimo' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}
+            >
+              <ChartNoAxesCombined className="size-4" />
+              Indicadores
             </button>
             {false && isDeveloper && <button type="button" aria-current={secao === 'operadores' ? 'page' : undefined} onClick={() => { setSecao('operadores'); void carregarOperadores() }} className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-center text-[11px] font-semibold leading-tight whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm ${secao === 'operadores' ? 'bg-[#e3262e] text-black shadow-sm' : 'bg-[#c91d26] text-black hover:bg-[#e3262e]'}`}>
               <Users className="size-4" /> Operadores
