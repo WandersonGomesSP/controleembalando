@@ -1755,3 +1755,75 @@ export const permanentlyDeleteCurrentStockTrashRecord = createServerFn({ method:
     if (count === 0) throw new Error('A bobina não está mais na lixeira.')
     return { success: true }
   })
+
+
+const entradaColaSchema = tokenInput.extend({
+  data_chegada: isoDate,
+  nf: z.string().trim().min(1).max(80),
+  produto: z.string().trim().min(1).max(80),
+  lote: z.string().trim().min(1).max(100),
+  quantidade_containers: z.number().int().positive().max(10000),
+  peso_por_container_kg: z.number().positive().max(100000),
+  valor_por_container: z.number().min(0).max(100000000),
+  fornecedor: z.string().trim().min(1).max(160),
+  observacoes: z.string().max(1000).optional(),
+})
+
+export const listarControleCola = createServerFn({ method: 'POST' })
+  .validator(tokenInput)
+  .handler(async ({ data }) => {
+    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const cola = (client as any).schema('cobrideira')
+    const [entradasResult, saldoResult, historicoResult, containersResult] = await Promise.all([
+      cola.from('estoque_cola_entradas').select('*').order('data_chegada', { ascending: false }).order('id', { ascending: false }).limit(500),
+      cola.from('vw_estoque_cola_saldo').select('*').order('data_chegada', { ascending: false }).order('id', { ascending: false }).limit(500),
+      cola.from('vw_historico_cola').select('*').order('data_producao', { ascending: false }).order('numero_bobina', { ascending: false }).limit(2000),
+      cola.from('estoque_cola_containers').select('codigo,status,entrada_id,primeira_bobina,primeiro_uso_em,enviado_em').order('criado_em', { ascending: false }).limit(2000),
+    ])
+    for (const result of [entradasResult, saldoResult, historicoResult, containersResult]) {
+      if (result.error) throw new Error(`Não foi possível carregar o controle de cola: ${result.error.message}`)
+    }
+    return {
+      entradas: entradasResult.data ?? [],
+      saldo: saldoResult.data ?? [],
+      historico: historicoResult.data ?? [],
+      containers: containersResult.data ?? [],
+    }
+  })
+
+export const registrarEntradaCola = createServerFn({ method: 'POST' })
+  .validator(entradaColaSchema)
+  .handler(async ({ data }) => {
+    const { client, user } = await requireCobrideiraEditor(data.accessToken)
+    const { data: entrada, error } = await (client as any).schema('cobrideira').from('estoque_cola_entradas')
+      .insert({
+        data_chegada: data.data_chegada,
+        nf: data.nf,
+        produto: data.produto,
+        lote: data.lote,
+        quantidade_containers: data.quantidade_containers,
+        peso_por_container_kg: data.peso_por_container_kg,
+        valor_por_container: data.valor_por_container,
+        fornecedor: data.fornecedor,
+        observacoes: data.observacoes ?? null,
+        criado_por: user.id,
+      })
+      .select('*')
+      .single()
+    if (error) throw new Error(`Não foi possível registrar a entrada de cola: ${error.message}`)
+    return entrada
+  })
+
+export const retirarContainersCola = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ codigos: z.array(z.string().trim().min(1).max(100)).min(1).max(500) }))
+  .handler(async ({ data }) => {
+    const { client, user } = await requireCobrideiraEditor(data.accessToken)
+    const codigos = [...new Set(data.codigos.map((codigo) => codigo.trim()).filter(Boolean))]
+    if (!codigos.length) throw new Error('Informe pelo menos um código de container.')
+    const { data: resultado, error } = await (client as any).schema('cobrideira').rpc('registrar_retirada_cola', {
+      p_codigos: codigos,
+      p_user_id: user.id,
+    })
+    if (error) throw new Error(`Não foi possível registrar a retirada: ${error.message}`)
+    return resultado as { retirados: number; ja_enviados: string[] }
+  })
