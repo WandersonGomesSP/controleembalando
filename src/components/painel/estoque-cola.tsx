@@ -395,17 +395,40 @@ export function EstoqueColaCobrideira() {
                 <table className="w-full min-w-[1100px] text-left text-xs">
                   <thead className="bg-slate-100 text-slate-700"><tr>
                     <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de entrada {ordemEstoque === 'desc' ? '↓' : '↑'}</button></th>
-                    {['NF','Produto','Lote','Códigos dos containers','Fornecedor','Containers recebidos','Disponíveis','Peso por container','Valor/kg'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
+                    {['NF','Produto','Lote','Detalhes','Fornecedor','Containers recebidos','Disponíveis','Peso por container','Valor/kg'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
                   </tr></thead>
                   <tbody>{saldoOrdenado.map((item) => {
                     const codigosLote = dados.containers.filter((container) => container.entrada_id === item.id).map((container) => container.codigo)
-                    return <tr key={item.id} className="border-b border-slate-100">
-                      <td className="px-3 py-2">{new Date(item.data_chegada + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
-                      <td className="px-3 py-2">{item.nf}</td><td className="px-3 py-2">{item.produto}</td><td className="px-3 py-2">{item.lote}</td>
-                      <td className="px-3 py-2 font-mono">{codigosLote.join(', ') || '—'}</td><td className="px-3 py-2">{item.fornecedor}</td>
-                      <td className="px-3 py-2">{item.quantidade_containers}</td><td className="px-3 py-2 font-bold">{item.containers_disponiveis}</td>
-                      <td className="px-3 py-2">{kg(item.peso_por_container_kg)}</td><td className="px-3 py-2">{dinheiro(item.valor_por_kg)}</td>
-                    </tr>
+                    return (
+                      <React.Fragment key={item.id}>
+                        <tr className={'border-b border-slate-100 ' + (item.entrada?.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-100' : '')}>
+                          <td className="px-3 py-2">{new Date(item.data_chegada + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                          <td className="px-3 py-2">{item.nf}</td><td className="px-3 py-2">{item.produto}</td><td className="px-3 py-2">{item.lote}</td>
+                          <td className="px-3 py-2">
+                            <button type="button" onClick={() => setLoteExpandido((atual) => atual === item.id ? null : item.id)} className="inline-flex items-center rounded-md bg-[#c91d26] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#e3262e]">
+                              {loteExpandido === item.id ? 'Ocultar códigos' : 'Detalhes (' + codigosLote.length + ')'}
+                            </button>
+                          </td>
+                          <td className="px-3 py-2">{item.fornecedor}</td>
+                          <td className="px-3 py-2">{item.quantidade_containers}</td><td className="px-3 py-2 font-bold">{item.containers_disponiveis}</td>
+                          <td className="px-3 py-2">{kg(item.peso_por_container_kg)}</td><td className="px-3 py-2">{dinheiro(item.valor_por_kg)}</td>
+                        </tr>
+                        {loteExpandido === item.id && (
+                          <tr className={item.localizacao === 'GALPAO_MARIO_COVAS' ? 'bg-yellow-50' : 'bg-slate-50'}>
+                            <td colSpan={10} className="px-4 py-3">
+                              <div className="mb-2 flex items-center justify-between gap-2">
+                                <span className="text-xs font-semibold text-slate-700">Códigos internos do lote {item.lote}</span>
+                                {item.localizacao === 'GALPAO_MARIO_COVAS' && <span className="rounded-full bg-yellow-300 px-2 py-1 text-[11px] font-semibold text-yellow-950">Galpão da Mario Covas</span>}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {codigosLote.map((codigo) => <span key={codigo} className="rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-xs font-semibold text-slate-800">{codigo}</span>)}
+                                {!codigosLote.length && <span className="text-xs text-slate-500">Nenhum código vinculado a este lote.</span>}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )
                   })}</tbody>
                 </table>
                 {!saldoOrdenado.length && <p className="py-8 text-center text-sm text-slate-500">Nenhuma entrada de cola cadastrada.</p>}
@@ -435,7 +458,7 @@ export function EstoqueColaCobrideira() {
                     <td className="px-3 py-2">{item.entrada?.lote || '—'}</td><td className="px-3 py-2">{item.entrada?.nf || '—'}</td>
                     <td className="px-3 py-2">{item.entrada?.fornecedor || '—'}</td>
                     <td className="px-3 py-2">{item.status === 'DISPONIVEL' ? 'Disponível' : item.status === 'CONSUMIDO_PRODUCAO' ? 'Utilizado na produção' : item.status === 'ENVIADO_BAHIA' ? 'Enviado para Bahia' : 'Histórico anterior'}</td>
-                    <td className="px-3 py-2">{item.localizacao === 'GALPAO_MARIO_COVAS' ? 'Galpão da Mario Covas' : 'Estoque'}</td>
+                    <td className="px-3 py-2">{item.entrada?.localizacao === 'GALPAO_MARIO_COVAS' ? 'Galpão da Mario Covas' : 'Estoque'}</td>
                     <td className="px-3 py-2"><button type="button" onClick={() => { setSelecionados([item.codigo]); abrirEdicaoContainer(item) }} className="rounded-md bg-[#c91d26] px-3 py-1.5 font-semibold text-white hover:bg-[#e3262e]">Editar</button></td>
                   </tr>)}</tbody>
                 </table>
@@ -494,7 +517,7 @@ export function EstoqueColaCobrideira() {
           <div className="w-full max-w-md space-y-4 rounded-xl bg-white p-5 shadow-xl">
             <div><h3 className="text-lg font-bold text-slate-900">{editandoEmLote ? `Alterar ${containersSelecionados.length} containers` : 'Editar container'}</h3><p className="text-xs text-slate-500">Altere o código interno e/ou a localização.</p></div>
             {!editandoEmLote && <Field label="Código do container"><TextInput value={codigoEditado} onChange={(e) => setCodigoEditado(e.target.value)} /></Field>}
-            <Field label="Localização">
+            <Field label="Localização do lote">
               <select value={localizacaoEditada} onChange={(e) => setLocalizacaoEditada(e.target.value as 'ESTOQUE' | 'GALPAO_MARIO_COVAS' | '')} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm">
                 {editandoEmLote && <option value="">Manter localização atual</option>}
                 <option value="ESTOQUE">Estoque</option>
