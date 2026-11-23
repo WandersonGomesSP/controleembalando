@@ -1803,6 +1803,42 @@ export const permanentlyDeleteCurrentStockTrashRecord = createServerFn({ method:
   })
 
 
+const parametroEstoqueMinimoVirgemSchema = tokenInput.extend({
+  referencia: z.string().trim().min(1).max(120),
+  lead_time_dias: z.number().int().min(0).max(3650),
+  minimo_calibrado_kg: z.number().min(0).nullable(),
+  kg_bopp_por_jumbo: z.number().positive().nullable(),
+})
+
+export const listarEstoqueMinimoVirgem = createServerFn({ method: 'POST' })
+  .validator(tokenInput)
+  .handler(async ({ data }) => {
+    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const estoque = (client as any).schema('estoque_atual')
+    const { data: registros, error } = await estoque.from('vw_estoque_minimo_virgem')
+      .select('*').order('referencia', { ascending: true })
+    if (error) throw new Error(`Não foi possível carregar o estoque mínimo virgem: ${error.message}`)
+    return registros ?? []
+  })
+
+export const salvarParametroEstoqueMinimoVirgem = createServerFn({ method: 'POST' })
+  .validator(parametroEstoqueMinimoVirgemSchema)
+  .handler(async ({ data }) => {
+    const { client } = await requireAdminOrDeveloper(data.accessToken)
+    const estoque = (client as any).schema('estoque_atual')
+    const { data: registro, error } = await estoque.from('parametros_estoque_minimo_virgem')
+      .upsert({
+        referencia: data.referencia,
+        lead_time_dias: data.lead_time_dias,
+        minimo_calibrado_kg: data.minimo_calibrado_kg,
+        kg_bopp_por_jumbo: data.kg_bopp_por_jumbo,
+        atualizado_em: new Date().toISOString(),
+      }, { onConflict: 'referencia' }).select('*').single()
+    if (error) throw new Error(`Não foi possível salvar os parâmetros de ${data.referencia}: ${error.message}`)
+    return registro
+  })
+
+
 const entradaColaSchema = tokenInput.extend({
   data_chegada: isoDate,
   nf: z.string().trim().min(1).max(80),
