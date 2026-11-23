@@ -131,7 +131,7 @@ function lerCsv(texto: string, nomeArquivo: string) {
     const dataConvertida = converterData(dataOriginal)
     const data = dataConvertida && dataConvertida >= '2000-01-01' ? dataConvertida : null
     const nfBruta = valor(colunas, 'nf', 'nota_fiscal', 'nota', 'numero_nf')
-    const nf = nfBruta.match(/\\d+/)?.[0] ?? ''
+    const nf = nfBruta.match(/\d+/)?.[0] ?? ''
     const corExplicita = valor(colunas, 'cor', 'cor_filme', 'cor_do_filme')
     const corDaMedida = medidaTexto.match(/^\s*\d+(?:[.,]\d+)?(?:\.\s*|\s+)([A-ZÀ-ÿ][A-ZÀ-ÿ\s]+)$/i)?.[1]?.trim() || ''
     const cor = corExplicita || corDaMedida || null
