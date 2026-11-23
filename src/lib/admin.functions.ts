@@ -1832,7 +1832,7 @@ const atualizarContainersColaSchema = tokenInput.extend({
   itens: z.array(z.object({
     codigo_atual: z.string().trim().min(1).max(100),
     codigo_novo: z.string().trim().min(1).max(100),
-    localizacao: z.enum(['ESTOQUE', 'GALPAO_MARIO_COVAS']),
+    localizacao: z.enum(['ESTOQUE', 'GALPAO_MARIO_COVAS']).optional(),
   })).min(1).max(500),
 })
 
@@ -1850,8 +1850,13 @@ export const atualizarContainersCola = createServerFn({ method: 'POST' })
         if (!atual) throw new Error(`O container ${item.codigo_atual} não foi encontrado.`)
         if (atual.status !== 'DISPONIVEL') throw new Error(`Só é permitido alterar o código de containers ainda disponíveis: ${item.codigo_atual}`)
       }
+      const patch = {
+        ...(item.codigo_novo !== item.codigo_atual ? { codigo: item.codigo_novo } : {}),
+        ...(item.localizacao ? { localizacao: item.localizacao } : {}),
+      }
+      if (!Object.keys(patch).length) continue
       const { data: registro, error } = await cola.from('estoque_cola_containers')
-        .update({ codigo: item.codigo_novo, localizacao: item.localizacao })
+        .update(patch)
         .eq('codigo', item.codigo_atual)
         .select('codigo')
         .maybeSingle()
