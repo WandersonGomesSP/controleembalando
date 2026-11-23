@@ -17,7 +17,7 @@ type Entrada = {
   valor_por_kg: number
   fornecedor: string
 }
-type Saldo = Entrada & { containers_disponiveis: number }
+type Saldo = Entrada & { containers_disponiveis: number; localizacao: 'ESTOQUE' | 'GALPAO_MARIO_COVAS' }
 type Historico = {
   numero_bobina: string
   codigo_container: string
