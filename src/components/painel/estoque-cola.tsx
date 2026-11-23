@@ -326,7 +326,8 @@ export function EstoqueColaCobrideira() {
     { id: 'estoque', label: 'Estoque', icon: <Package className="size-4" /> },
     { id: 'entrada', label: 'Entrada de cola', icon: <ArrowDownToLine className="size-4" /> },
     { id: 'retirada', label: 'Retirada para Bahia', icon: <ArrowUpFromLine className="size-4" /> },
-    { id: 'historico', label: 'Histórico de cola', icon: <History className="size-4" /> },
+    { id: 'historico', label: 'Histórico de consumo', icon: <History className="size-4" /> },
+    { id: 'envios', label: 'Histórico de envio para BA', icon: <ArrowUpFromLine className="size-4" /> },
   ]
 
   return (
@@ -357,12 +358,21 @@ export function EstoqueColaCobrideira() {
             <div className="rounded-lg border border-slate-200 p-4"><p className="text-xs text-slate-500">Peso disponível</p><p className="mt-1 text-2xl font-bold">{kg(totalKg)}</p></div>
             <div className="rounded-lg border border-slate-200 p-4"><p className="text-xs text-slate-500">Códigos no histórico</p><p className="mt-1 text-2xl font-bold">{historicoAgrupado.length.toLocaleString('pt-BR')}</p></div>
           </div>
-          <Panel title="Consumo móvel e capacidade de produção" description="Base geral da Cobrideira: cada bobina equivale a 300 kg de cola líquida arredondados. Consumo móvel calculado sobre os últimos 90 dias.">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Panel title="Consumo móvel e capacidade de produção" description="Cálculo baseado na soma real do campo Cola (kg) da Cobrideira nos últimos 90 dias.">
+            <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <Field label="Lead time do consumo (dias)">
+                <TextInput type="number" min="0" max="365" step="1" value={leadTimeDias} onChange={(e) => setLeadTimeDias(e.target.value)} />
+              </Field>
+              <button type="button" onClick={() => void salvarLeadTimeConsumo()} disabled={salvandoLeadTime} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#c91d26] px-4 text-xs font-semibold text-white hover:bg-[#e3262e] disabled:opacity-50">
+                {salvandoLeadTime ? 'Salvando...' : 'Salvar lead time'}
+              </button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Consumo móvel mensal</p><p className="mt-1 text-xl font-bold">{kg(Number(dados.indicadores?.consumo_movel_mensal_kg || 0))}</p></div>
               <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Consumo diário</p><p className="mt-1 text-xl font-bold">{kg(Number(dados.indicadores?.consumo_diario_kg || 0))}</p></div>
-              <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Estoque mínimo · 25 dias</p><p className="mt-1 text-xl font-bold">{kg(Number(dados.indicadores?.estoque_minimo_25_dias_kg || 0))}</p></div>
-              <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Capacidade estimada</p><p className="mt-1 text-xl font-bold">{Number(dados.indicadores?.capacidade_producao_bobinas || 0).toLocaleString('pt-BR',{maximumFractionDigits:1})} bobinas</p><p className="text-[11px] text-slate-500">Considerando 300 kg por bobina</p></div>
+              <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Estoque mínimo · {Number(dados.indicadores?.lead_time_dias ?? leadTimeDias)} dias</p><p className="mt-1 text-xl font-bold">{kg(Number(dados.indicadores?.estoque_minimo_25_dias_kg || 0))}</p></div>
+              <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Média Cola por bobina</p><p className="mt-1 text-xl font-bold">{kg(Number(dados.indicadores?.consumo_medio_bobina_kg || 0))}</p></div>
+              <div className="rounded-lg border border-slate-200 p-3"><p className="text-xs text-slate-500">Capacidade estimada</p><p className="mt-1 text-xl font-bold">{Number(dados.indicadores?.capacidade_producao_bobinas || 0).toLocaleString('pt-BR',{maximumFractionDigits:1})} bobinas</p><p className="text-[11px] text-slate-500">Média real do campo Cola (kg)</p></div>
             </div>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[520px] text-left text-xs">
