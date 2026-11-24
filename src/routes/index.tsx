@@ -4,6 +4,7 @@ import {
   Boxes,
   Cylinder,
   LayoutDashboard,
+  Package,
   Scale,
   type LucideIcon,
 } from 'lucide-react'
@@ -20,6 +21,8 @@ import { EntradaTubeteTab } from '@/components/painel/entrada-tubete-tab'
 import { AccessGate } from '@/components/painel/access-gate'
 import { CobrideiraArea } from '@/components/painel/cobrideira-area'
 import { RebobinadeiraArea } from '@/components/painel/rebobinadeira-area'
+import { ReportBugButton } from '@/components/painel/report-bug-button'
+import { EstoqueBoppVirgemTab } from '@/components/painel/estoque-bopp-virgem-tab'
 
 export const Route = createFileRoute('/')({
   component: () => (
@@ -51,6 +54,7 @@ const ABAS: {
   },
   { id: 'entrada', label: '+ Entrada', Component: EntradaTab },
   { id: 'saida', label: '- Saída', Component: SaidaTab },
+  { id: 'bopp-virgem', label: 'Estoque BOPP Virgem', icon: Package, Component: EstoqueBoppVirgemTab },
   { id: 'ajuste', label: 'Ajuste Peso', icon: Scale, Component: AjustePesoTab },
   {
     id: 'producao',
@@ -87,13 +91,16 @@ function Painel({ onChangeArea }: { onChangeArea: () => void }) {
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={onChangeArea}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-black bg-black px-3 text-xs font-semibold text-white transition-colors hover:bg-zinc-800 hover:text-white !bg-black !text-white !border-black"
-              >
-                Trocar de setor
-              </button>
+              <div className="flex flex-col items-end gap-1">
+                <ReportBugButton area="Tubeteira" />
+                <button
+                  type="button"
+                  onClick={onChangeArea}
+                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-black bg-black px-3 text-xs font-semibold text-white transition-colors hover:bg-zinc-800 hover:text-white !bg-black !text-white !border-black"
+                >
+                  Trocar de setor
+                </button>
+              </div>
             </div>
 
             <nav
