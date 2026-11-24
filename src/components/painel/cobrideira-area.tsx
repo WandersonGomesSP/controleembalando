@@ -29,7 +29,7 @@ import { EstoqueMinimoCobrideira } from '@/components/painel/rebobinadeira-area'
 import { EstoqueAtualCobrideira } from '@/components/painel/estoque-atual'
 import { EstoqueColaCobrideira } from '@/components/painel/estoque-cola'
 import { downloadCobrideiraLabel } from '@/lib/cobrideira-label'
-import { synchronizeCobrideiraBobina, updateCobrideiraBobina, moveCobrideiraBobinaToTrash, listCobrideiraBobinasTrash, restoreCobrideiraBobinaFromTrash, permanentlyDeleteCobrideiraBobina } from '@/lib/admin.functions'
+import { synchronizeCobrideiraBobina, updateCobrideiraBobina, moveCobrideiraBobinaToTrash, listCobrideiraBobinasTrash, restoreCobrideiraBobinaFromTrash, permanentlyDeleteCobrideiraBobina, listCurrentStockTrash, restoreCurrentStockRecord, permanentlyDeleteCurrentStockTrashRecord } from '@/lib/admin.functions'
 import type {
   CobrideiraBobinaInsert,
   CobrideiraBobinaRow,
@@ -532,7 +532,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [novoOperador, setNovoOperador] = React.useState('')
   const [turnoNovoOperador, setTurnoNovoOperador] = React.useState<'1º TURNO' | '2º TURNO'>('1º TURNO')
   const [carregandoOperadores, setCarregandoOperadores] = React.useState(false)
-  const [itensLixeira, setItensLixeira] = React.useState<CobrideiraBobinaLixeiraRow[]>([])
+  const [itensLixeira, setItensLixeira] = React.useState<CobrideiraBobinaLixeiraRow[]>([])\n  const [itensLixeiraVirgem, setItensLixeiraVirgem] = React.useState<any[]>([])
   const [carregandoLixeira, setCarregandoLixeira] = React.useState(false)
   const [busca, setBusca] = React.useState('')
   const [mostrarFiltros, setMostrarFiltros] = React.useState(false)
@@ -942,6 +942,23 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     } finally {
       setCarregandoLixeira(false)
     }
+  }
+
+  async function restaurarBobinaEstoqueVirgem(item: any) {
+    try {
+      await restoreCurrentStockRecord({ data: { accessToken: await tokenAtual(), tipoEstoque: 'VIRGEM', id: item.id } })
+      toast.success(`Bobina ${item.codigo ?? ''} restaurada para o Estoque Atual Virgem.`)
+      await carregarLixeira()
+    } catch (error) { toast.error('Não foi possível restaurar a bobina do estoque virgem.', { description: erroMensagem(error) }) }
+  }
+
+  async function excluirBobinaEstoqueVirgem(item: any) {
+    if (!window.confirm(`Excluir definitivamente a bobina ${item.codigo ?? ''}?`)) return
+    try {
+      await permanentlyDeleteCurrentStockTrashRecord({ data: { accessToken: await tokenAtual(), tipoEstoque: 'VIRGEM', id: item.id } })
+      setItensLixeiraVirgem((atuais) => atuais.filter((x) => x.id !== item.id))
+      toast.success('Bobina do Estoque Atual Virgem excluída definitivamente.')
+    } catch (error) { toast.error('Não foi possível excluir definitivamente.', { description: erroMensagem(error) }) }
   }
 
   async function restaurarDaLixeira(numeroBobina: string) {
@@ -1935,6 +1952,18 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                     </div>
                   </div>
                 ))}
+                {itensLixeiraVirgem.map((item) => (
+                  <article key={`virgem-${item.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
+                    <div>
+                      <p className="font-mono font-bold">{item.codigo} <span className="ml-2 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold">ESTOQUE VIRGEM</span></p>
+                      <p className="text-sm text-muted-foreground">{item.dados?.categoria} · {item.dados?.medida_texto} · {item.dados?.peso_kg ?? 0} kg · {item.dados?.fornecedor ?? 'Fornecedor não informado'} · Excluída em {new Date(item.excluida_em).toLocaleString('pt-BR')}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => void restaurarBobinaEstoqueVirgem(item)} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-muted"><RotateCcw className="size-4" /> Restaurar</button>
+                      <button type="button" onClick={() => void excluirBobinaEstoqueVirgem(item)} className="inline-flex items-center gap-2 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"><Trash2 className="size-4" /> Excluir definitivamente</button>
+                    </div>
+                  </article>
+                ))}
               </div>
             )}
           </Panel>
@@ -1943,7 +1972,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             <div className="mb-4 flex justify-end">
               <button type="button" onClick={() => void carregarLixeira()} disabled={carregandoLixeira} className="rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-muted disabled:opacity-50">{carregandoLixeira ? 'Atualizando...' : 'Atualizar lixeira'}</button>
             </div>
-            {carregandoLixeira ? <p className="py-8 text-center text-sm text-muted-foreground">Carregando lixeira...</p> : itensLixeira.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">A lixeira está vazia.</p> : (
+            {carregandoLixeira ? <p className="py-8 text-center text-sm text-muted-foreground">Carregando lixeira...</p> : itensLixeira.length === 0 && itensLixeiraVirgem.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">A lixeira está vazia.</p> : (
               <div className="grid gap-3">
                 {itensLixeira.map((item) => (
                   <article key={item.numero_bobina} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
