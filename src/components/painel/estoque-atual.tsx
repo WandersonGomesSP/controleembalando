@@ -26,6 +26,15 @@ type ResumoProduto = {
   estoque_minimo_jumbos: number | null; status_origem: string | null; folga_estoque: string | null
   categoria: string
 }
+type ResumoMinimoVirgem = {
+  referencia: string
+  bobinas_estoque: number
+  peso_estoque_kg: number
+  minimo_calculado_kg: number
+  minimo_calibrado_kg: number | null
+  minimo_calibrado_bobinas: number | null
+  peso_medio_bobina_kg: number | null
+}
 type BobinaLixeira = { id: string; categoria: Categoria; codigo: string | null; dados: BobinaEstoque; excluida_em: string }
 type FormEstoque = {
   categoria: Categoria; data_entrada: string; fornecedor: string; medida: string; nf: string; aba: string
@@ -159,6 +168,7 @@ function lerCsv(texto: string, nomeArquivo: string) {
 export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: { isDeveloper: boolean; tipoEstoque?: 'VIRGEM' | 'ADESIVADO' }) {
   const [bobinas, setBobinas] = React.useState<BobinaEstoque[]>([])
   const [resumos, setResumos] = React.useState<ResumoProduto[]>([])
+  const [minimosVirgem, setMinimosVirgem] = React.useState<ResumoMinimoVirgem[]>([])
   const [usosPorProduto, setUsosPorProduto] = React.useState<Record<string, number>>({})
   const [alertasDesativados, setAlertasDesativados] = React.useState<string[]>([])
   const [paginaAlertas, setPaginaAlertas] = React.useState(0)
@@ -185,6 +195,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
       const result = await listCurrentStock({ data: { accessToken: sessionData.session.access_token, tipoEstoque } })
       setBobinas(result.bobinas as BobinaEstoque[])
       setResumos(result.resumos as ResumoProduto[])
+      setMinimosVirgem((result.minimosVirgem ?? []) as ResumoMinimoVirgem[])
       if (tipoEstoque === 'ADESIVADO') {
         try {
         const dataLimite = new Date()
@@ -439,6 +450,67 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
         <button type="button" onClick={() => setAba('ATIVAS')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'ATIVAS' ? 'bg-[#e3262e] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{tituloEstoque}</button>
         {isDeveloper && <button type="button" onClick={() => setAba('LIXEIRA')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'LIXEIRA' ? 'bg-[#e3262e] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>Lixeira ({lixeira.length})</button>}
       </div>
+
+      {tipoEstoque === 'VIRGEM' && (
+        <section className="min-w-0 space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Painel de estoque por medida</h3>
+              <p className="text-xs text-slate-500">Saldo total comparado ao estoque mínimo de cada medida.</p>
+            </div>
+            <span className="text-xs text-slate-500">{minimosVirgem.length} medidas monitoradas</span>
+          </div>
+          {minimosVirgem.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+              Os indicadores por medida aparecerão quando houver dados de estoque mínimo virgem.
+            </div>
+          ) : (
+            <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {minimosVirgem.map((item) => {
+                const minimo = item.minimo_calibrado_kg ?? item.minimo_calculado_kg
+                const minimoValido = minimo != null && Number(minimo) > 0
+                const atual = Number(item.peso_estoque_kg ?? 0)
+                const percentual = minimoValido ? ((atual - Number(minimo)) / Number(minimo)) * 100 : null
+                const status = !minimoValido ? 'ATENÇÃO' : percentual! < 0 ? 'COMPRAR' : percentual! <= 20 ? 'ATENÇÃO' : 'OK'
+                const estilo = status === 'COMPRAR' ? 'bg-red-100 text-red-800' : status === 'ATENÇÃO' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800'
+                return (
+                  <article key={item.referencia} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Medida</p>
+                        <h4 className="truncate text-lg font-bold text-slate-900">{item.referencia}</h4>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${estilo}`}>{status}</span>
+                        {percentual !== null && <span className={`text-xs font-bold tabular-nums ${percentual < 0 ? 'text-red-700' : percentual <= 20 ? 'text-amber-700' : 'text-emerald-700'}`}>{percentual >= 0 ? '+' : ''}{percentual.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</span>}
+                        {!minimoValido && <span className="text-[10px] text-amber-800">Mínimo não calibrado</span>}
+                      </div>
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <div className="rounded-lg bg-slate-50 p-2">
+                        <p className="text-[10px] text-slate-500">Quantidade atual</p>
+                        <p className="text-sm font-bold tabular-nums text-slate-900">{fmt(item.bobinas_estoque)} bobinas</p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 p-2">
+                        <p className="text-[10px] text-slate-500">Peso atual</p>
+                        <p className="text-sm font-bold tabular-nums text-slate-900">{fmt(atual, 1)} kg</p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 p-2">
+                        <p className="text-[10px] text-slate-500">Mínimo em kg</p>
+                        <p className="text-sm font-bold tabular-nums text-slate-900">{minimoValido ? `${fmt(Number(minimo), 1)} kg` : '—'}</p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 p-2">
+                        <p className="text-[10px] text-slate-500">Mínimo em bobinas</p>
+                        <p className="text-sm font-bold tabular-nums text-slate-900">{item.minimo_calibrado_bobinas == null ? '—' : fmt(item.minimo_calibrado_bobinas)}</p>
+                      </div>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2 text-sm text-slate-500"><Boxes className="size-4"/> Bobinas no estoque</div><div className="mt-2 text-2xl font-bold text-slate-900">{fmt(bobinas.length)}</div></div>
