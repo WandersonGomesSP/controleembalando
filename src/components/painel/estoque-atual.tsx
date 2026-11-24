@@ -482,7 +482,10 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                             <div key={b.id} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div><p className="font-mono text-sm font-bold text-slate-900">{b.codigo}</p><p className="text-[10px] text-slate-500">{b.categoria} · {b.fornecedor || 'Fornecedor não informado'}</p></div>
-                                <button type="button" onClick={() => abrirEdicao(b)} className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700">Editar dados</button>
+                                <div className="flex gap-1">
+                                  <button type="button" onClick={() => abrirEdicao(b)} className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700">Editar dados</button>
+                                  {isDeveloper && <button type="button" onClick={() => void excluir(b)} className="rounded-md bg-[#e3262e] px-2.5 py-1 text-xs font-semibold text-white">Mover para lixeira</button>}
+                                </div>
                               </div>
                               <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-600 sm:grid-cols-3">
                                 <span>Entrada: {b.data_entrada ? new Date(`${b.data_entrada}T12:00:00`).toLocaleDateString('pt-BR') : '—'}</span>
