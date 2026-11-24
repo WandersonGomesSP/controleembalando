@@ -514,7 +514,6 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
       </div>
 
 
-      {tipoEstoque === 'ADESIVADO' && <div className="grid gap-3 lg:grid-cols-2">
         {tipoEstoque === 'ADESIVADO' && (
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
