@@ -1750,6 +1750,69 @@ export const updateCurrentStockRecord = createServerFn({ method: 'POST' })
     return updated
   })
 
+export const enviarRelatorioBug = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({
+    area: z.string().trim().min(1).max(100),
+    descricao: z.string().trim().min(10).max(5000),
+    pagina: z.string().trim().max(500).optional(),
+  }))
+  .handler(async ({ data }) => {
+    const { client, user } = await requireDeveloperOrUser(data.accessToken)
+    const apiKey = process.env.RESEND_API_KEY
+    const remetente = process.env.BUG_REPORT_FROM_EMAIL
+    if (!apiKey || !remetente) {
+      throw new Error('O envio de e-mail ainda não foi configurado no servidor. Configure RESEND_API_KEY e BUG_REPORT_FROM_EMAIL.')
+    }
+
+    const destino = 'pcp.sp@embalando.com.br'
+    const nome = user.user_metadata?.full_name ?? user.email ?? 'Usuário do ERP'
+    const pagina = data.pagina || 'Não informada'
+    const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[char] ?? char)
+    const texto = [
+      'Relato de bug - Controle Embalando',
+      '',
+      `Setor: ${data.area}`,
+      `Usuário: ${nome} (${user.email ?? 'e-mail não informado'})`,
+      `Página: ${pagina}`,
+      `Data: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
+      '',
+      'Descrição:',
+      data.descricao,
+    ].join('\\n')
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: remetente,
+        to: [destino],
+        reply_to: user.email ?? undefined,
+        subject: `[ERP] Bug reportado - ${data.area}`,
+        text: texto,
+        html: `<h2>Relato de bug - Controle Embalando</h2><p><b>Setor:</b> ${escapeHtml(data.area)}</p><p><b>Usuário:</b> ${escapeHtml(String(nome))} (${escapeHtml(user.email ?? '')})</p><p><b>Página:</b> ${escapeHtml(pagina)}</p><p><b>Data:</b> ${escapeHtml(new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }))}</p><hr/><p><b>Descrição:</b></p><p style="white-space:pre-wrap">${escapeHtml(data.descricao)}</p>`,
+      }),
+    })
+    const result = await response.json().catch(() => ({})) as { id?: string; message?: string }
+    if (!response.ok) throw new Error(result.message || `O serviço de e-mail recusou o envio (HTTP ${response.status}).`)
+    return { success: true, id: result.id ?? null, destino }
+  })
+
+async function requireDeveloperOrUser(accessToken: string) {
+  const client = createAdminClient()
+  const { data, error } = await client.auth.getUser(accessToken)
+  if (error || !data.user?.email) throw new Error('Sessão inválida. Entre novamente no ERP.')
+
+  const [roleResult, developerResult] = await Promise.all([
+    client.from('user_roles').select('user_id').eq('user_id', data.user.id).maybeSingle(),
+    client.from('developer_accounts').select('email').eq('email', data.user.email.toLowerCase()).maybeSingle(),
+  ])
+  if (roleResult.error || developerResult.error) throw new Error('Não foi possível validar seu acesso ao ERP.')
+  if (!roleResult.data && !developerResult.data) throw new Error('Seu usuário ainda não possui um perfil liberado no ERP.')
+  return { client, user: data.user }
+}
+
 export const listCurrentStockTrash = createServerFn({ method: 'POST' })
   .validator(tokenInput.extend({ tipoEstoque: tipoEstoqueAtualSchema }))
   .handler(async ({ data }) => {
