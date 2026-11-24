@@ -255,6 +255,73 @@ export type RebobinadeiraMovimentoBobinaRow = {
   criado_em: string
 }
 
+
+export type BobinaEstoqueVirgemRow = {
+  id: string
+  categoria: string
+  data_entrada: string | null
+  fornecedor: string | null
+  medida: number | null
+  peso_kg: number | null
+  metragem_m: number | null
+  codigo: string | null
+  cor: string | null
+  linha: string | null
+  origem_arquivo: string
+  importado_em: string
+  observacoes: string | null
+  cliente: string | null
+  nf: string | null
+  aba: string | null
+  medida_texto: string
+  localizacao: 'ESTOQUE' | 'GALPAO_MARIO_COVAS'
+}
+
+export type BobinaEstoqueVirgemHistoricoRow = {
+  id: number
+  bobina_id: string
+  codigo: string | null
+  acao: 'ENTRADA' | 'ALTERACAO' | 'EXCLUSAO'
+  ocorrido_em: string
+  ator_id: string | null
+  ator_email: string | null
+  dados_anteriores: Record<string, unknown> | null
+  dados_novos: Record<string, unknown> | null
+}
+
+export type BobinaEstoqueVirgemLixeiraRow = {
+  id: string
+  bobina_id: string
+  categoria: string
+  codigo: string | null
+  dados: BobinaEstoqueVirgemRow
+  excluida_por: string | null
+  excluida_em: string
+  medida_texto: string
+}
+
+export type EstoqueMinimoVirgemRow = {
+  referencia: string
+  bobinas_estoque: number
+  peso_estoque_kg: number
+  peso_medio_bobina_kg: number | null
+  consumo_periodo_kg: number
+  meses_periodo: number
+  consumo_mensal_kg: number
+  consumo_diario_kg: number
+  lead_time_dias: number
+  minimo_calculado_kg: number
+  minimo_calibrado_kg: number | null
+  minimo_calibrado_bobinas: number | null
+  kg_bopp_por_jumbo: number | null
+  capacidade_jumbos: number | null
+  folga_calibrada_kg: number
+  status_estoque: string
+  primeira_producao: string | null
+  ultima_producao: string | null
+  registros_producao: number
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -436,6 +503,40 @@ export type Database = {
       estornar_producao: { Args: { p_producao_id: number; p_motivo: string }; Returns: boolean }
       ajuste_manual: { Args: { p_numero_bobina: string; p_metros_delta: number; p_peso_delta: number; p_motivo: string }; Returns: boolean }
     }
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
+  }
+  estoque_atual: {
+    Tables: {
+      bobinas_estoque_virgem: Table<BobinaEstoqueVirgemRow>
+      bobinas_estoque_virgem_lixeira: Table<BobinaEstoqueVirgemLixeiraRow>
+      bobinas_estoque_virgem_historico: Table<BobinaEstoqueVirgemHistoricoRow>
+      parametros_estoque_minimo_virgem: Table<{
+        referencia: string
+        bobinas_estoque: number
+        peso_estoque_kg: number
+        peso_medio_bobina_kg: number | null
+        consumo_periodo_kg: number
+        meses_periodo: number
+        consumo_mensal_kg: number
+        consumo_diario_kg: number
+        lead_time_dias: number
+        minimo_calculado_kg: number
+        minimo_calibrado_kg: number | null
+        minimo_calibrado_bobinas: number | null
+        kg_bopp_por_jumbo: number | null
+        capacidade_jumbos: number | null
+        folga_calibrada_kg: number
+        status_estoque: string
+        primeira_producao: string | null
+        ultima_producao: string | null
+        registros_producao: number
+      }>
+    }
+    Views: {
+      vw_estoque_minimo_virgem: { Row: EstoqueMinimoVirgemRow; Relationships: [] }
+    }
+    Functions: Record<string, never>
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }
