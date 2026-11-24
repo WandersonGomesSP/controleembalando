@@ -355,7 +355,16 @@ export function EstoqueBoppVirgemTab() {
                     ? Math.ceil(minimoKg / item.peso_medio_bobina_kg)
                     : null)
                 const aberto = medidaAberta === item.referencia
-                const abaixo = item.status_estoque === 'ABAIXO' || item.status_estoque === 'ZERADO'
+                const estoqueKg = Number(item.peso_estoque_kg ?? 0)
+                const minimoValido = minimoKg !== null && Number(minimoKg) > 0
+                const percentual = minimoValido ? ((estoqueKg - Number(minimoKg)) / Number(minimoKg)) * 100 : null
+                const statusDashboard = !minimoValido
+                  ? 'ATENÇÃO'
+                  : percentual! < 0
+                    ? 'COMPRAR'
+                    : percentual! <= 20
+                      ? 'ATENÇÃO'
+                      : 'OK'
                 const rows = bobinas.filter((row) => referenciaDaBobina(row) === item.referencia)
                 return (
                   <article key={item.referencia} className="overflow-hidden rounded-xl border border-border bg-white text-black shadow-sm">
@@ -365,9 +374,17 @@ export function EstoqueBoppVirgemTab() {
                           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Medida</p>
                           <h3 className="mt-1 text-xl font-bold">{item.referencia}</h3>
                         </div>
-                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${abaixo ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                          {item.status_estoque}
-                        </span>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusDashboard === 'COMPRAR' ? 'bg-red-100 text-red-800' : statusDashboard === 'ATENÇÃO' ? 'bg-amber-100 text-amber-900' : 'bg-green-100 text-green-800'}`}>
+                            {statusDashboard}
+                          </span>
+                          {percentual !== null && (
+                            <span className={`text-xs font-bold tabular-nums ${percentual < 0 ? 'text-red-700' : percentual <= 20 ? 'text-amber-700' : 'text-green-700'}`}>
+                              {percentual >= 0 ? '+' : ''}{percentual.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%
+                            </span>
+                          )}
+                          {!minimoValido && <span className="text-[11px] text-amber-800">Mínimo não calibrado</span>}
+                        </div>
                       </div>
                       <div className="mt-4 grid grid-cols-2 gap-3">
                         <div className="rounded-lg bg-gray-50 p-3">
@@ -389,10 +406,17 @@ export function EstoqueBoppVirgemTab() {
                       </div>
                       <div className="mt-4 flex items-center justify-between gap-3">
                         <p className="text-xs text-gray-500">{rows.length} bobina(s) disponível(is) para detalhar</p>
-                        <button type="button" onClick={() => alternarMedida(item.referencia)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-300 px-3 text-sm font-semibold hover:bg-gray-50">
-                          {aberto ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                          {aberto ? 'Fechar detalhes' : 'Detalhes'}
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {statusDashboard === 'COMPRAR' && (
+                            <button type="button" onClick={() => alternarMedida(item.referencia)} className="inline-flex h-9 items-center gap-2 rounded-lg bg-red-600 px-3 text-sm font-bold text-white hover:bg-red-700">
+                              Comprar
+                            </button>
+                          )}
+                          <button type="button" onClick={() => alternarMedida(item.referencia)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-300 px-3 text-sm font-semibold hover:bg-gray-50">
+                            {aberto ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                            {aberto ? 'Fechar detalhes' : 'Detalhes'}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
