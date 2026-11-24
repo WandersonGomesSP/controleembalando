@@ -292,7 +292,7 @@ export function EstoqueBoppVirgemTab() {
   const quantidadeTotal = dashboard.reduce((total, item) => total + Number(item.bobinas_estoque ?? 0), 0)
 
   return (
-    <section className="space-y-5">
+    <section className="w-full min-w-0 space-y-4 overflow-x-clip">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Matéria-prima · BOPP</p>
@@ -320,10 +320,10 @@ export function EstoqueBoppVirgemTab() {
         <div className="rounded-xl border border-border bg-white p-10 text-center text-sm text-gray-600">Carregando estoque de BOPP virgem...</div>
       ) : aba === 'estoque' ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-border bg-white p-4 text-black shadow-sm">
+          <div className="grid min-w-0 grid-cols-2 gap-2">
+            <div className="min-w-0 rounded-xl border border-border bg-white p-3 text-black shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Peso total em estoque</p>
-              <p className="mt-2 text-2xl font-bold tabular-nums">{formatarKg(pesoTotal)}</p>
+              <p className="mt-1 text-xl font-bold tabular-nums">{formatarKg(pesoTotal)}</p>
             </div>
             <div className="rounded-xl border border-border bg-white p-4 text-black shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Quantidade total de bobinas</p>
@@ -347,7 +347,7 @@ export function EstoqueBoppVirgemTab() {
               <p className="mt-1 text-sm text-gray-500">Assim que importar o CSV, as medidas e os indicadores aparecerão aqui.</p>
             </div>
           ) : (
-            <div className="grid gap-4 xl:grid-cols-2">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
               {dashboard.map((item) => {
                 const minimoKg = item.minimo_calibrado_kg ?? item.minimo_calculado_kg
                 const minimoQtd = item.minimo_calibrado_bobinas ??
@@ -367,8 +367,8 @@ export function EstoqueBoppVirgemTab() {
                       : 'OK'
                 const rows = bobinas.filter((row) => referenciaDaBobina(row) === item.referencia)
                 return (
-                  <article key={item.referencia} className="overflow-hidden rounded-xl border border-border bg-white text-black shadow-sm">
-                    <div className="p-4 sm:p-5">
+                  <article key={item.referencia} className="min-w-0 overflow-hidden rounded-xl border border-border bg-white text-black shadow-sm">
+                    <div className="p-3 sm:p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Medida</p>
@@ -386,10 +386,10 @@ export function EstoqueBoppVirgemTab() {
                           {!minimoValido && <span className="text-[11px] text-amber-800">Mínimo não calibrado</span>}
                         </div>
                       </div>
-                      <div className="mt-4 grid grid-cols-2 gap-3">
-                        <div className="rounded-lg bg-gray-50 p-3">
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="min-w-0 rounded-lg bg-gray-50 p-2.5">
                           <p className="text-xs text-gray-500">Peso total</p>
-                          <p className="mt-1 text-lg font-bold tabular-nums">{formatarKg(item.peso_estoque_kg)}</p>
+                          <p className="mt-1 break-words text-base font-bold tabular-nums">{formatarKg(item.peso_estoque_kg)}</p>
                         </div>
                         <div className="rounded-lg bg-gray-50 p-3">
                           <p className="text-xs text-gray-500">Quantidade total</p>
@@ -404,8 +404,8 @@ export function EstoqueBoppVirgemTab() {
                           <p className="mt-1 text-lg font-bold tabular-nums">{minimoQtd === null ? '—' : `${formatarNumero(minimoQtd)} bobinas`}</p>
                         </div>
                       </div>
-                      <div className="mt-4 flex items-center justify-between gap-3">
-                        <p className="text-xs text-gray-500">{rows.length} bobina(s) disponível(is) para detalhar</p>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-[11px] text-gray-500">{rows.length} bobina(s) para detalhar</p>
                         <div className="flex flex-wrap items-center gap-2">
                           {statusDashboard === 'COMPRAR' && (
                             <button type="button" onClick={() => alternarMedida(item.referencia)} className="inline-flex h-9 items-center gap-2 rounded-lg bg-red-600 px-3 text-sm font-bold text-white hover:bg-red-700">
