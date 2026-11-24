@@ -6,10 +6,7 @@ import {
   listCurrentStock,
   createCurrentStockRecord,
   updateCurrentStockRecord,
-  listCurrentStockTrash,
   moveCurrentStockToTrash,
-  restoreCurrentStockRecord,
-  permanentlyDeleteCurrentStockTrashRecord,
   importCurrentStockCsv,
 } from '@/lib/admin.functions'
 
@@ -35,7 +32,6 @@ type ResumoMinimoVirgem = {
   minimo_calibrado_bobinas: number | null
   peso_medio_bobina_kg: number | null
 }
-type BobinaLixeira = { id: string; categoria: Categoria; codigo: string | null; dados: BobinaEstoque; excluida_em: string }
 type FormEstoque = {
   categoria: Categoria; data_entrada: string; fornecedor: string; medida: string; nf: string; aba: string; localizacao: 'ESTOQUE' | 'GALPAO_MARIO_COVAS'
   peso_kg: string; metragem_m: string; codigo: string; cor: string; cliente: string; linha: string; observacoes: string
@@ -172,7 +168,6 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
   const [usosPorProduto, setUsosPorProduto] = React.useState<Record<string, number>>({})
   const [alertasDesativados, setAlertasDesativados] = React.useState<string[]>([])
   const [paginaAlertas, setPaginaAlertas] = React.useState(0)
-  const [lixeira, setLixeira] = React.useState<BobinaLixeira[]>([])
   const [detalhesMedida, setDetalhesMedida] = React.useState<string | null>(null)
   const [carregando, setCarregando] = React.useState(true)
   const [salvando, setSalvando] = React.useState(false)
@@ -230,10 +225,6 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
         setAlertasDesativados([])
         setUsosPorProduto({})
       }
-      if (isDeveloper) {
-        const arquivadas = await listCurrentStockTrash({ data: { accessToken: sessionData.session.access_token, tipoEstoque } })
-        setLixeira(arquivadas as BobinaLixeira[])
-      } else setLixeira([])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível carregar o estoque atual.')
     } finally { setCarregando(false) }
@@ -378,28 +369,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível excluir a bobina.') }
   }
 
-  async function restaurar(item: BobinaLixeira) {
-    if (!window.confirm(`Restaurar a bobina ${item.codigo ?? ''} para o Estoque Atual?`)) return
-    try {
-      const { data: sessionData } = await supabase.auth.getSession()
-      const accessToken = sessionData.session?.access_token
-      if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
-      await restoreCurrentStockRecord({ data: { accessToken, tipoEstoque, id: item.id } })
-      toast.success('Bobina restaurada para o Estoque Atual.')
-      await carregar()
-    } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível restaurar a bobina.') }
-  }
-  async function excluirDefinitivamente(item: BobinaLixeira) {
-    if (!window.confirm(`Excluir definitivamente a bobina ${item.codigo ?? ''}? Esta ação não poderá ser desfeita.`)) return
-    try {
-      const { data: sessionData } = await supabase.auth.getSession()
-      const accessToken = sessionData.session?.access_token
-      if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.')
-      await permanentlyDeleteCurrentStockTrashRecord({ data: { accessToken, tipoEstoque, id: item.id } })
-      toast.success('Bobina excluída definitivamente da lixeira.')
-      await carregar()
-    } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível excluir definitivamente a bobina.') }
-  }
+
 
   return (
     <div className="grid gap-4">
