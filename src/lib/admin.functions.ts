@@ -1684,15 +1684,23 @@ export const listCurrentStock = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const { client } = await requireCurrentStockEditor(data.accessToken, data.tipoEstoque)
     const estoque = (client as any).schema('estoque_atual')
-    const [bobinasResult, resumosResult] = await Promise.all([
+    const [bobinasResult, resumosResult, minimosVirgemResult] = await Promise.all([
       estoque.from(tabelaEstoqueAtual(data.tipoEstoque)).select('*').order('data_entrada', { ascending: false }).order('codigo'),
       data.tipoEstoque === 'ADESIVADO'
         ? estoque.from('resumo_estoque_produtos').select('*').order('categoria').order('medida_produto')
         : Promise.resolve({ data: [], error: null }),
+      data.tipoEstoque === 'VIRGEM'
+        ? estoque.from('vw_estoque_minimo_virgem').select('*').order('referencia')
+        : Promise.resolve({ data: [], error: null }),
     ])
     if (bobinasResult.error) throw new Error(`Não foi possível carregar as bobinas do estoque: ${bobinasResult.error.message}`)
     if (resumosResult.error) throw new Error(`Não foi possível carregar o resumo do estoque: ${resumosResult.error.message}`)
-    return { bobinas: bobinasResult.data ?? [], resumos: resumosResult.data ?? [] }
+    if (minimosVirgemResult.error) throw new Error(`Não foi possível carregar os indicadores de estoque mínimo virgem: ${minimosVirgemResult.error.message}`)
+    return {
+      bobinas: bobinasResult.data ?? [],
+      resumos: resumosResult.data ?? [],
+      minimosVirgem: minimosVirgemResult.data ?? [],
+    }
   })
 
 export const createCurrentStockRecord = createServerFn({ method: 'POST' })
