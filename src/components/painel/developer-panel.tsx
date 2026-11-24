@@ -493,7 +493,7 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
 
           <DeveloperStockLogs accessToken={accessToken} />
 
-          <Panel title="Usuários e permissões" description="Dev controla usuários; Admin acessa áreas operacionais; Operador fica restrito à sua área.">
+          <Panel title="Usuários e permissões" description="Usuários que entrarem com Google aparecem aqui como Sem perfil. Atribua Administrador ou Operador e, para operador, escolha a área permitida.">
             <form onSubmit={submitNewUser} className="grid gap-4 border-b border-border pb-5 sm:grid-cols-2 xl:grid-cols-5">
               <Field label="E-mail" htmlFor="dev-user-email">
                 <TextInput id="dev-user-email" name="email" type="email" autoComplete="off" required />
@@ -564,13 +564,14 @@ export function DeveloperPanel({ accessToken }: { accessToken: string }) {
                           <div className="flex justify-end gap-2">
                             <select
                               aria-label={`Perfil de ${user.email}`}
-                              defaultValue={user.role === 'ADMIN' ? 'ADMIN' : 'OPERATOR'}
+                              value={user.role === 'UNASSIGNED' ? 'UNASSIGNED' : user.role}
                               onChange={(event) => {
                                 const role = event.target.value as RoleUsuario
                                 void changeUser(user, role, role === 'ADMIN' ? null : user.area ?? AREAS_OPERADOR[0])
                               }}
-                              className="h-9 rounded-md border border-border bg-background px-2 text-xs"
+                              className="h-9 max-w-36 rounded-md border border-border bg-background px-2 text-xs"
                             >
+                              <option value="UNASSIGNED" disabled>Sem perfil</option>
                               <option value="OPERATOR">Operador</option>
                               <option value="ADMIN">Administrador</option>
                             </select>
