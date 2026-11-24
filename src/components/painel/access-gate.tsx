@@ -6,6 +6,7 @@ import {
   Cylinder,
   LockKeyhole,
   LogOut,
+  Globe,
   Package,
   Scissors,
   Layers,
@@ -145,6 +146,7 @@ export function AccessGate({
   const [accessLoaded, setAccessLoaded] = React.useState(false)
   const [area, setArea] = React.useState<AreaId | null>(null)
   const [loginError, setLoginError] = React.useState('')
+  const [googleLoading, setGoogleLoading] = React.useState(false)
   const userIdRef = React.useRef<string | null>(null)
   const authEventSeenRef = React.useRef(false)
   const userLabelClicks = React.useRef(0)
@@ -289,6 +291,23 @@ export function AccessGate({
     }
   }
 
+  async function entrarComGoogle() {
+    setLoginError('')
+    setGoogleLoading(true)
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      })
+      if (error) throw error
+    } catch (error) {
+      setLoginError(error instanceof Error
+        ? `Não foi possível iniciar o Google: ${error.message}`
+        : 'Não foi possível iniciar o login com Google.')
+      setGoogleLoading(false)
+    }
+  }
+
   async function signOut() {
     const { error } = await supabase.auth.signOut()
     if (error) {
@@ -423,6 +442,23 @@ export function AccessGate({
                   Entrar <ArrowRight className="size-4" />
                 </AccessButton>
               </form>
+              <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />
+                ou
+                <span className="h-px flex-1 bg-border" />
+              </div>
+              <AccessButton
+                type="button"
+                onClick={() => void entrarComGoogle()}
+                disabled={googleLoading}
+                className="w-full rounded-full border border-border bg-white text-gray-900 hover:bg-gray-50"
+              >
+                <Globe className="size-4" />
+                {googleLoading ? 'Conectando ao Google...' : 'Continuar com Google'}
+              </AccessButton>
+              <p className="mt-3 text-xs text-muted-foreground">
+                O acesso só é liberado depois que um administrador atribuir seu perfil no ERP.
+              </p>
             </div>
           )}
 
