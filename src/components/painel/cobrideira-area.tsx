@@ -935,8 +935,13 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   async function carregarLixeira() {
     setCarregandoLixeira(true)
     try {
-      const rows = await listCobrideiraBobinasTrash({ data: { accessToken: await tokenAtual() } })
+      const accessToken = await tokenAtual()
+      const [rows, estoqueVirgem] = await Promise.all([
+        listCobrideiraBobinasTrash({ data: { accessToken } }),
+        listCurrentStockTrash({ data: { accessToken, tipoEstoque: 'VIRGEM' } }),
+      ])
       setItensLixeira(rows as CobrideiraBobinaLixeiraRow[])
+      setItensLixeiraVirgem(estoqueVirgem as any[])
     } catch (error) {
       toast.error('Não foi possível carregar a lixeira', { description: erroMensagem(error), duration: 15000 })
     } finally {
