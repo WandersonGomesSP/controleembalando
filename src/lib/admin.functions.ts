@@ -1592,6 +1592,7 @@ const currentStockRecordSchema = z.object({
   cliente: z.string().max(160).nullable(),
   linha: z.string().max(80).nullable(),
   observacoes: z.string().max(1000).nullable(),
+  localizacao: z.enum(['ESTOQUE', 'GALPAO_MARIO_COVAS']).optional(),
 }).strict()
 
 
@@ -1716,6 +1717,7 @@ export const createCurrentStockRecord = createServerFn({ method: 'POST' })
       medida_texto: data.tipoEstoque === 'VIRGEM'
         ? (data.registro.medida_texto ?? (data.registro.medida == null ? '' : Number(data.registro.medida).toFixed(2))).trim()
         : data.registro.medida_texto ?? null,
+      ...(data.tipoEstoque === 'VIRGEM' ? { localizacao: data.registro.localizacao ?? 'ESTOQUE' } : {}),
       origem_arquivo: 'Cadastro manual no site',
     }
     const { data: created, error } = await estoque.from(tabelaEstoqueAtual(data.tipoEstoque)).insert(registro).select('*').single()
@@ -1737,6 +1739,7 @@ export const updateCurrentStockRecord = createServerFn({ method: 'POST' })
       medida_texto: data.tipoEstoque === 'VIRGEM'
         ? (data.registro.medida_texto ?? (data.registro.medida == null ? '' : Number(data.registro.medida).toFixed(2))).trim()
         : data.registro.medida_texto ?? null,
+      ...(data.tipoEstoque === 'VIRGEM' ? { localizacao: data.registro.localizacao ?? 'ESTOQUE' } : {}),
     }
     const { data: updated, error } = await estoque.from(tabelaEstoqueAtual(data.tipoEstoque))
       .update(registro)
