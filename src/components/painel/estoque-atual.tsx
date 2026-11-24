@@ -469,7 +469,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                       </div>
                       <div className="rounded-lg bg-slate-50 p-2">
                         <p className="text-[10px] text-slate-500">Mínimo em bobinas</p>
-                        <p className="text-sm font-bold tabular-nums text-slate-900">{item.minimo_calibrado_bobinas == null ? '—' : fmt(item.minimo_calibrado_bobinas)}</p>
+                        <p className="text-sm font-bold tabular-nums text-slate-900">{minimoBobinas == null ? '—' : fmt(minimoBobinas)}</p>
                       </div>
                     </div>
                     <div className="mt-2 border-t border-slate-100 pt-2">
