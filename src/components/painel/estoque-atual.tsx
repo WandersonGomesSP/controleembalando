@@ -15,7 +15,7 @@ import {
 
 type Categoria = 'BOPP' | 'PEBD' | 'CREPE' | 'KRAFT' | 'DUPLA FACE'
 type BobinaEstoque = {
-  id: string; categoria: Categoria; data_entrada: string | null; fornecedor: string | null
+  id: string; categoria: Categoria; data_entrada: string | null; fornecedor: string | null; localizacao?: 'ESTOQUE' | 'GALPAO_MARIO_COVAS' | null
   medida: number | null; medida_texto?: string | null; nf?: string | null; aba?: string | null; peso_kg: number | null; metragem_m: number | null; codigo: string | null
   cor: string | null; cliente: string | null; linha: string | null; origem_arquivo: string; observacoes: string | null
 }
@@ -37,10 +37,10 @@ type ResumoMinimoVirgem = {
 }
 type BobinaLixeira = { id: string; categoria: Categoria; codigo: string | null; dados: BobinaEstoque; excluida_em: string }
 type FormEstoque = {
-  categoria: Categoria; data_entrada: string; fornecedor: string; medida: string; nf: string; aba: string
+  categoria: Categoria; data_entrada: string; fornecedor: string; medida: string; nf: string; aba: string; localizacao: 'ESTOQUE' | 'GALPAO_MARIO_COVAS'
   peso_kg: string; metragem_m: string; codigo: string; cor: string; cliente: string; linha: string; observacoes: string
 }
-const vazio: FormEstoque = { categoria: 'BOPP', data_entrada: new Date().toISOString().slice(0, 10), fornecedor: '', medida: '', nf: '', aba: '', peso_kg: '', metragem_m: '', codigo: '', cor: '', cliente: '', linha: '', observacoes: '' }
+const vazio: FormEstoque = { categoria: 'BOPP', localizacao: 'ESTOQUE', data_entrada: new Date().toISOString().slice(0, 10), fornecedor: '', medida: '', nf: '', aba: '', peso_kg: '', metragem_m: '', codigo: '', cor: '', cliente: '', linha: '', observacoes: '' }
 const numero = (v: number | null | undefined) => Number(v ?? 0)
 const fmt = (v: number | null | undefined, casas = 0) => numero(v).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
 const categorias: Categoria[] = ['BOPP', 'PEBD', 'CREPE', 'KRAFT', 'DUPLA FACE']
@@ -173,7 +173,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
   const [alertasDesativados, setAlertasDesativados] = React.useState<string[]>([])
   const [paginaAlertas, setPaginaAlertas] = React.useState(0)
   const [lixeira, setLixeira] = React.useState<BobinaLixeira[]>([])
-  const [aba, setAba] = React.useState<'ATIVAS' | 'LIXEIRA'>('ATIVAS')
+  const [detalhesMedida, setDetalhesMedida] = React.useState<string | null>(null)
   const [carregando, setCarregando] = React.useState(true)
   const [salvando, setSalvando] = React.useState(false)
   const [importando, setImportando] = React.useState(false)
@@ -285,7 +285,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
   function abrirEdicao(b: BobinaEstoque) {
     setEditando(b.id)
     setForm({
-      categoria: b.categoria, data_entrada: b.data_entrada ?? '', fornecedor: b.fornecedor ?? '',
+      categoria: b.categoria, localizacao: b.localizacao ?? 'ESTOQUE', data_entrada: b.data_entrada ?? '', fornecedor: b.fornecedor ?? '',
       medida: b.medida_texto || (b.medida == null ? '' : String(b.medida)), nf: b.nf ?? '', aba: b.aba ?? '', peso_kg: b.peso_kg == null ? '' : String(b.peso_kg),
       metragem_m: b.metragem_m == null ? '' : String(b.metragem_m), codigo: b.codigo ?? '',
       cor: b.cor ?? '', cliente: b.cliente ?? '', linha: b.linha ?? '', observacoes: b.observacoes ?? '',
@@ -312,6 +312,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
         fornecedor: form.fornecedor.trim() || null, medida, medida_texto: medidaTexto || null, nf: form.nf.trim().match(/\d+/)?.[0] ?? null, aba: form.aba.trim() || null, peso_kg: peso, metragem_m: metros,
         codigo: form.codigo.trim(), cor: form.cor.trim() || null, cliente: form.cliente.trim() || null, linha: form.linha.trim() || null,
         observacoes: form.observacoes.trim() || null,
+        ...(tipoEstoque === 'VIRGEM' ? { localizacao: form.localizacao } : {}),
       }
       if (editando) await updateCurrentStockRecord({ data: { accessToken, tipoEstoque, id: editando, registro } })
       else await createCurrentStockRecord({ data: { accessToken, tipoEstoque, registro } })
@@ -406,7 +407,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
         <div><h2 className="text-lg font-bold text-slate-900">{tituloEstoque}</h2><p className="text-sm text-slate-500">{tipoEstoque === 'VIRGEM' ? 'Bobinas BOPP virgens da Cobrideira, em estoque separado do material adesivado.' : 'Bobinas e produtos adesivados utilizados na Rebobinadeira.'}</p><p className="mt-1 text-xs text-slate-500">Na importação, selecione vários CSVs de uma vez. Os arquivos são consolidados por categoria e código, sem duplicar bobinas.</p></div>
         <div className="flex gap-2">
           <button type="button" onClick={() => void carregar()} className="inline-flex items-center gap-2 rounded-lg bg-[#e3262e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#c91f27]"><RefreshCw className="size-4"/> Atualizar</button>
-          {aba === 'ATIVAS' && <>
+          {<>
             <input ref={inputCsvRef} type="file" accept=".csv,text/csv" multiple className="hidden" onChange={(e) => void importarCsvs(e.target.files)} />
             <button type="button" disabled={importando} onClick={() => inputCsvRef.current?.click()} className="csv-import-control inline-flex items-center gap-2 rounded-lg border border-[#e3262e] bg-[#e3262e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#c91f27] disabled:opacity-50"><FileUp className="size-4"/> {importando ? 'Importando...' : 'Importar CSV'}</button>
             <button type="button" onClick={abrirNovo} className="inline-flex items-center gap-2 rounded-lg bg-[#e3262e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#c91f27]"><Plus className="size-4"/> Nova bobina</button>
@@ -414,7 +415,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
         </div>
       </div>
 
-      {aba === 'ATIVAS' && tipoEstoque === 'ADESIVADO' && (() => {
+      {tipoEstoque === 'ADESIVADO' && (() => {
         const alertas = (tipoEstoque === 'ADESIVADO' ? resumos : []).filter((r) => numero(r.estoque_minimo_semanal_m) > 0 && numero(r.metragem_disponivel_m) < numero(r.estoque_minimo_semanal_m) && !alertasDesativados.includes(chaveAlertaEstoque(r.medida_produto)))
         const porPagina = 4
         const totalPaginas = Math.ceil(alertas.length / porPagina)
@@ -446,11 +447,6 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
           </section>
         )
       })()}
-      <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => setAba('ATIVAS')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'ATIVAS' ? 'bg-[#e3262e] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{tituloEstoque}</button>
-        {isDeveloper && <button type="button" onClick={() => setAba('LIXEIRA')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${aba === 'LIXEIRA' ? 'bg-[#e3262e] text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>Lixeira ({lixeira.length})</button>}
-      </div>
-
       {tipoEstoque === 'VIRGEM' && (
         <section className="min-w-0 space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-2">
@@ -470,8 +466,10 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                 const minimo = item.minimo_calibrado_kg ?? item.minimo_calculado_kg
                 const minimoValido = minimo != null && Number(minimo) > 0
                 const atual = Number(item.peso_estoque_kg ?? 0)
-                const percentual = minimoValido ? ((atual - Number(minimo)) / Number(minimo)) * 100 : null
-                const status = !minimoValido ? 'ATENÇÃO' : percentual! < 0 ? 'COMPRAR' : percentual! <= 20 ? 'ATENÇÃO' : 'OK'
+                const bobinasMedida = bobinas.filter((b) => b.categoria === 'BOPP' && (b.medida_texto || fmtMedida(b.medida)) === item.referencia)
+                const minimoBobinas = item.minimo_calibrado_bobinas ?? (minimoValido && Number(item.peso_medio_bobina_kg) > 0 ? Math.ceil(Number(minimo) / Number(item.peso_medio_bobina_kg)) : null)
+                const folgaJumbos = minimoBobinas == null ? null : bobinasMedida.length - Number(minimoBobinas)
+                const status = folgaJumbos == null ? 'ATENÇÃO' : folgaJumbos < 0 ? 'COMPRAR' : folgaJumbos === 0 ? 'ATENÇÃO' : 'OK'
                 const estilo = status === 'COMPRAR' ? 'bg-red-100 text-red-800' : status === 'ATENÇÃO' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800'
                 return (
                   <article key={item.referencia} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
@@ -482,8 +480,8 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1">
                         <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${estilo}`}>{status}</span>
-                        {percentual !== null && <span className={`text-xs font-bold tabular-nums ${percentual < 0 ? 'text-red-700' : percentual <= 20 ? 'text-amber-700' : 'text-emerald-700'}`}>{percentual >= 0 ? '+' : ''}{percentual.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</span>}
-                        {!minimoValido && <span className="text-[10px] text-amber-800">Mínimo não calibrado</span>}
+                        {folgaJumbos !== null && <span className={`text-xs font-bold tabular-nums ${folgaJumbos < 0 ? 'text-red-700' : folgaJumbos === 0 ? 'text-amber-700' : 'text-emerald-700'}`}>{folgaJumbos > 0 ? '+' : ''}{folgaJumbos} {Math.abs(folgaJumbos) === 1 ? 'jumbo' : 'jumbos'}</span>}
+                        {folgaJumbos === null && <span className="text-[10px] text-amber-800">Mínimo não definido</span>}
                       </div>
                     </div>
                     <div className="mt-2 grid grid-cols-2 gap-2">
@@ -503,6 +501,29 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                         <p className="text-[10px] text-slate-500">Mínimo em bobinas</p>
                         <p className="text-sm font-bold tabular-nums text-slate-900">{item.minimo_calibrado_bobinas == null ? '—' : fmt(item.minimo_calibrado_bobinas)}</p>
                       </div>
+                    </div>
+                    <div className="mt-2 border-t border-slate-100 pt-2">
+                      <button type="button" onClick={() => setDetalhesMedida((atual) => atual === item.referencia ? null : item.referencia)} aria-expanded={detalhesMedida === item.referencia} className="text-xs font-bold text-[#b91c26] hover:underline">
+                        {detalhesMedida === item.referencia ? 'Ocultar detalhes' : 'Detalhes'} · {bobinasMedida.length} bobinas
+                      </button>
+                      {detalhesMedida === item.referencia && (
+                        <div className="mt-2 space-y-2">
+                          {bobinasMedida.length === 0 ? <p className="text-xs text-slate-500">Não há bobinas individuais cadastradas nesta medida.</p> : bobinasMedida.map((b) => (
+                            <div key={b.id} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div><p className="font-mono text-sm font-bold text-slate-900">{b.codigo}</p><p className="text-[10px] text-slate-500">{b.categoria} · {b.fornecedor || 'Fornecedor não informado'}</p></div>
+                                <button type="button" onClick={() => abrirEdicao(b)} className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700">Editar dados</button>
+                              </div>
+                              <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-600 sm:grid-cols-3">
+                                <span>Entrada: {b.data_entrada ? new Date(`${b.data_entrada}T12:00:00`).toLocaleDateString('pt-BR') : '—'}</span>
+                                <span>Peso: {fmt(b.peso_kg, 1)} kg</span>
+                                <span>Local: {b.localizacao === 'GALPAO_MARIO_COVAS' ? 'Galpão Mario Covas' : 'Estoque'}</span>
+                                <span>NF: {b.nf || '—'}</span><span>Cor: {b.cor || '—'}</span><span>Cliente: {b.cliente || '—'}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </article>
                 )
@@ -585,7 +606,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
             
           </div>}
         </div>
-        {carregando ? <p className="py-8 text-center text-sm text-slate-500">Carregando estoque...</p> : aba === 'ATIVAS' ? (
+        {carregando ? <p className="py-8 text-center text-sm text-slate-500">Carregando estoque...</p> : (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[850px] text-left text-sm">
               <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="p-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'data-desc' ? 'data-asc' : 'data-desc')} className="inline-flex items-center gap-1 font-semibold">Entrada <span>{ordemEstoque === 'data-desc' ? '▼' : ordemEstoque === 'data-asc' ? '▲' : '↕'}</span></button></th><th className="p-2">Categoria / medida</th><th className="p-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'alfabetica' ? 'data-desc' : 'alfabetica')} className="inline-flex items-center gap-1 font-semibold">Código / nome <span>{ordemEstoque === 'alfabetica' ? '▲' : '↕'}</span></button></th><th className="p-2">NF</th><th className="p-2">Fornecedor</th><th className="p-2 text-right">Peso</th>{tipoEstoque === 'ADESIVADO' && <th className="p-2 text-right">Metros</th>}<th className="p-2 text-right">Ações</th></tr></thead>
@@ -622,6 +643,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
           <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-bold text-slate-900">{editando ? 'Editar bobina do estoque' : 'Adicionar bobina ao estoque'}</h3><p className="text-sm text-slate-500">Esta alteração afeta somente o saldo do Estoque Atual.</p></div><button type="button" onClick={() => setFormAberto(false)} className="rounded-lg p-2 hover:bg-slate-100"><X className="size-5"/></button></div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-sm font-medium text-slate-700">Categoria<select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value as Categoria })} className="h-10 rounded-lg border border-slate-300 px-3">{categorias.map((c) => <option key={c}>{c}</option>)}</select></label>
+            {tipoEstoque === 'VIRGEM' && <label className="grid gap-1 text-sm font-medium text-slate-700">Localização<select value={form.localizacao} onChange={(e) => setForm({ ...form, localizacao: e.target.value as FormEstoque['localizacao'] })} className="h-10 rounded-lg border border-slate-300 px-3"><option value="ESTOQUE">Estoque</option><option value="GALPAO_MARIO_COVAS">Galpão Mario Covas</option></select></label>}
             <label className="grid gap-1 text-sm font-medium text-slate-700">Data de entrada<input type="date" value={form.data_entrada} onChange={(e) => setForm({ ...form, data_entrada: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
             <label className="grid gap-1 text-sm font-medium text-slate-700">Código da bobina *<input required value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
             <label className="grid gap-1 text-sm font-medium text-slate-700">Fornecedor<input value={form.fornecedor} onChange={(e) => setForm({ ...form, fornecedor: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
