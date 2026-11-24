@@ -1952,18 +1952,6 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                     </div>
                   </div>
                 ))}
-                {itensLixeiraVirgem.map((item) => (
-                  <article key={`virgem-${item.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
-                    <div>
-                      <p className="font-mono font-bold">{item.codigo} <span className="ml-2 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold">ESTOQUE VIRGEM</span></p>
-                      <p className="text-sm text-muted-foreground">{item.dados?.categoria} · {item.dados?.medida_texto} · {item.dados?.peso_kg ?? 0} kg · {item.dados?.fornecedor ?? 'Fornecedor não informado'} · Excluída em {new Date(item.excluida_em).toLocaleString('pt-BR')}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => void restaurarBobinaEstoqueVirgem(item)} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-muted"><RotateCcw className="size-4" /> Restaurar</button>
-                      <button type="button" onClick={() => void excluirBobinaEstoqueVirgem(item)} className="inline-flex items-center gap-2 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"><Trash2 className="size-4" /> Excluir definitivamente</button>
-                    </div>
-                  </article>
-                ))}
               </div>
             )}
           </Panel>
@@ -1983,6 +1971,18 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                     <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={() => void restaurarDaLixeira(item.numero_bobina)} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-muted"><RotateCcw className="size-4" /> Restaurar</button>
                       <button type="button" onClick={() => void excluirDefinitivamente(item.numero_bobina)} className="inline-flex items-center gap-2 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"><Trash2 className="size-4" /> Excluir definitivamente</button>
+                    </div>
+                  </article>
+                ))}
+                {itensLixeiraVirgem.map((item) => (
+                  <article key={`virgem-${item.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
+                    <div>
+                      <p className="font-mono font-bold">{item.codigo} <span className="ml-2 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold">ESTOQUE VIRGEM</span></p>
+                      <p className="text-sm text-muted-foreground">{item.dados?.categoria} · {item.dados?.medida_texto} · {item.dados?.peso_kg ?? 0} kg · {item.dados?.fornecedor ?? 'Fornecedor não informado'} · Excluída em {new Date(item.excluida_em).toLocaleString('pt-BR')}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => void restaurarBobinaEstoqueVirgem(item)} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-muted"><RotateCcw className="size-4" /> Restaurar</button>
+                      <button type="button" onClick={() => void excluirBobinaEstoqueVirgem(item)} className="inline-flex items-center gap-2 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"><Trash2 className="size-4" /> Excluir definitivamente</button>
                     </div>
                   </article>
                 ))}
