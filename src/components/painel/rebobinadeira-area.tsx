@@ -210,51 +210,54 @@ export function EstoqueMinimoCobrideira({ isDeveloper }: { isDeveloper: boolean 
         <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar medida ou referência" className="h-9 w-full max-w-xs rounded-lg border border-input bg-background px-3 text-sm" />
       </div>
 
-      {carregando ? <p className="py-10 text-center text-sm text-muted-foreground">Carregando estoque mínimo virgem...</p> : filtrados.length === 0 ? <p className="py-10 text-center text-sm text-muted-foreground">Nenhuma referência encontrada.</p> : (
-        <div className="mt-3 overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[1500px] text-left text-xs">
-            <thead className="sticky top-0 bg-muted text-muted-foreground">
-              <tr>
-                <th className="px-3 py-3">Medida / referência</th>
-                <th className="px-3 py-3 text-right">Bobinas</th>
-                <th className="px-3 py-3 text-right">Estoque kg</th>
-                <th className="px-3 py-3 text-right">Consumo mensal kg</th>
-                <th className="px-3 py-3 text-right">Consumo diário kg</th>
-                <th className="px-3 py-3 text-right">Lead time dias</th>
-                <th className="px-3 py-3 text-right">Mínimo calculado kg</th>
-                <th className="px-3 py-3 text-right">Mínimo calibrado kg</th>
-                <th className="px-3 py-3 text-right">Mínimo bobinas</th>
-                <th className="px-3 py-3 text-right">Kg por jumbo</th>
-                <th className="px-3 py-3 text-right">Capacidade jumbos</th>
-                <th className="px-3 py-3">Situação</th>
-                <th className="px-3 py-3">Ação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtrados.map((item) => {
-                const draft = rascunhos[item.referencia] ?? { lead_time_dias: '90', minimo_calibrado_kg: '', kg_bopp_por_jumbo: '' }
-                const situacao = item.status_estoque
-                const corStatus = situacao === 'OK' ? 'bg-emerald-600' : situacao === 'ZERADO' || situacao === 'ABAIXO' ? 'bg-red-600' : 'bg-slate-500'
-                return (
-                  <tr key={item.referencia} className="border-t border-border/70 align-middle">
-                    <td className="px-3 py-3"><div className="font-semibold">{item.referencia}</div><div className="mt-1 text-[10px] text-muted-foreground">{item.registros_producao} lançamentos · {item.meses_periodo} mês(es) com produção</div></td>
-                    <td className="px-3 py-3 text-right tabular-nums">{inteiro.format(item.bobinas_estoque)}</td>
-                    <td className="px-3 py-3 text-right tabular-nums">{formatar(item.peso_estoque_kg, true)}</td>
-                    <td className="px-3 py-3 text-right tabular-nums">{formatar(item.consumo_mensal_kg, true)}</td>
-                    <td className="px-3 py-3 text-right tabular-nums">{formatar(item.consumo_diario_kg, true)}</td>
-                    <td className="px-3 py-3 text-right">{isDeveloper ? <input aria-label={`Lead time de ${item.referencia}`} value={draft.lead_time_dias} onChange={(e) => alterarRascunho(item.referencia,'lead_time_dias',e.target.value)} className="h-8 w-16 rounded-md border border-input bg-background px-2 text-right"/> : inteiro.format(item.lead_time_dias)}</td>
-                    <td className="px-3 py-3 text-right font-semibold tabular-nums">{formatar(item.minimo_calculado_kg, true)}</td>
-                    <td className="px-3 py-3 text-right">{isDeveloper ? <input aria-label={`Mínimo calibrado de ${item.referencia}`} value={draft.minimo_calibrado_kg} onChange={(e) => alterarRascunho(item.referencia,'minimo_calibrado_kg',e.target.value)} placeholder="Não definido" className="h-8 w-24 rounded-md border border-input bg-background px-2 text-right"/> : formatar(item.minimo_calibrado_kg, true)}</td>
-                    <td className="px-3 py-3 text-right tabular-nums">{item.minimo_calibrado_bobinas == null ? '—' : inteiro.format(item.minimo_calibrado_bobinas)}</td>
-                    <td className="px-3 py-3 text-right">{isDeveloper ? <input aria-label={`Kg por jumbo de ${item.referencia}`} value={draft.kg_bopp_por_jumbo} onChange={(e) => alterarRascunho(item.referencia,'kg_bopp_por_jumbo',e.target.value)} placeholder="Configurar" className="h-8 w-24 rounded-md border border-input bg-background px-2 text-right"/> : formatar(item.kg_bopp_por_jumbo, true)}</td>
-                    <td className="px-3 py-3 text-right font-semibold tabular-nums">{item.capacidade_jumbos == null ? '—' : inteiro.format(item.capacidade_jumbos)}</td>
-                    <td className="px-3 py-3"><span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold text-white ${corStatus}`}>{situacao}</span></td>
-                    <td className="px-3 py-3">{isDeveloper && <button type="button" onClick={() => void salvar(item)} disabled={salvando===item.referencia} className="inline-flex min-h-8 items-center gap-1 rounded-md bg-[#e3262e] px-2.5 font-semibold text-white hover:bg-[#c91f27] disabled:opacity-50"><Save className="size-3.5"/>{salvando===item.referencia ? 'Salvando' : 'Salvar'}</button>}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+      {carregando ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">Carregando estoque mínimo virgem...</p>
+      ) : filtrados.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma referência encontrada.</p>
+      ) : (
+        <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 2xl:grid-cols-3">
+          {filtrados.map((item) => {
+            const draft = rascunhos[item.referencia] ?? { lead_time_dias: '90', minimo_calibrado_kg: '', kg_bopp_por_jumbo: '' }
+            const minimoAtivo = item.minimo_calibrado_kg ?? item.minimo_calculado_kg
+            const percentual = minimoAtivo > 0 ? ((Number(item.peso_estoque_kg ?? 0) - Number(minimoAtivo)) / Number(minimoAtivo)) * 100 : null
+            const status = percentual === null ? 'ATENÇÃO' : percentual < 0 ? 'COMPRAR' : percentual <= 20 ? 'ATENÇÃO' : 'OK'
+            const statusClass = status === 'COMPRAR' ? 'bg-red-100 text-red-800' : status === 'ATENÇÃO' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800'
+            return (
+              <article key={item.referencia} className="min-w-0 rounded-lg border border-border bg-background p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-base font-bold">{item.referencia}</h3>
+                    <p className="text-[10px] text-muted-foreground">{item.registros_producao} lançamentos · {item.meses_periodo} mês(es) com produção</p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${statusClass}`}>{status}</span>
+                    {percentual !== null && <span className={`text-xs font-bold tabular-nums ${percentual < 0 ? 'text-red-700' : percentual <= 20 ? 'text-amber-700' : 'text-emerald-700'}`}>{percentual >= 0 ? '+' : ''}{percentual.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</span>}
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-md bg-muted/60 p-2"><p className="text-muted-foreground">Estoque atual</p><p className="font-bold tabular-nums">{formatar(item.peso_estoque_kg, true)} kg · {inteiro.format(item.bobinas_estoque)} bob.</p></div>
+                  <div className="rounded-md bg-muted/60 p-2"><p className="text-muted-foreground">Consumo mensal</p><p className="font-bold tabular-nums">{formatar(item.consumo_mensal_kg, true)} kg</p></div>
+                  <div className="rounded-md bg-muted/60 p-2"><p className="text-muted-foreground">Mínimo calculado</p><p className="font-bold tabular-nums">{formatar(item.minimo_calculado_kg, true)} kg</p></div>
+                  <div className="rounded-md bg-muted/60 p-2"><p className="text-muted-foreground">Mínimo calibrado</p><p className="font-bold tabular-nums">{formatar(item.minimo_calibrado_kg, true)} kg</p></div>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <label className="grid gap-1 text-[10px] font-semibold text-muted-foreground">Lead time (dias)
+                    <input aria-label={`Lead time de ${item.referencia}`} value={draft.lead_time_dias} onChange={(e) => alterarRascunho(item.referencia,'lead_time_dias',e.target.value)} disabled={!isDeveloper} className="h-8 min-w-0 rounded-md border border-input bg-background px-2 text-xs text-foreground disabled:opacity-70"/>
+                  </label>
+                  <label className="grid gap-1 text-[10px] font-semibold text-muted-foreground">Mínimo calibrado kg
+                    <input aria-label={`Mínimo calibrado de ${item.referencia}`} value={draft.minimo_calibrado_kg} onChange={(e) => alterarRascunho(item.referencia,'minimo_calibrado_kg',e.target.value)} placeholder="Automático" disabled={!isDeveloper} className="h-8 min-w-0 rounded-md border border-input bg-background px-2 text-xs text-foreground disabled:opacity-70"/>
+                  </label>
+                  <label className="grid gap-1 text-[10px] font-semibold text-muted-foreground">Kg por jumbo
+                    <input aria-label={`Kg por jumbo de ${item.referencia}`} value={draft.kg_bopp_por_jumbo} onChange={(e) => alterarRascunho(item.referencia,'kg_bopp_por_jumbo',e.target.value)} placeholder="Configurar" disabled={!isDeveloper} className="h-8 min-w-0 rounded-md border border-input bg-background px-2 text-xs text-foreground disabled:opacity-70"/>
+                  </label>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 text-[10px] text-muted-foreground">
+                  <span>Consumo diário: {formatar(item.consumo_diario_kg, true)} kg · mínimo: {item.minimo_calibrado_bobinas == null ? '—' : inteiro.format(item.minimo_calibrado_bobinas)} bob.</span>
+                  {isDeveloper && <button type="button" onClick={() => void salvar(item)} disabled={salvando===item.referencia} className="inline-flex h-8 items-center gap-1 rounded-md bg-[#e3262e] px-2.5 text-xs font-semibold text-white hover:bg-[#c91f27] disabled:opacity-50"><Save className="size-3.5"/>{salvando===item.referencia ? 'Salvando...' : 'Salvar'}</button>}
+                </div>
+              </article>
+            )
+          })}
         </div>
       )}
     </section>
