@@ -29,6 +29,28 @@ function Start-DevServer {
   return $p
 }
 
+function Stop-DevServer {
+  param($Process)
+
+  if (-not $Process) { return }
+  try {
+    $Process.Refresh()
+    if ($Process.HasExited) { return }
+
+    # Execute taskkill as a separate process so a non-zero exit code
+    # cannot be promoted to a terminating PowerShell error.
+    $taskkill = Join-Path $env:SystemRoot 'System32\\taskkill.exe'
+    $killer = Start-Process -FilePath $taskkill -ArgumentList @('/PID', [string]$Process.Id, '/T', '/F') -WindowStyle Hidden -PassThru -Wait -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 500
+    $Process.Refresh()
+    if (-not $Process.HasExited -and $killer -and $killer.ExitCode -ne 0) {
+      Write-Host "Aviso: o processo antigo ja encerrou ou o Windows nao permitiu finalizar todos os subprocessos. O monitor continuara." -ForegroundColor Yellow
+    }
+  } catch {
+    Write-Host "Aviso: nao foi necessario finalizar o processo anterior. O monitor continuara." -ForegroundColor Yellow
+  }
+}
+
 function Update-Repository {
   param([switch]$Announce)
 
@@ -162,7 +184,7 @@ try {
     if (Update-Repository -Announce) {
       # Reinicia apenas o servidor local; mantem esta mesma janela aberta.
       if ($server -and -not $server.HasExited) {
-        & taskkill.exe /PID $server.Id /T /F 2>$null | Out-Null
+        Stop-DevServer -Process $server
         Start-Sleep -Seconds 2
       }
       $server = Start-DevServer
@@ -175,6 +197,6 @@ try {
 }
 finally {
   if ($server -and -not $server.HasExited) {
-    & taskkill.exe /PID $server.Id /T /F 2>$null | Out-Null
+    Stop-DevServer -Process $server
   }
 }
