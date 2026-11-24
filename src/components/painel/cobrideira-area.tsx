@@ -24,6 +24,7 @@ import {
   TextInput,
 } from '@/components/painel/fields'
 import { supabase } from '@/lib/supabase'
+import { ReportBugButton } from '@/components/painel/report-bug-button'
 import { EstoqueMinimoCobrideira } from '@/components/painel/rebobinadeira-area'
 import { EstoqueAtualCobrideira } from '@/components/painel/estoque-atual'
 import { EstoqueColaCobrideira } from '@/components/painel/estoque-cola'
@@ -1179,14 +1180,17 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onChangeArea}
-              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-black bg-black px-2.5 text-[11px] font-bold text-white shadow-sm transition-colors hover:bg-zinc-800 sm:min-h-10 sm:gap-2 sm:px-4 sm:text-xs"
-            >
-              <ArrowLeft className="size-4" />
-              Trocar setor
-            </button>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <ReportBugButton area="Cobrideira" />
+              <button
+                type="button"
+                onClick={onChangeArea}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-black bg-black px-2.5 text-[11px] font-bold text-white shadow-sm transition-colors hover:bg-zinc-800 sm:min-h-10 sm:gap-2 sm:px-4 sm:text-xs"
+              >
+                <ArrowLeft className="size-4" />
+                Trocar setor
+              </button>
+            </div>
           </div>
           <nav aria-label="Menus da Cobrideira" className="grid grid-cols-3 gap-2 pb-0 sm:flex sm:flex-wrap">
             <button
