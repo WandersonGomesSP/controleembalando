@@ -542,101 +542,32 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
 
 
       {tipoEstoque === 'ADESIVADO' && <div className="grid gap-3 lg:grid-cols-2">
+        {tipoEstoque === 'ADESIVADO' && (
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="font-bold text-slate-900">Estoque por categoria</h3>
-          <div className="mt-3 grid gap-3">
-            {porCategoria.map((p) => <div key={p.categoria}>
-              <div className="flex justify-between gap-2 text-sm"><span className="font-semibold text-slate-700">{p.categoria}</span><span className="text-slate-500">{p.quantidade} {p.unidade} · {fmt(p.kg, 1)} kg</span></div>
-              <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#78716c]" style={{ width: `${Math.min(100, totalKg ? p.kg / totalKg * 100 : 0)}%` }}/></div>
-              <div className="mt-1 text-xs text-slate-500">{fmt(p.metros)} m</div>
-            </div>)}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-bold text-slate-900">Bobinas em estoque</h3>
+            <div className="flex flex-wrap gap-2">
+              <div className="relative"><Search className="absolute left-3 top-2.5 size-4 text-slate-400"/><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar código, fornecedor..." className="h-9 w-56 rounded-lg border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-slate-500"/></div>
+              <select value={categoria} onChange={(e) => setCategoria(e.target.value as typeof categoria)} className="h-9 rounded-lg border border-slate-300 px-3 text-sm"><option value="TODAS">Todas as categorias</option>{categoriasVisiveis.map((c) => <option key={c}>{c}</option>)}</select>
+            </div>
           </div>
+          {carregando ? <p className="py-8 text-center text-sm text-slate-500">Carregando estoque...</p> : (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[850px] text-left text-sm">
+                <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="p-2">Entrada</th><th className="p-2">Categoria / medida</th><th className="p-2">Código / nome</th><th className="p-2">NF</th><th className="p-2">Fornecedor</th><th className="p-2 text-right">Peso</th><th className="p-2 text-right">Metros</th><th className="p-2 text-right">Ações</th></tr></thead>
+                <tbody>{filtradas.map((b) => <tr key={b.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="p-2 text-slate-600">{b.data_entrada ? new Date(`${b.data_entrada}T12:00:00`).toLocaleDateString('pt-BR') : '—'}</td>
+                  <td className="p-2"><div className="font-semibold text-slate-800">{b.categoria}</div><div className="text-xs text-slate-500">{b.medida_texto || fmtMedida(b.medida)}</div></td>
+                  <td className="p-2 font-medium text-slate-800">{b.codigo ?? '—'}</td>
+                  <td className="p-2">{b.nf || '—'}</td><td className="p-2">{b.fornecedor ?? '—'}</td><td className="p-2 text-right">{fmt(b.peso_kg,1)} kg</td><td className="p-2 text-right">{fmt(b.metragem_m)} m</td>
+                  <td className="p-2"><div className="flex justify-end gap-1"><button type="button" title="Editar" onClick={() => abrirEdicao(b)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100"><Pencil className="size-4"/></button>{isDeveloper && <button type="button" title="Mover para lixeira" onClick={() => void excluir(b)} className="rounded-md bg-[#e3262e] p-2 text-white hover:bg-[#c91f27]"><Trash2 className="size-4"/></button>}</div></td>
+                </tr>)}</tbody>
+              </table>
+              {!filtradas.length && <p className="py-8 text-center text-sm text-slate-500">Nenhuma bobina encontrada.</p>}
+            </div>
+          )}
         </section>
-        <section className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white">
-          <div className="border-b border-[#E2E8F0] bg-[#F1F5F9] px-5 py-4">
-            <h3 className="text-base font-bold text-[#0B1F4D]">Resumo por produto · planilha de referência</h3>
-            <p className="mt-1 text-xs text-[#64748B]">Estoque mínimo e folga calculados em jumbos</p>
-          </div>
-          <div className="max-h-[520px] overflow-auto">
-            {resumos.map((r, indice) => {
-              const status = (r.status_origem ?? '').toUpperCase()
-              const statusClass = status === 'OK'
-                ? 'bg-[#15803D]'
-                : status === 'ATENÇÃO'
-                  ? 'bg-[#EA580C]'
-                  : status === 'PRODUZIR' || status === 'COMPRAR'
-                    ? 'bg-[#B91C1C]'
-                    : 'bg-slate-500'
-              const folga = Number.parseInt(r.folga_estoque ?? '0', 10) || 0
-              const folgaLabel = folga > 0 ? `+${folga} ${folga === 1 ? 'jumbo' : 'jumbos'}` : folga < 0 ? `${folga} ${folga === -1 ? 'jumbo' : 'jumbos'}` : '0 jumbo'
-              const folgaClass = folga > 0 ? 'text-[#15803D]' : folga < 0 ? 'text-[#B91C1C]' : 'text-[#64748B]'
-              return (
-                <div key={r.id} className={`grid grid-cols-1 gap-4 border-b border-[#E2E8F0] px-5 py-4 last:border-b-0 md:grid-cols-[minmax(0,1fr)_240px] ${indice % 2 === 1 ? 'bg-[#F8FAFC]' : 'bg-white'}`}>
-                  <div className="min-w-0">
-                    <div className="text-base font-bold text-[#0B1F4D]">{r.medida_produto}</div>
-                    <div className="my-2 h-2 overflow-hidden rounded-full bg-[#E2E8F0]">
-                      <div className="h-full rounded-full bg-[#0B1F4D]" style={{ width: `${Math.min(100, numero(r.peso_estoque_kg) / maxKg * 100)}%` }} />
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1 text-sm">
-                      <span className="font-bold text-[#0B1F4D]">{fmt(r.peso_estoque_kg, 1)} kg</span>
-                      <span className="text-[#64748B]">{fmt(r.metragem_disponivel_m)} m · {r.quantidade_jumbos ?? 0} jumbos</span>
-                    </div>
-                  </div>
-                  <div className="text-left md:text-right">
-                    <span className={`inline-block rounded-full px-3.5 py-1.5 text-xs font-bold text-white ${statusClass}`}>{r.status_origem ?? 'SEM STATUS'}</span>
-                    <div className="mt-2 space-y-1 text-[13px] leading-[1.7] text-[#64748B]">
-                      <div>Mínimo: <strong className="font-semibold text-[#1E293B]">{r.estoque_minimo_jumbos ?? '—'} jumbos</strong></div>
-                      <div>Mínimo de metragem: <strong className="font-semibold text-[#1E293B]">{fmt(r.estoque_minimo_semanal_m)} m</strong></div>
-                      <div className={`mt-1 text-sm font-bold ${folgaClass}`}>{folgaLabel}</div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      </div>}
-
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-bold text-slate-900">{aba === 'ATIVAS' ? 'Bobinas em estoque' : 'Bobinas na lixeira'}</h3>
-          {aba === 'ATIVAS' && <div className="flex flex-wrap gap-2">
-            <div className="relative"><Search className="absolute left-3 top-2.5 size-4 text-slate-400"/><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar código, fornecedor..." className="h-9 w-56 rounded-lg border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-slate-500"/></div>
-            <select value={categoria} onChange={(e) => setCategoria(e.target.value as typeof categoria)} className="h-9 rounded-lg border border-slate-300 px-3 text-sm"><option value="TODAS">Todas as categorias</option>{categoriasVisiveis.map((c) => <option key={c}>{c}</option>)}</select>
-            
-          </div>}
-        </div>
-        {carregando ? <p className="py-8 text-center text-sm text-slate-500">Carregando estoque...</p> : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[850px] text-left text-sm">
-              <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="p-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'data-desc' ? 'data-asc' : 'data-desc')} className="inline-flex items-center gap-1 font-semibold">Entrada <span>{ordemEstoque === 'data-desc' ? '▼' : ordemEstoque === 'data-asc' ? '▲' : '↕'}</span></button></th><th className="p-2">Categoria / medida</th><th className="p-2"><button type="button" onClick={() => setOrdemEstoque((atual) => atual === 'alfabetica' ? 'data-desc' : 'alfabetica')} className="inline-flex items-center gap-1 font-semibold">Código / nome <span>{ordemEstoque === 'alfabetica' ? '▲' : '↕'}</span></button></th><th className="p-2">NF</th><th className="p-2">Fornecedor</th><th className="p-2 text-right">Peso</th>{tipoEstoque === 'ADESIVADO' && <th className="p-2 text-right">Metros</th>}<th className="p-2 text-right">Ações</th></tr></thead>
-              <tbody>{filtradas.map((b) => <tr key={b.id} className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="p-2 text-slate-600">{b.data_entrada ? new Date(`${b.data_entrada}T12:00:00`).toLocaleDateString('pt-BR') : '—'}</td>
-                <td className="p-2"><div className="font-semibold text-slate-800">{b.categoria}</div><div className="text-xs text-slate-500">{b.medida_texto || fmtMedida(b.medida)}</div>{b.aba ? <div className="text-[11px] text-slate-400">ABA: {b.aba}</div> : null}</td>
-                <td className="p-2 font-medium text-slate-800">{b.codigo ?? '—'}{b.cor || b.cliente ? <div className="text-xs text-slate-500">{b.cor ?? ''}{b.cliente ? ` · Cliente: ${b.cliente}` : ''} {b.linha ? `· ${b.linha}` : ''}</div> : null}</td>
-                <td className="p-2 font-medium text-slate-700 tabular-nums">{b.nf || '—'}</td>
-                <td className="p-2 text-slate-600">{b.fornecedor ?? '—'}</td><td className="p-2 text-right tabular-nums">{fmt(b.peso_kg, 1)} kg</td>{tipoEstoque === 'ADESIVADO' && <td className="p-2 text-right tabular-nums">{fmt(b.metragem_m)} m</td>}
-                <td className="p-2"><div className="flex justify-end gap-1"><button type="button" title="Editar" onClick={() => abrirEdicao(b)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100"><Pencil className="size-4"/></button>{isDeveloper && <button type="button" title="Mover para lixeira" onClick={() => void excluir(b)} className="rounded-md bg-[#e3262e] p-2 text-white hover:bg-[#c91f27]"><Trash2 className="size-4"/></button>}</div></td>
-              </tr>)}</tbody>
-            </table>
-            {!filtradas.length && <p className="py-8 text-center text-sm text-slate-500">Nenhuma bobina encontrada.</p>}
-          </div>
-        ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[850px] text-left text-sm">
-              <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="p-2">Excluída em</th><th className="p-2">Categoria / medida</th><th className="p-2">Código / cliente</th><th className="p-2">Fornecedor</th><th className="p-2 text-right">Peso</th><th className="p-2 text-right">Metros</th><th className="p-2 text-right">Ações</th></tr></thead>
-              <tbody>{lixeira.map((item) => <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="p-2 text-slate-600">{new Date(item.excluida_em).toLocaleString('pt-BR')}</td>
-                <td className="p-2"><div className="font-semibold text-slate-800">{item.dados.categoria}</div><div className="text-xs text-slate-500">{fmtMedida(item.dados.medida)}</div></td>
-                <td className="p-2 font-medium text-slate-800">{item.codigo ?? '—'}{item.dados.cliente ? <div className="text-xs text-slate-500">Cliente: {item.dados.cliente}</div> : null}</td>
-                <td className="p-2 text-slate-600">{item.dados.fornecedor ?? '—'}</td><td className="p-2 text-right tabular-nums">{fmt(item.dados.peso_kg, 1)} kg</td><td className="p-2 text-right tabular-nums">{fmt(item.dados.metragem_m)} m</td>
-                <td className="p-2"><div className="flex justify-end gap-1"><button type="button" onClick={() => void restaurar(item)} className="rounded-md px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">Restaurar</button><button type="button" title="Excluir definitivamente" onClick={() => void excluirDefinitivamente(item)} className="rounded-md bg-[#e3262e] p-2 text-white hover:bg-[#c91f27]"><Trash2 className="size-4"/></button></div></td>
-              </tr>)}</tbody>
-            </table>
-            {!lixeira.length && <p className="py-8 text-center text-sm text-slate-500">A lixeira está vazia.</p>}
-          </div>
-        )}
-      </section>
+      )}
 
       {formAberto && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3" onMouseDown={(e) => { if (e.target === e.currentTarget) setFormAberto(false) }}>
         <form onSubmit={salvar} className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-5 shadow-2xl">
