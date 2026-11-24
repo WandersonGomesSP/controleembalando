@@ -39,7 +39,7 @@ function Stop-DevServer {
 
     # Execute taskkill as a separate process so a non-zero exit code
     # cannot be promoted to a terminating PowerShell error.
-    $taskkill = Join-Path $env:SystemRoot 'System32\\taskkill.exe'
+    $taskkill = Join-Path $env:SystemRoot 'System32\taskkill.exe'
     $killer = Start-Process -FilePath $taskkill -ArgumentList @('/PID', [string]$Process.Id, '/T', '/F') -WindowStyle Hidden -PassThru -Wait -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 500
     $Process.Refresh()
