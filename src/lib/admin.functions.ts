@@ -1757,7 +1757,7 @@ export const enviarRelatorioBug = createServerFn({ method: 'POST' })
     pagina: z.string().trim().max(500).optional(),
   }))
   .handler(async ({ data }) => {
-    const { client, user } = await requireDeveloperOrUser(data.accessToken)
+    const { user } = await requireDeveloperOrUser(data.accessToken)
     const apiKey = process.env.RESEND_API_KEY
     const remetente = process.env.BUG_REPORT_FROM_EMAIL
     if (!apiKey || !remetente) {
@@ -1767,9 +1767,10 @@ export const enviarRelatorioBug = createServerFn({ method: 'POST' })
     const destino = 'pcp.sp@embalando.com.br'
     const nome = user.user_metadata?.full_name ?? user.email ?? 'Usuário do ERP'
     const pagina = data.pagina || 'Não informada'
-    const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({
+    const htmlEscapes: Record<string, string> = {
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    })[char] ?? char)
+    }
+    const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => htmlEscapes[char] ?? char)
     const texto = [
       'Relato de bug - Controle Embalando',
       '',
