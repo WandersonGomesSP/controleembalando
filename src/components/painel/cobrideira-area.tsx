@@ -1057,7 +1057,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     }
     setBaixandoEstoque(true)
     try {
-      const { data, error } = await supabase.schema('estoque_atual').rpc('baixar_bopp_virgem', {
+      const { data, error } = await (supabase.schema('estoque_atual') as any).rpc('baixar_bopp_virgem', {
         p_codigo: bobinaSelecionadaBaixa.cod_bob.trim(),
         p_numero_bobina: bobinaSelecionadaBaixa.numero_bobina,
         p_data_utilizacao: bobinaSelecionadaBaixa.data,
