@@ -179,6 +179,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
   const [minimosVirgem, setMinimosVirgem] = React.useState<ResumoMinimoVirgem[]>([])
   const [usosPorProduto, setUsosPorProduto] = React.useState<Record<string, number>>({})
   const [alertasDesativados, setAlertasDesativados] = React.useState<string[]>([])
+  const [codigoPorProduto, setCodigoPorProduto] = React.useState<Record<string, string>>({})
   const [paginaAlertas, setPaginaAlertas] = React.useState(0)
   const [detalhesMedida, setDetalhesMedida] = React.useState<string | null>(null)
   const [carregando, setCarregando] = React.useState(true)
@@ -211,6 +212,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
           .from('produtos_jumbo').select('codigo, descricao, alerta_estoque_baixo_ativo').eq('ativo', true)
         if (produtosError) throw produtosError
         setAlertasDesativados((produtos ?? []).filter((p) => p.alerta_estoque_baixo_ativo === false).map((p) => chaveAlertaEstoque(p.descricao)))
+        setCodigoPorProduto(Object.fromEntries((produtos ?? []).map((p) => [chaveAlertaEstoque(p.descricao), p.codigo])))
         const descricaoPorCodigo = new Map((produtos ?? []).map((p) => [p.codigo, p.descricao]))
         const usos = new Map<string, Set<string>>()
         for (let inicio = 0; ; inicio += 1000) {
@@ -233,7 +235,13 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
           setUsosPorProduto({})
         }
       } else {
-        setAlertasDesativados([])
+        setCodigoPorProduto({})
+        try {
+          const preferencias = JSON.parse(localStorage.getItem('estoque-atual-alertas-virgem') || '[]')
+          setAlertasDesativados(Array.isArray(preferencias) ? preferencias.filter((item) => typeof item === 'string') : [])
+        } catch {
+          setAlertasDesativados([])
+        }
         setUsosPorProduto({})
       }
     } catch (error) {
@@ -282,6 +290,36 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
     },
   ]
   const maxKg = Math.max(1, ...resumos.map((r) => numero(r.peso_estoque_kg)))
+
+  async function alternarAlertaVirgem(referencia: string) {
+    const chave = chaveAlertaEstoque(referencia)
+    const desativado = alertasDesativados.includes(chave)
+    const proxima = desativado ? alertasDesativados.filter((item) => item !== chave) : [...alertasDesativados, chave]
+    setAlertasDesativados(proxima)
+    try {
+      localStorage.setItem('estoque-atual-alertas-virgem', JSON.stringify(proxima))
+      toast.success(desativado ? 'Notificação ativada.' : 'Notificação desativada.')
+    } catch {
+      setAlertasDesativados(alertasDesativados)
+      toast.error('Não foi possível salvar a preferência de notificação neste navegador.')
+    }
+  }
+
+  async function alternarAlertaProduto(codigo: string, descricao: string) {
+    if (!codigo) return toast.error('Não encontrei o código do produto para alterar a notificação.')
+    const chave = chaveAlertaEstoque(descricao)
+    const estavaDesativado = alertasDesativados.includes(chave)
+    const novoAtivo = estavaDesativado
+    setAlertasDesativados((atuais) => novoAtivo ? atuais.filter((item) => item !== chave) : [...atuais, chave])
+    const { error } = await supabase.schema('rebobinadeira').from('produtos_jumbo')
+      .update({ alerta_estoque_baixo_ativo: novoAtivo }).eq('codigo', codigo)
+    if (error) {
+      setAlertasDesativados((atuais) => estavaDesativado ? [...atuais, chave] : atuais.filter((item) => item !== chave))
+      toast.error('Não foi possível salvar a preferência de notificação.', { description: error.message })
+    } else {
+      toast.success(novoAtivo ? 'Notificação ativada.' : 'Notificação desativada.')
+    }
+  }
 
   function abrirNovo() { setEditando(null); setForm({ ...vazio }); setFormAberto(true) }
   function abrirEdicao(b: BobinaEstoque) {
@@ -428,6 +466,30 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
           </section>
         )
       })()}
+      {tipoEstoque === 'VIRGEM' && (() => {
+        const avisos = minimosVirgem.map((item) => {
+          const minimo = item.minimo_calibrado_kg ?? item.minimo_calculado_kg
+          const valido = minimo != null && Number(minimo) > 0
+          const bobinasMedida = bobinas.filter((b) => b.categoria === 'BOPP' && (b.medida_texto || fmtMedida(b.medida)) === item.referencia)
+          const minimoBobinas = item.minimo_calibrado_bobinas ?? (valido && Number(item.peso_medio_bobina_kg) > 0 ? Math.ceil(Number(minimo) / Number(item.peso_medio_bobina_kg)) : null)
+          const folga = minimoBobinas == null ? null : bobinasMedida.length - Number(minimoBobinas)
+          const status = folga == null ? 'ATENÇÃO' : folga < 0 ? 'COMPRAR' : folga === 0 ? 'ATENÇÃO' : 'OK'
+          return { referencia: item.referencia, atual: bobinasMedida.length, minimo: minimoBobinas, folga, status }
+        }).filter((item) => item.status !== 'OK' && !alertasDesativados.includes(chaveAlertaEstoque(item.referencia)))
+        if (!avisos.length) return null
+        return (
+          <section className="overflow-hidden rounded-xl border border-amber-200 bg-amber-50">
+            <div className="flex items-center gap-2 border-b border-amber-200 px-4 py-3 text-sm font-bold text-amber-950"><Bell className="size-4" /> Notificações de estoque <span className="ml-auto rounded-full bg-amber-200 px-2.5 py-0.5 text-xs">{avisos.length}</span></div>
+            <div className="divide-y divide-amber-200">
+              {avisos.map((item) => <div key={item.referencia} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                <div className="flex items-center gap-2"><AlertTriangle className="size-4 text-amber-700" /><span className="font-bold text-sm text-amber-950">{item.referencia}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${item.status === 'COMPRAR' ? 'bg-red-100 text-red-800' : 'bg-amber-200 text-amber-950'}`}>{item.status}</span></div>
+                <span className="text-xs text-amber-900">Atual: {item.atual} · mínimo: {item.minimo ?? 'não definido'} bobinas</span>
+              </div>)}
+            </div>
+          </section>
+        )
+      })()}
+
       {tipoEstoque === 'VIRGEM' && (
         <section className="min-w-0 space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-2">
@@ -480,9 +542,14 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                       </div>
                     </div>
                     <div className="mt-2 border-t border-slate-100 pt-2">
-                      <button type="button" onClick={() => setDetalhesMedida((atual) => atual === item.referencia ? null : item.referencia)} aria-expanded={detalhesMedida === item.referencia} className="inline-flex items-center rounded-md bg-[#b91c26] px-3 py-2 text-xs font-bold text-white hover:bg-[#991b1b]">
-                        {detalhesMedida === item.referencia ? 'Ocultar' : 'Detalhes'} · {bobinasMedida.length} bobinas
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button type="button" onClick={() => setDetalhesMedida((atual) => atual === item.referencia ? null : item.referencia)} aria-expanded={detalhesMedida === item.referencia} className="inline-flex items-center rounded-md bg-[#b91c26] px-3 py-2 text-xs font-bold text-white hover:bg-[#991b1b]">
+                          {detalhesMedida === item.referencia ? 'Ocultar' : 'Detalhes'} · {bobinasMedida.length} bobinas
+                        </button>
+                        <button type="button" onClick={() => void alternarAlertaVirgem(item.referencia)} aria-label={alertasDesativados.includes(chaveAlertaEstoque(item.referencia)) ? 'Ativar notificação' : 'Desativar notificação'} title={alertasDesativados.includes(chaveAlertaEstoque(item.referencia)) ? 'Ativar notificação' : 'Desativar notificação'} className="inline-flex size-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-100">
+                          {alertasDesativados.includes(chaveAlertaEstoque(item.referencia)) ? <BellOff className="size-4" /> : <Bell className="size-4" />}
+                        </button>
+                      </div>
                       {detalhesMedida === item.referencia && (
                         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-3" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetalhesMedida(null) }}>
                           <section role="dialog" aria-modal="true" aria-label={`Bobinas da medida ${item.referencia}`} className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
@@ -518,6 +585,42 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
               })}
             </div>
           )}
+        </section>
+      )}
+
+      {tipoEstoque === 'ADESIVADO' && (
+        <section className="space-y-3">
+          <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {[...resumos].sort((a, b) => ordenarReferenciaEstoque(a.medida_produto, b.medida_produto)).map((item) => {
+              const atual = numero(item.metragem_disponivel_m)
+              const minimo = numero(item.estoque_minimo_semanal_m)
+              const folga = atual - minimo
+              const status = minimo <= 0 ? 'ATENÇÃO' : folga < 0 ? 'COMPRAR' : folga === 0 ? 'ATENÇÃO' : 'OK'
+              const estilo = status === 'COMPRAR' ? 'bg-red-100 text-red-800' : status === 'ATENÇÃO' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800'
+              const chave = chaveAlertaEstoque(item.medida_produto)
+              const desativado = alertasDesativados.includes(chave)
+              return (
+                <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0"><h3 className="font-bold text-slate-900">{item.medida_produto}</h3><p className="text-xs text-slate-500">{item.categoria}</p></div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${estilo}`}>{status}</span>
+                      <button type="button" onClick={() => void alternarAlertaProduto(codigoPorProduto[chave] ?? '', item.medida_produto)} aria-label={desativado ? 'Ativar notificação' : 'Desativar notificação'} title={desativado ? 'Ativar notificação' : 'Desativar notificação'} className="inline-flex size-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-100">
+                        {desativado ? <BellOff className="size-4" /> : <Bell className="size-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-slate-50 p-2"><p className="text-[10px] text-slate-500">Quantidade atual</p><p className="text-sm font-bold text-slate-900">{fmt(item.quantidade_jumbos)} jumbos</p></div>
+                    <div className="rounded-lg bg-slate-50 p-2"><p className="text-[10px] text-slate-500">Peso atual</p><p className="text-sm font-bold text-slate-900">{fmt(item.peso_estoque_kg, 1)} kg</p></div>
+                    <div className="rounded-lg bg-slate-50 p-2"><p className="text-[10px] text-slate-500">Metragem atual</p><p className="text-sm font-bold text-slate-900">{fmt(atual)} m</p></div>
+                    <div className="rounded-lg bg-slate-50 p-2"><p className="text-[10px] text-slate-500">Mínimo semanal</p><p className="text-sm font-bold text-slate-900">{fmt(minimo)} m</p></div>
+                  </div>
+                  <p className={`mt-2 text-right text-xs font-bold tabular-nums ${folga < 0 ? 'text-red-700' : folga === 0 ? 'text-amber-700' : 'text-emerald-700'}`}>{folga > 0 ? '+' : ''}{fmt(folga)} m sobre o mínimo</p>
+                </article>
+              )
+            })}
+          </div>
         </section>
       )}
 
