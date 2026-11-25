@@ -5,6 +5,9 @@ alter table estoque_atual.bobinas_utilizadas
   add column if not exists bobina_id uuid,
   add column if not exists dados_bobina jsonb;
 
+create index if not exists entradas_bopp_virgem_itens_bobina_id_idx
+  on estoque_atual.entradas_bopp_virgem_itens(bobina_id);
+
 create or replace function estoque_atual.conferir_baixa_bopp_virgem_por_codigo(p_codigo text)
 returns jsonb
 language plpgsql
