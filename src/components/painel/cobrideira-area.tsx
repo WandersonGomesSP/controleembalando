@@ -565,7 +565,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
       const { data, error } = await (supabase.schema('estoque_atual') as any)
         .from('bopp_baixa_conferencias')
         .select('codigo,mensagem,peso_estoque_kg,peso_produzido_kg,diferenca_percentual,updated_at')
-        .eq('status', 'ALERTA_EXCESSO')
+        .in('status', ['ALERTA_EXCESSO', 'BAIXADA_COM_ALERTA'])
         .order('updated_at', { ascending: false })
         .limit(20)
       if (!error && ativo) setAlertasBaixaVirgem(data ?? [])
@@ -1171,30 +1171,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             .select('*')
             .single()
       if (resultado.error) throw resultado.error
-      if (conferirBaixaVirgem && form.material.trim().toUpperCase() === 'BOPP') {
-        const { data: conferencia, error: conferenciaError } = await (supabase.schema('estoque_atual') as any)
-          .from('bopp_baixa_conferencias')
-          .select('status,mensagem,peso_estoque_kg,peso_produzido_kg,diferenca_percentual,quantidade_bobinas')
-          .eq('codigo', codigoNormalizado)
-          .maybeSingle()
-        if (conferenciaError) throw conferenciaError
-        if (conferencia && conferencia.status !== 'ALERTA_EXCESSO') {
-          setAlertasBaixaVirgem(atual => atual.filter(item => item.codigo !== codigoNormalizado))
-        }
-        if (conferencia?.status === 'BAIXADA') {
-          toast.success(conferencia.mensagem || 'Baixa automática do BOPP realizada.')
-        } else if (conferencia?.status === 'ALERTA_EXCESSO') {
-          const mensagem = conferencia.mensagem || 'A produção ultrapassou a tolerância de 5%. A baixa foi bloqueada.'
-          setAlertasBaixaVirgem(atual => [{ codigo: codigoNormalizado, mensagem, peso_estoque_kg: conferencia.peso_estoque_kg, peso_produzido_kg: conferencia.peso_produzido_kg, diferenca_percentual: conferencia.diferenca_percentual, updated_at: new Date().toISOString() }, ...atual.filter(item => item.codigo !== codigoNormalizado)].slice(0, 20))
-          toast.error('ALERTA DE CONFERÊNCIA DO BOPP', { description: mensagem, duration: 20000 })
-        } else if (conferencia?.status === 'AGUARDANDO') {
-          toast.info(conferencia.mensagem || 'Produção ainda abaixo do peso para baixa automática.')
-        } else if (conferencia?.status === 'SEM_ESTOQUE') {
-          toast.info('O código não está no Estoque Atual Virgem; não houve baixa.')
-        } else if (conferencia?.status === 'SEM_PESO') {
-          toast.error('Peso da bobina do estoque não informado.', { description: conferencia.mensagem })
-        }
-      }
+
+      if (editandoNumero) {
         setRegistros((atuais) =>
           atuais.map((registro) =>
             registro.numero_bobina === editandoNumero ? resultado.data : registro,
@@ -1205,6 +1183,33 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         setRegistros((atuais) => [resultado.data, ...atuais])
         downloadCobrideiraLabel(resultado.data as CobrideiraBobinaRow)
         toast.success('Bobina cadastrada. Etiqueta PDF baixada.')
+      }
+
+      if (conferirBaixaVirgem && form.material.trim().toUpperCase() === 'BOPP') {
+        const { data: conferencia, error: conferenciaError } = await (supabase.schema('estoque_atual') as any)
+          .from('bopp_baixa_conferencias')
+          .select('status,mensagem,peso_estoque_kg,peso_produzido_kg,diferenca_percentual,quantidade_bobinas')
+          .eq('codigo', codigoNormalizado)
+          .maybeSingle()
+        if (conferenciaError) throw conferenciaError
+
+        const alertaExcesso = conferencia?.status === 'BAIXADA_COM_ALERTA' || conferencia?.status === 'ALERTA_EXCESSO'
+        if (alertaExcesso && conferencia) {
+          const mensagem = conferencia.mensagem || 'A produção ultrapassou 105% do peso cadastrado. A baixa foi realizada, mas precisa de conferência.'
+          setAlertasBaixaVirgem(atual => [{ codigo: codigoNormalizado, mensagem, peso_estoque_kg: conferencia.peso_estoque_kg, peso_produzido_kg: conferencia.peso_produzido_kg, diferenca_percentual: conferencia.diferenca_percentual, updated_at: new Date().toISOString() }, ...atual.filter(item => item.codigo !== codigoNormalizado)].slice(0, 20))
+          toast.warning('ALERTA DE CONFERÊNCIA DO BOPP — BAIXA REALIZADA', { description: mensagem, duration: 20000 })
+        } else {
+          setAlertasBaixaVirgem(atual => atual.filter(item => item.codigo !== codigoNormalizado))
+          if (conferencia?.status === 'BAIXADA' || conferencia?.status === 'JA_BAIXADA') {
+            toast.success(conferencia.mensagem || 'Baixa do BOPP concluída; código removido do estoque.')
+          } else if (conferencia?.status === 'AGUARDANDO') {
+            toast.info(conferencia.mensagem || 'Produção ainda abaixo do peso para baixa automática.')
+          } else if (conferencia?.status === 'SEM_ESTOQUE') {
+            toast.info('O código não está no Estoque Atual Virgem; não houve baixa.')
+          } else if (conferencia?.status === 'SEM_PESO') {
+            toast.error('Peso da bobina do estoque não informado.', { description: conferencia.mensagem })
+          }
+        }
       }
       salvarCamposReutilizaveis(form)
       setEditandoNumero(null)
@@ -1930,7 +1935,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                           const expandido = registrosExpandidos.has(registro.numero_bobina)
                           const detalhes: [string, string | number][] = [
                             ['Aba / período', registro.aba], ['Material', registro.material],
-                            ['Peso bruto', pesoBrutoContabilizado(registro) > 0 ? `${formatarPeso(pesoBrutoContabilizado(registro))} kg` : 'Já contabilizado pelo mesmo código'],
+                            ['Peso bruto', `${formatarPeso(Number(registro.peso_bruto))} kg${pesoBrutoContabilizado(registro) > 0 ? ' · contabilizado neste registro' : ' · já contabilizado por outro registro do mesmo código'}`],
                             ['Peso final', `${formatarPeso(Number(registro.peso_final))} kg`],
                             ['Peso do cilindro', `${formatarPeso(Number(registro.peso_cilindro))} kg`],
                             ['Peso do filme BOPP calculado', registro.peso_filme_bopp_kg == null ? '—' : `${formatarPeso(Number(registro.peso_filme_bopp_kg))} kg`],
