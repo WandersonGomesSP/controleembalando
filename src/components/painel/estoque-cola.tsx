@@ -367,11 +367,7 @@ export function EstoqueColaCobrideira() {
 
   return (
     <div className="space-y-4 rounded-xl border border-[#d9e0eb] bg-white p-3 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-bold text-slate-900">Estoque de Cola</h1>
-          <p className="text-sm text-slate-600">Entradas, retiradas para Bahia e consumo automático registrado pela Cobrideira.</p>
-        </div>
+      <div className="flex justify-end">
         <button type="button" onClick={() => void carregar()} disabled={carregando} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#c91d26] px-4 text-xs font-semibold text-white hover:bg-[#e3262e] disabled:opacity-60">
           <RefreshCw className={`size-4 ${carregando ? 'animate-spin' : ''}`} /> Atualizar
         </button>
