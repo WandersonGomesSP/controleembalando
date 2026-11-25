@@ -54,13 +54,21 @@ begin
 
   perform pg_advisory_xact_lock(hashtextextended(v_codigo, 0));
 
+  select c.status into v_status
+  from estoque_atual.bopp_baixa_conferencias c
+  where c.codigo=v_codigo;
+
   if exists (
     select 1 from estoque_atual.bobinas_utilizadas u
     where upper(trim(u.codigo)) = v_codigo
   ) then
+    if v_status = 'BAIXADA' then
+      return jsonb_build_object('status','BAIXADA','codigo',v_codigo,
+        'mensagem','A baixa automática deste código já foi concluída.');
+    end if;
     insert into estoque_atual.bopp_baixa_conferencias
       (codigo,status,mensagem,updated_at,baixada_em)
-    values (v_codigo,'JA_BAIXADA','Este código já consta no histórico de consumo.',now(),now())
+    values (v_codigo,'JA_BAIXADA','Este código já constava no histórico de consumo antes da conferência automática.',now(),now())
     on conflict (codigo) do update set
       status='JA_BAIXADA',mensagem=excluded.mensagem,updated_at=now();
     return jsonb_build_object('status','JA_BAIXADA','codigo',v_codigo);
