@@ -2126,13 +2126,13 @@ export const excluirItemEntradaBopp = createServerFn({ method: 'POST' })
         .eq('id', item.bobina_id)
         .maybeSingle()
       if (bobinaError) throw new Error('Não foi possível conferir a bobina no estoque: ' + bobinaError.message)
-      if (bobina && bobina.entrada_id === item.entrada_id) {
-        const { data: removida, error: deleteStockError } = await estoque.from('bobinas_estoque_virgem')
-          .delete().eq('id', item.bobina_id).select('id').maybeSingle()
-        if (deleteStockError) throw new Error('Não foi possível retirar a bobina do estoque: ' + deleteStockError.message)
-        if (!removida) throw new Error('A bobina já não está no estoque. Atualize a tela e tente novamente.')
-        retiradaDoEstoque = true
-      }
+      if (!bobina) throw new Error('A bobina vinculada não foi encontrada no estoque. Atualize a tela e tente novamente.')
+      if (bobina.entrada_id !== item.entrada_id) throw new Error('A bobina está vinculada a outra entrada. O registro não foi alterado.')
+      const { data: removida, error: deleteStockError } = await estoque.from('bobinas_estoque_virgem')
+        .delete().eq('id', item.bobina_id).select('id').maybeSingle()
+      if (deleteStockError) throw new Error('Não foi possível retirar a bobina do estoque: ' + deleteStockError.message)
+      if (!removida) throw new Error('A bobina já não está no estoque. Atualize a tela e tente novamente.')
+      retiradaDoEstoque = true
     }
 
     const { error: deleteItemError } = await estoque.from('entradas_bopp_virgem_itens')
