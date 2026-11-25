@@ -14,10 +14,19 @@ create table if not exists estoque_atual.entradas_bopp_virgem (
   created_at timestamptz not null default now()
 );
 
-alter table estoque_atual.bobinas_estoque_virgem
-  add constraint bobinas_estoque_virgem_entrada_id_fkey
-  foreign key (entrada_id) references estoque_atual.entradas_bopp_virgem(id)
-  on delete set null;
+do $
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'bobinas_estoque_virgem_entrada_id_fkey'
+      and conrelid = 'estoque_atual.bobinas_estoque_virgem'::regclass
+  ) then
+    alter table estoque_atual.bobinas_estoque_virgem
+      add constraint bobinas_estoque_virgem_entrada_id_fkey
+      foreign key (entrada_id) references estoque_atual.entradas_bopp_virgem(id)
+      on delete set null;
+  end if;
+end $;
 
 create table if not exists estoque_atual.entradas_bopp_virgem_itens (
   id uuid primary key default gen_random_uuid(),
