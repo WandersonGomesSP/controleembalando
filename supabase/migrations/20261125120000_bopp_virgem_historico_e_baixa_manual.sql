@@ -1,3 +1,16 @@
+do $
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema='estoque_atual' and table_name='entradas_bopp_virgem_itens' and column_name='peso_rateado_kg'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema='estoque_atual' and table_name='entradas_bopp_virgem_itens' and column_name='peso_kg'
+  ) then
+    alter table estoque_atual.entradas_bopp_virgem_itens rename column peso_rateado_kg to peso_kg;
+  end if;
+end $;
+
 alter table estoque_atual.bobinas_utilizadas
   add column if not exists nota_fiscal text,
   add column if not exists data_entrada_origem date,
