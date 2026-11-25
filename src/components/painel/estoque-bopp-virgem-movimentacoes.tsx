@@ -27,7 +27,7 @@ type RegistroRetirada = {
 type BobinaLinha = { id?: string; codigo: string; peso_kg?: number | null; medida_texto?: string | null; fornecedor?: string | null }
 type EventoConsumo = {
   id: string; codigo: string; data_utilizacao: string | null; fornecedor: string | null;
-  nota_fiscal: string | null; data_entrada_origem: string | null; medida: number | null;
+  nota_fiscal: string | null; nota_fiscal_texto: string | null; data_entrada_origem: string | null; medida: number | null;
   peso_kg: number | null; operador: string | null; linha_arquivo: number | null;
 }
 type DadosEntradaCache = { fornecedor: string; empresa: string; nf: string; dataEmissao: string; dataEntrada: string }
@@ -90,7 +90,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
         setRetiradas((data ?? []) as RegistroRetirada[])
       }
       if (aba === 'consumo') {
-        const { data, error } = await db.from('bobinas_utilizadas_eventos').select('id,codigo,data_utilizacao,fornecedor,nota_fiscal,data_entrada_origem,medida,peso_kg,operador,linha_arquivo').order('data_utilizacao', { ascending: false, nullsFirst: false }).order('codigo').range(0, 4999)
+        const { data, error } = await db.from('bobinas_utilizadas_eventos').select('id,codigo,data_utilizacao,fornecedor,nota_fiscal,nota_fiscal_texto,data_entrada_origem,medida,peso_kg,operador,linha_arquivo').order('data_utilizacao', { ascending: false, nullsFirst: false }).order('codigo').range(0, 4999)
         if (error) throw error
         setConsumo(data ?? [])
       }
@@ -301,18 +301,19 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
         <div className="rounded-lg bg-slate-50 p-3 text-sm font-semibold">{consumo.length.toLocaleString('pt-BR')} evento(s) de produção carregados</div>
         <div className="max-h-[620px] overflow-auto rounded-lg border border-slate-200">
           <table className="w-full min-w-[760px] text-left text-xs">
-            <thead className="sticky top-0 bg-slate-100"><tr>{['Código','Data produção','Fornecedor / NF','Medida','Peso','Operador','Detalhes'].map(x => <th key={x} className="px-3 py-2">{x}</th>)}</tr></thead>
+            <thead className="sticky top-0 bg-slate-100"><tr>{['Código','Data produção','Fornecedor / NF','Data entrada','Medida','Peso','Operador','Detalhes'].map(x => <th key={x} className="px-3 py-2">{x}</th>)}</tr></thead>
             <tbody>{consumo.map(item => <React.Fragment key={item.id}>
               <tr className="border-t border-slate-100">
                 <td className="px-3 py-2 font-mono font-bold">{item.codigo}</td>
                 <td className="px-3 py-2">{formatarData(item.data_utilizacao)}</td>
-                <td className="px-3 py-2">{item.fornecedor || '—'}<span className="block text-[10px] text-slate-500">NF {item.nota_fiscal || '—'}</span></td>
+                <td className="px-3 py-2">{item.fornecedor || '—'}<span className="block text-[10px] text-slate-500">NF {item.nota_fiscal || '—'}</span><span className="block max-w-48 truncate text-[10px] text-slate-400" title={item.nota_fiscal_texto || ''}>{item.nota_fiscal_texto || ''}</span></td>
+                <td className="px-3 py-2">{formatarData(item.data_entrada_origem)}</td>
                 <td className="px-3 py-2">{item.medida ?? '—'}</td>
                 <td className="px-3 py-2">{formatarKg(item.peso_kg)}</td>
                 <td className="px-3 py-2">{item.operador || '—'}</td>
                 <td className="px-3 py-2"><button type="button" onClick={() => void abrirDetalhesConsumo(item.codigo)} className="rounded-md border border-slate-300 px-2 py-1 font-semibold text-slate-700 hover:border-red-500 hover:text-red-700">{carregandoDetalhes === item.codigo ? 'Buscando...' : detalhesConsumo[item.codigo] ? 'Ocultar' : 'Detalhes'}</button></td>
               </tr>
-              {detalhesConsumo[item.codigo] && <tr className="border-t border-slate-100 bg-slate-50"><td colSpan={7} className="p-3">
+              {detalhesConsumo[item.codigo] && <tr className="border-t border-slate-100 bg-slate-50"><td colSpan={8} className="p-3">
                 <p className="mb-2 font-semibold">Bobinas produzidas com o código {item.codigo}</p>
                 {detalhesConsumo[item.codigo].length ? <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{detalhesConsumo[item.codigo].map((b:any)=><div key={b.numero_bobina} className="rounded-md border border-slate-200 bg-white p-2"><strong className="font-mono">{b.numero_bobina}</strong><p className="text-[10px] text-slate-500">{formatarData(b.data)} · {b.material} · {b.largura}.{String(b.micragem).padStart(2,'0')}</p><p className="text-[10px] text-slate-500">{formatarKg(b.peso_final)}</p></div>)}</div> : <p className="text-xs text-slate-500">Não localizei número de bobina produzido para este código no cadastro da Cobrideira.</p>}
               </td></tr>}
