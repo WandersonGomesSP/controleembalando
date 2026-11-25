@@ -68,6 +68,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
   const [entradas, setEntradas] = React.useState<RegistroEntrada[]>([])
   const [retiradas, setRetiradas] = React.useState<RegistroRetirada[]>([])
   const [consumo, setConsumo] = React.useState<EventoConsumo[]>([])
+  const [buscaConsumo, setBuscaConsumo] = React.useState('')
   const [detalhesConsumo, setDetalhesConsumo] = React.useState<Record<string, any[]>>({})
   const [carregandoDetalhes, setCarregandoDetalhes] = React.useState<string | null>(null)
   const [itensEntrada, setItensEntrada] = React.useState<Record<string, BobinaLinha[]>>({})
@@ -102,6 +103,11 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
   }, [aba])
 
   React.useEffect(() => { void carregar() }, [carregar])
+
+  const consumoFiltrado = React.useMemo(() => {
+    const termo = buscaConsumo.trim().toLocaleUpperCase('pt-BR')
+    return termo ? consumo.filter(item => item.codigo.toLocaleUpperCase('pt-BR').includes(termo)) : consumo
+  }, [consumo, buscaConsumo])
   React.useEffect(() => {
     try { localStorage.setItem('controleembalando-bopp-entrada-cache', JSON.stringify(cacheEntrada)) } catch { /* cache local indisponível */ }
   }, [cacheEntrada])
@@ -298,17 +304,22 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
 
       {aba === 'consumo' && <>
         <div><h3 className="text-base font-bold">Histórico de Consumo Virgem</h3><p className="text-xs text-slate-500">Consumos importados do CSV, com fornecedor, NF, entrada, peso e operador.</p></div>
-        <div className="rounded-lg bg-slate-50 p-3 text-sm font-semibold">{consumo.length.toLocaleString('pt-BR')} evento(s) de produção carregados</div>
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <label className="grid gap-1 text-xs font-semibold text-slate-700">Pesquisar por código
+            <input value={buscaConsumo} onChange={e => setBuscaConsumo(e.target.value)} placeholder="Digite o código da bobina..." className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm font-normal outline-none focus:border-red-500" />
+          </label>
+          <div className="rounded-lg bg-slate-50 p-3 text-sm font-semibold">{consumoFiltrado.length.toLocaleString('pt-BR')} de {consumo.length.toLocaleString('pt-BR')} evento(s)</div>
+        </div>
         <div className="max-h-[620px] overflow-auto rounded-lg border border-slate-200">
           <table className="w-full min-w-[760px] text-left text-xs">
             <thead className="sticky top-0 bg-slate-100"><tr>{['Código','Data produção','Fornecedor / NF','Data entrada','Medida','Peso','Operador','Detalhes'].map(x => <th key={x} className="px-3 py-2">{x}</th>)}</tr></thead>
-            <tbody>{consumo.map(item => <React.Fragment key={item.id}>
+            <tbody>{consumoFiltrado.map(item => <React.Fragment key={item.id}>
               <tr className="border-t border-slate-100">
                 <td className="px-3 py-2 font-mono font-bold">{item.codigo}</td>
                 <td className="px-3 py-2">{formatarData(item.data_utilizacao)}</td>
                 <td className="px-3 py-2">{item.fornecedor || '—'}<span className="block text-[10px] text-slate-500">NF {item.nota_fiscal || '—'}</span><span className="block max-w-48 truncate text-[10px] text-slate-400" title={item.nota_fiscal_texto || ''}>{item.nota_fiscal_texto || ''}</span></td>
                 <td className="px-3 py-2">{formatarData(item.data_entrada_origem)}</td>
-                <td className="px-3 py-2">{item.medida ?? '—'}</td>
+                <td className="px-3 py-2">{item.medida == null ? '—' : Number(item.medida).toFixed(2)}</td>
                 <td className="px-3 py-2">{formatarKg(item.peso_kg)}</td>
                 <td className="px-3 py-2">{item.operador || '—'}</td>
                 <td className="px-3 py-2"><button type="button" onClick={() => void abrirDetalhesConsumo(item.codigo)} className="rounded-md border border-slate-300 px-2 py-1 font-semibold text-slate-700 hover:border-red-500 hover:text-red-700">{carregandoDetalhes === item.codigo ? 'Buscando...' : detalhesConsumo[item.codigo] ? 'Ocultar' : 'Detalhes'}</button></td>
@@ -327,7 +338,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
         {retiradas.map(item => <article key={item.id} className="rounded-lg border border-slate-200 p-3">
           <button type="button" onClick={() => void alternarRetirada(item)} className="flex w-full items-center gap-2 text-left">
             {abertos.has(item.id) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-            <span className="flex-1"><strong className="block text-sm">{item.destino} · {formatarData(item.data_envio)}</strong><span className="text-xs text-slate-500">{item.quantidade_bobinas} bobinas enviadas</span></span>
+            <span className="flex-1"><strong className="block text-sm">{item.destino} · {formatarData(item.data_envio)}</strong><span className="inline-flex rounded bg-[#b91c26] px-2 py-1 text-xs font-semibold text-white">{item.quantidade_bobinas} bobinas enviadas</span></span>
             <strong className="text-sm">{formatarKg(item.peso_total_kg)}</strong>
           </button>
           {abertos.has(item.id) && <div className="mt-3 grid grid-cols-1 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-2 lg:grid-cols-3">{(itensRetirada[item.id] ?? []).map((b, i) => <div key={i} className="min-w-0 rounded-md bg-slate-50 p-2"><p className="break-all font-mono text-xs font-bold">{b.codigo}</p><p className="text-[10px] text-slate-600">{b.dados_bobina?.fornecedor || 'Fornecedor não informado'} · {b.dados_bobina?.medida_texto || b.dados_bobina?.medida || 'Medida não informada'}</p><p className="text-[10px] text-slate-600">{formatarKg(b.dados_bobina?.peso_kg)} · NF {b.dados_bobina?.nf || '—'}</p><p className="text-[10px] text-slate-500">Entrada: {formatarData(b.dados_bobina?.data_entrada)} · Produção/envio: {formatarData(b.dados_bobina?.data_envio)}</p><p className="text-[10px] text-slate-500">Registro: {b.dados_bobina?.operador_origem || 'Enviado para Bahia'}</p></div>)}</div>}
