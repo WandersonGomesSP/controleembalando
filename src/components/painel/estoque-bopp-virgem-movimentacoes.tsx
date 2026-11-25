@@ -1,7 +1,8 @@
 import * as React from 'react'
-import { ArrowDownToLine, ArrowUpFromLine, History, RefreshCw, ChevronDown, ChevronRight, Package, Save } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, History, RefreshCw, ChevronDown, ChevronRight, Package, Save, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { excluirItemEntradaBopp } from '@/lib/admin.functions'
 
 type AbaBopp = 'entrada' | 'retirada' | 'consumo' | 'envios'
 type RegistroEntrada = {
@@ -24,7 +25,7 @@ type RegistroRetirada = {
   peso_total_kg: number
   created_at: string
 }
-type BobinaLinha = { id?: string; codigo: string; peso_kg?: number | null; medida_texto?: string | null; fornecedor?: string | null }
+type BobinaLinha = { id?: string; bobina_id?: string | null; codigo: string; peso_kg?: number | null; medida_texto?: string | null; fornecedor?: string | null }
 type EventoConsumo = {
   id: string; codigo: string; data_utilizacao: string | null; fornecedor: string | null;
   nota_fiscal: string | null; nota_fiscal_texto: string | null; data_entrada_origem: string | null; medida: number | null;
@@ -76,6 +77,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
   const [abertos, setAbertos] = React.useState<Set<string>>(new Set())
   const [carregando, setCarregando] = React.useState(false)
   const [salvando, setSalvando] = React.useState(false)
+  const [excluindoItemEntrada, setExcluindoItemEntrada] = React.useState<string | null>(null)
 
   const carregar = React.useCallback(async () => {
     setCarregando(true)
@@ -117,7 +119,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
     if (novo.has(item.id)) { novo.delete(item.id); setAbertos(novo); return }
     novo.add(item.id); setAbertos(novo)
     if (!itensEntrada[item.id]) {
-      const { data, error } = await db.from('entradas_bopp_virgem_itens').select('codigo,peso_kg').eq('entrada_id', item.id).order('codigo')
+      const { data, error } = await db.from('entradas_bopp_virgem_itens').select('id,bobina_id,codigo,peso_kg').eq('entrada_id', item.id).order('codigo')
       if (error) return toast.error('Não foi possível abrir os códigos da entrada.', { description: error.message })
       setItensEntrada(atual => ({ ...atual, [item.id]: data ?? [] }))
     }
@@ -150,9 +152,6 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
       const { data: existentes, error: consultaError } = await db.from('bobinas_estoque_virgem').select('codigo').in('codigo', codigos)
       if (consultaError) throw consultaError
       if ((existentes ?? []).length) throw new Error(`Já existem no estoque: ${(existentes ?? []).map((x: any) => x.codigo).join(', ')}`)
-      const { data: historicos, error: histError } = await db.from('bobinas_utilizadas').select('codigo').in('codigo', codigos)
-      if (histError) throw histError
-      if ((historicos ?? []).length) throw new Error(`Já constam no histórico de consumo: ${(historicos ?? []).map((x: any) => x.codigo).join(', ')}`)
       const { data: entrada, error: entradaError } = await db.from('entradas_bopp_virgem').insert({
         fornecedor: fornecedor.trim().toUpperCase(),
         medida_texto: medida.trim(),
@@ -204,6 +203,28 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
     } catch (error) {
       toast.error('Não foi possível registrar a entrada.', { description: error instanceof Error ? error.message : 'Verifique os dados.' })
     } finally { setSalvando(false) }
+  }
+
+  async function excluirItemEntrada(itemId: string, entradaId: string, codigo: string) {
+    if (!window.confirm(`Excluir a bobina ${codigo} desta entrada e removê-la do Estoque Atual Virgem?`)) return
+    setExcluindoItemEntrada(itemId)
+    try {
+      const { data: sessao } = await supabase.auth.getSession()
+      if (!sessao.session?.access_token) throw new Error('Sua sessão expirou. Entre novamente.')
+      await excluirItemEntradaBopp({ data: { accessToken: sessao.session.access_token, itemId } })
+      setItensEntrada(atual => { const novo = { ...atual }; delete novo[entradaId]; return novo })
+      toast.success(`Bobina ${codigo} excluída da entrada e do estoque.`)
+      await carregar()
+      const entradaAtualizada = entradas.find(item => item.id === entradaId)
+      if (entradaAtualizada && (entradaAtualizada.quantidade_bobinas ?? 0) > 1) {
+        const { data, error } = await db.from('entradas_bopp_virgem_itens').select('id,bobina_id,codigo,peso_kg').eq('entrada_id', entradaId).order('codigo')
+        if (!error) setItensEntrada(atual => ({ ...atual, [entradaId]: data ?? [] }))
+      }
+    } catch (error) {
+      toast.error('Não foi possível excluir a bobina da entrada.', { description: error instanceof Error ? error.message : 'Verifique os dados.' })
+    } finally {
+      setExcluindoItemEntrada(null)
+    }
   }
 
   async function abrirDetalhesConsumo(codigo: string) {
@@ -289,7 +310,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
               <span className="min-w-0 flex-1"><strong className="block text-sm">{item.fornecedor} · {item.medida_texto}</strong><span className="text-xs text-slate-500">{item.empresa || 'Empresa não informada'} · NF {item.nf || '—'} · Emissão {formatarData(item.data_emissao)} · Entrada {formatarData(item.data_entrada)}</span></span>
               <span className="text-right text-xs font-bold">{formatarKg(item.peso_total_kg)}<span className="mt-1 inline-flex rounded bg-[#b91c26] px-2 py-0.5 text-[10px] font-semibold text-white">{item.quantidade_bobinas} bobinas</span></span>
             </button>
-            {abertos.has(item.id) && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3 lg:grid-cols-4">{(itensEntrada[item.id] ?? []).map(b => <div key={b.codigo} className="flex min-w-0 items-center justify-between gap-2 rounded-md bg-slate-50 p-2"><p className="break-all font-mono text-xs font-bold">{b.codigo}</p><p className="shrink-0 text-xs font-semibold">{formatarKg(b.peso_kg)}</p></div>)}</div>}
+            {abertos.has(item.id) && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3 lg:grid-cols-4">{(itensEntrada[item.id] ?? []).map(b => <div key={b.id ?? b.codigo} className="flex min-w-0 items-center justify-between gap-2 rounded-md bg-slate-50 p-2"><div className="min-w-0"><p className="break-all font-mono text-xs font-bold">{b.codigo}</p><p className="text-[11px] text-slate-600">{formatarKg(b.peso_kg)}</p></div>{b.bobina_id && b.id ? <button type="button" onClick={() => void excluirItemEntrada(b.id!, item.id, b.codigo)} disabled={excluindoItemEntrada === b.id} title="Excluir esta bobina da entrada e do estoque" className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"><Trash2 className={`size-4 ${excluindoItemEntrada === b.id ? 'animate-pulse' : ''}`} /></button> : <span className="shrink-0 text-[10px] font-semibold text-slate-500">Já saiu do estoque</span>}</div>)}</div>}
           </article>)}
           {!entradas.length && <p className="py-4 text-center text-xs text-slate-500">Nenhum recebimento registrado.</p>}
         </div>
