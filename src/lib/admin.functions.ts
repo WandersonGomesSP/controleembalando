@@ -2144,17 +2144,11 @@ export const excluirItemEntradaBopp = createServerFn({ method: 'POST' })
     if (remainingError) throw new Error('Item excluído, mas não foi possível atualizar o resumo da entrada: ' + remainingError.message)
 
     const quantidade = restantes?.length ?? 0
-    if (quantidade === 0) {
-      const { error: deleteHeaderError } = await estoque.from('entradas_bopp_virgem')
-        .delete().eq('id', item.entrada_id)
-      if (deleteHeaderError) throw new Error('Item excluído, mas não foi possível remover a entrada vazia: ' + deleteHeaderError.message)
-    } else {
-      const pesoTotal = (restantes ?? []).reduce((total: number, linha: { peso_kg: number | null }) => total + Number(linha.peso_kg ?? 0), 0)
-      const { error: updateHeaderError } = await estoque.from('entradas_bopp_virgem')
-        .update({ quantidade_bobinas: quantidade, peso_total_kg: Number(pesoTotal.toFixed(3)) })
-        .eq('id', item.entrada_id)
-      if (updateHeaderError) throw new Error('Item excluído, mas não foi possível atualizar os totais da entrada: ' + updateHeaderError.message)
-    }
+    const pesoTotal = (restantes ?? []).reduce((total: number, linha: { peso_kg: number | null }) => total + Number(linha.peso_kg ?? 0), 0)
+    const { error: updateHeaderError } = await estoque.from('entradas_bopp_virgem')
+      .update({ quantidade_bobinas: quantidade, peso_total_kg: Number(pesoTotal.toFixed(3)) })
+      .eq('id', item.entrada_id)
+    if (updateHeaderError) throw new Error('Item excluído, mas não foi possível atualizar os totais da entrada: ' + updateHeaderError.message)
 
     return { success: true, codigo: item.codigo, quantidade_restante: quantidade, retiradaDoEstoque }
   })
