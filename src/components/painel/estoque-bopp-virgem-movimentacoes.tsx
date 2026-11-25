@@ -24,7 +24,7 @@ type RegistroRetirada = {
   peso_total_kg: number
   created_at: string
 }
-type BobinaLinha = { id: string; codigo: string; peso_kg: number | null; medida_texto?: string | null; fornecedor?: string | null }
+type BobinaLinha = { id?: string; codigo: string; peso_kg?: number | null; peso_rateado_kg?: number | null; medida_texto?: string | null; fornecedor?: string | null }
 
 const hoje = new Date().toISOString().slice(0, 10)
 const formatarData = (v?: string | null) => v ? new Date(v + 'T12:00:00').toLocaleDateString('pt-BR') : '—'
