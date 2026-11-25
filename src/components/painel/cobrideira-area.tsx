@@ -1882,7 +1882,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                             <article className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold uppercase text-slate-500">Eventos registrados</p><p className="mt-1 text-xl font-bold text-slate-900">{historico.length}</p></article>
                             <article className="rounded-lg border border-emerald-200 bg-emerald-50 p-3"><p className="text-[11px] font-semibold uppercase text-emerald-700">Baixas sem divergência</p><p className="mt-1 text-xl font-bold text-emerald-900">{historico.filter(item => item.status === 'BAIXADA').length}</p></article>
                             <article className="rounded-lg border border-amber-200 bg-amber-50 p-3"><p className="text-[11px] font-semibold uppercase text-amber-800">Baixas com alerta</p><p className="mt-1 text-xl font-bold text-amber-900">{historico.filter(item => item.status === 'BAIXADA_COM_ALERTA' || item.status === 'ALERTA_EXCESSO').length}</p></article>
-                            <article className="rounded-lg border border-red-200 bg-red-50 p-3"><p className="text-[11px] font-semibold uppercase text-red-700">Erros / pendências</p><p className="mt-1 text-xl font-bold text-red-900">{historico.filter(item => ['SEM_ESTOQUE','SEM_PESO','JA_BAIXADA'].includes(item.status)).length}</p></article>
+                            <article className="rounded-lg border border-red-200 bg-red-50 p-3"><p className="text-[11px] font-semibold uppercase text-red-700">Ocorrências / erros</p><p className="mt-1 text-xl font-bold text-red-900">{historico.filter(item => ['SEM_ESTOQUE','SEM_PESO','JA_BAIXADA'].includes(item.status)).length}</p></article>
                           </div>
                           <h3 className="mb-2 text-sm font-bold text-slate-900">Em aberto para baixa</h3>
                           {abertos.length === 0 ? <p className="mb-5 rounded-lg border border-slate-200 p-3 text-xs text-slate-600">Nenhum código aguardando baixa.</p> : (
@@ -1899,7 +1899,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                               {historico.map(item => {
                                 const sucesso = item.status === 'BAIXADA'
                                 const alerta = item.status === 'BAIXADA_COM_ALERTA' || item.status === 'ALERTA_EXCESSO'
-                                return <article key={item.codigo} className="rounded-lg border border-slate-200 p-3">
+                                return <article key={item.id ?? `${item.codigo}-${item.registrado_em ?? item.updated_at}`} className="rounded-lg border border-slate-200 p-3">
                                   <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div className="flex items-center gap-2"><strong className="font-mono text-sm">{item.codigo}</strong><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${sucesso ? 'bg-emerald-100 text-emerald-800' : alerta ? 'bg-amber-100 text-amber-900' : 'bg-red-100 text-red-800'}`}>{sucesso ? 'BAIXA OK' : alerta ? 'BAIXA COM ALERTA' : item.status === 'AGUARDANDO' ? 'EM ABERTO' : item.status}</span></div>
                                     <span className="text-[10px] text-slate-500">{new Date(item.registrado_em || item.updated_at).toLocaleString('pt-BR')}</span>
