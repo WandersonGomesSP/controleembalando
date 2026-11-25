@@ -640,7 +640,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                                   <div className="flex flex-wrap items-center justify-between gap-2">
                                     <label className="flex min-w-0 items-center gap-2">
                                       <input type="checkbox" checked={selecionadasMedida.has(b.id)} onChange={() => alternarSelecaoMedida(b.id)} className="size-4 shrink-0 accent-[#c91c26]" />
-                                      <span className="font-mono text-sm font-bold text-slate-900">{b.codigo}</span>
+                                      <span className="min-w-0"><span className="block break-all font-mono text-sm font-bold text-slate-900">{b.codigo}</span><span className="block text-[10px] text-slate-500">{b.categoria} · {b.fornecedor || 'Fornecedor não informado'}</span></span>
                                     </label>
                                     <div className="flex gap-1">
                                     <div className="flex gap-1">
