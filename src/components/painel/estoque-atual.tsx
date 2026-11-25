@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, Weight, Ruler, Boxes, FileUp, Bell, BellOff, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { BoppVirgemMovimentacoes } from '@/components/painel/estoque-bopp-virgem-movimentacoes'
 import {
   listCurrentStock,
   createCurrentStockRecord,
@@ -194,6 +195,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
   const [form, setForm] = React.useState<FormEstoque>(vazio)
   const [editando, setEditando] = React.useState<string | null>(null)
   const [formAberto, setFormAberto] = React.useState(false)
+  const [abaVirgem, setAbaVirgem] = React.useState<'estoque' | 'entrada' | 'retirada' | 'consumo' | 'envios'>('estoque')
   const categoriasVisiveis: Categoria[] = tipoEstoque === 'VIRGEM' ? ['BOPP', 'PEBD'] : categorias.filter((categoria) => categoria !== 'PEBD')
 
   async function carregar() {
@@ -424,6 +426,25 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
 
   return (
     <div className="grid gap-4">
+      {tipoEstoque === 'VIRGEM' && (
+        <nav className="flex min-w-0 flex-wrap gap-2 border-b border-slate-200 pb-3" aria-label="Subseções do Estoque Atual Virgem">
+          {([
+            ['estoque', 'Estoque atual'],
+            ['entrada', 'Entrada de BOPP'],
+            ['retirada', 'Retirada para Bahia'],
+            ['consumo', 'Histórico de Consumo Virgem'],
+            ['envios', 'Histórico de envio para BA'],
+          ] as const).map(([id, label]) => (
+            <button key={id} type="button" onClick={() => setAbaVirgem(id)}
+              className={`min-h-9 rounded-lg border px-3 py-2 text-xs font-semibold transition ${abaVirgem === id ? 'border-[#c91c26] bg-[#c91c26] text-white' : 'border-slate-300 bg-white text-slate-700 hover:border-[#c91c26] hover:text-[#c91c26]'}`}>
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
+      {tipoEstoque === 'VIRGEM' && abaVirgem !== 'estoque'
+        ? <BoppVirgemMovimentacoes aba={abaVirgem} />
+        : <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         
         <div className="flex gap-2">
@@ -697,6 +718,8 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
           <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setFormAberto(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button><button disabled={salvando} type="submit" className="rounded-lg bg-[#e3262e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c91f27] disabled:opacity-50">{salvando ? 'Salvando...' : 'Salvar bobina'}</button></div>
         </form>
       </div>}
+        </>
+      }
     </div>
   )
 }
