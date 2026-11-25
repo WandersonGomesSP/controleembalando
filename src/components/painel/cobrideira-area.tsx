@@ -29,7 +29,7 @@ import { EstoqueMinimoCobrideira } from '@/components/painel/rebobinadeira-area'
 import { EstoqueAtualCobrideira } from '@/components/painel/estoque-atual'
 import { EstoqueColaCobrideira } from '@/components/painel/estoque-cola'
 import { downloadCobrideiraLabel } from '@/lib/cobrideira-label'
-import { synchronizeCobrideiraBobina, updateCobrideiraBobina, moveCobrideiraBobinaToTrash, listCobrideiraBobinasTrash, restoreCobrideiraBobinaFromTrash, permanentlyDeleteCobrideiraBobina, listCurrentStockTrash, restoreCurrentStockRecord, permanentlyDeleteCurrentStockTrashRecord } from '@/lib/admin.functions'
+import { synchronizeCobrideiraBobina, updateCobrideiraBobina, moveCobrideiraBobinaToTrash, listCobrideiraBobinasTrash, restoreCobrideiraBobinaFromTrash, permanentlyDeleteCobrideiraBobina, listCurrentStockTrash, restoreCurrentStockRecord, permanentlyDeleteCurrentStockTrashRecord, limparHistoricoConferenciaBopp } from '@/lib/admin.functions'
 import type {
   CobrideiraBobinaInsert,
   CobrideiraBobinaRow,
@@ -580,7 +580,9 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [mostrarPreviaCSV, setMostrarPreviaCSV] = React.useState(false)
   const [conferirBaixaVirgem, setConferirBaixaVirgem] = React.useState(true)
   const [alertasBaixaVirgem, setAlertasBaixaVirgem] = React.useState<Array<{ codigo: string; mensagem: string; peso_estoque_kg: number | null; peso_produzido_kg: number | null; diferenca_percentual: number | null; updated_at: string }>>([])
-  const [estoqueBoppEncontrado, setEstoqueBoppEncontrado] = React.useState<{ codigo: string; medida_texto: string; peso_kg: number | null } | null>(null)
+  const [estoqueBoppEncontrado, setEstoqueBoppEncontrado] = React.useState<{ codigo: string; medida_texto: string; peso_kg: number | null; fornecedor: string | null } | null>(null)
+  const [sugestoesBopp, setSugestoesBopp] = React.useState<Array<{ codigo: string; medida_texto: string; peso_kg: number | null; fornecedor: string | null; cor: string | null }>>([])
+  const [limpandoHistoricoBopp, setLimpandoHistoricoBopp] = React.useState(false)
   const [consultandoCodigoBopp, setConsultandoCodigoBopp] = React.useState(false)
   const [conferenciasBopp, setConferenciasBopp] = React.useState<ConferenciaBaixaBopp[]>([])
   const [historicoConferenciasBopp, setHistoricoConferenciasBopp] = React.useState<ConferenciaBaixaBopp[]>([])
@@ -619,6 +621,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   React.useEffect(() => {
     const codigo = form.codBob.trim().toLocaleUpperCase('pt-BR')
     setEstoqueBoppEncontrado(null)
+    setSugestoesBopp([])
     if (!codigo || form.material.trim().toUpperCase() !== 'BOPP') {
       setConsultandoCodigoBopp(false)
       setForm(atual => atual.codBob.trim().toUpperCase() === codigo ? { ...atual, pesoBruto: '' } : atual)
@@ -631,22 +634,38 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
       void (async () => {
         const { data, error } = await (supabase.schema('estoque_atual') as any)
           .from('bobinas_estoque_virgem')
-          .select('codigo,medida_texto,medida,peso_kg')
+          .select('codigo,medida_texto,medida,peso_kg,fornecedor,cor')
           .eq('categoria', 'BOPP')
-          .eq('codigo', codigo)
-          .maybeSingle()
+          .ilike('codigo', `${codigo}%`)
+          .order('importado_em', { ascending: false })
+          .limit(12)
         if (!ativo) return
         if (error) {
           setEstoqueBoppEncontrado(null)
-        } else if (data) {
-          const medidaTexto = normalizarMedidaEstoque(data.medida_texto || data.medida)
-          const peso = data.peso_kg == null ? null : Number(data.peso_kg)
-          setEstoqueBoppEncontrado({ codigo: data.codigo, medida_texto: medidaTexto, peso_kg: peso })
-          if (peso != null && peso > 0) {
-            setForm(atual => atual.codBob.trim().toUpperCase() === codigo ? { ...atual, pesoBruto: String(peso) } : atual)
-          }
+          setSugestoesBopp([])
         } else {
-          setEstoqueBoppEncontrado(null)
+          const opcoes = (data ?? []).map((item: any) => ({
+            codigo: String(item.codigo),
+            medida_texto: normalizarMedidaEstoque(item.medida_texto || item.medida),
+            peso_kg: item.peso_kg == null ? null : Number(item.peso_kg),
+            fornecedor: item.fornecedor ?? null,
+            cor: item.cor ?? null,
+          }))
+          const exata = opcoes.find(item => item.codigo.trim().toUpperCase() === codigo)
+          if (exata) {
+            setEstoqueBoppEncontrado(exata)
+            setSugestoesBopp([])
+            setForm(atual => atual.codBob.trim().toUpperCase() === codigo ? {
+              ...atual,
+              pesoBruto: exata.peso_kg != null && exata.peso_kg > 0 ? String(exata.peso_kg) : atual.pesoBruto,
+              largura: exata.medida_texto || atual.largura,
+              fornecedorFilme: exata.fornecedor || atual.fornecedorFilme,
+              pesoCilindro: pesoCilindroPadrao(exata.medida_texto) || atual.pesoCilindro,
+              vareta: varetaPadrao(exata.medida_texto) || atual.vareta,
+            } : atual)
+          } else {
+            setSugestoesBopp(opcoes)
+          }
         }
         setConsultandoCodigoBopp(false)
       })()
@@ -1170,9 +1189,11 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     if (form.material.trim().toUpperCase() === 'BOPP' && codigoNormalizado) {
       const { data: estoque, error: estoqueError } = await (supabase.schema('estoque_atual') as any)
         .from('bobinas_estoque_virgem')
-        .select('codigo,medida_texto,medida,peso_kg')
+        .select('codigo,medida_texto,medida,peso_kg,fornecedor')
         .eq('categoria', 'BOPP')
         .eq('codigo', codigoNormalizado)
+        .order('importado_em', { ascending: false })
+        .limit(1)
         .maybeSingle()
       if (estoqueError) return toast.error('Não foi possível conferir o código no Estoque Atual Virgem.', { description: estoqueError.message })
       if (estoque) {
@@ -1188,6 +1209,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
           codigo: estoque.codigo,
           medida_texto: medidaEstoque,
           peso_kg: estoque.peso_kg == null ? null : Number(estoque.peso_kg),
+          fornecedor: estoque.fornecedor ?? null,
         }
       }
     }
@@ -1507,8 +1529,30 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       required
                       maxLength={100}
                     />
-                    {consultandoCodigoBopp && <p className="mt-1 text-[10px] text-slate-500">Consultando código no Estoque Atual Virgem...</p>}
-                    {estoqueBoppEncontrado && <p className="mt-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800">No estoque: medida {estoqueBoppEncontrado.medida_texto} · peso bruto {estoqueBoppEncontrado.peso_kg == null ? 'não informado' : formatarPeso(estoqueBoppEncontrado.peso_kg) + ' kg'} (preenchido automaticamente)</p>}
+                    {consultandoCodigoBopp && <p className="mt-1 text-[10px] text-slate-500">Pesquisando código no Estoque Atual Virgem...</p>}
+                    {sugestoesBopp.length > 0 && (
+                      <div className="mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                        {sugestoesBopp.map(item => (
+                          <button key={item.codigo} type="button" onClick={() => {
+                            setForm(atual => ({
+                              ...atual,
+                              codBob: item.codigo,
+                              largura: item.medida_texto || atual.largura,
+                              pesoBruto: item.peso_kg != null && item.peso_kg > 0 ? String(item.peso_kg) : atual.pesoBruto,
+                              fornecedorFilme: item.fornecedor || atual.fornecedorFilme,
+                              pesoCilindro: pesoCilindroPadrao(item.medida_texto) || atual.pesoCilindro,
+                              vareta: varetaPadrao(item.medida_texto) || atual.vareta,
+                            }))
+                            setEstoqueBoppEncontrado(item)
+                            setSugestoesBopp([])
+                          }} className="mb-1 block w-full rounded-full bg-[#e51f2a] px-3 py-2 text-left text-white last:mb-0 hover:bg-[#c91d26]">
+                            <strong className="block text-xs">{item.codigo}</strong>
+                            <span className="block text-[10px] font-medium text-white">BOPP · {item.medida_texto || 'medida não informada'} · {item.peso_kg == null ? 'peso não informado' : formatarPeso(item.peso_kg) + ' kg'} · {item.fornecedor || 'fornecedor não informado'}{item.cor ? ' · ' + item.cor : ''}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {estoqueBoppEncontrado && <p className="mt-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800">Selecionado do estoque: {estoqueBoppEncontrado.codigo} · {estoqueBoppEncontrado.medida_texto} · {estoqueBoppEncontrado.peso_kg == null ? 'peso não informado' : formatarPeso(estoqueBoppEncontrado.peso_kg) + ' kg'} · {estoqueBoppEncontrado.fornecedor || 'fornecedor não informado'}. Largura e fornecedor podem ser alterados.</p>}
                   </Field>
                   <Field label="Data" htmlFor="cb-data">
                     <TextInput highlightValid
@@ -1618,7 +1662,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                           onChange={(e) =>
                             atualizar('fornecedorFilme', e.target.value)
                           }
-                          options={FORNECEDORES_FILME}
+                          options={[...new Set([...FORNECEDORES_FILME, ...(form.fornecedorFilme ? [form.fornecedorFilme] : [])])]}
                         />
                       </Field>
                       <Field label="Vareta (g)" htmlFor="cb-vareta">
@@ -1863,8 +1907,25 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       <p className="mt-1 text-xs text-slate-600">Códigos em aberto, peso que falta para a baixa e histórico das conferências automáticas.</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <button type="button" onClick={() => void carregarConferenciasBopp(true)} disabled={carregandoConferenciasBopp} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                      <button type="button" onClick={() => void carregarConferenciasBopp(true)} disabled={carregandoConferenciasBopp || limpandoHistoricoBopp} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
                         <RefreshCw className={`size-4 ${carregandoConferenciasBopp ? 'animate-spin' : ''}`} /> Atualizar
+                      </button>
+                      <button type="button" onClick={async () => {
+                        if (!window.confirm('Limpar todo o histórico de conferência exibido neste painel? Os registros atuais de situação/baixa não serão apagados.')) return
+                        setLimpandoHistoricoBopp(true)
+                        try {
+                          const { data: sessao } = await supabase.auth.getSession()
+                          if (!sessao.session?.access_token) throw new Error('Sua sessão expirou. Entre novamente.')
+                          const resultado = await limparHistoricoConferenciaBopp({ data: { accessToken: sessao.session.access_token } })
+                          setHistoricoConferenciasBopp([])
+                          toast.success(`Histórico limpo: ${resultado.removidos} registro(s) removido(s).`)
+                        } catch (error) {
+                          toast.error('Não foi possível limpar o histórico.', { description: erroMensagem(error) })
+                        } finally {
+                          setLimpandoHistoricoBopp(false)
+                        }
+                      }} disabled={limpandoHistoricoBopp || carregandoConferenciasBopp} className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50">
+                        <Trash2 className="size-4" /> {limpandoHistoricoBopp ? 'Limpando...' : 'Limpar histórico'}
                       </button>
                       <button type="button" onClick={() => setPainelConferenciaBoppAberto(false)} className="h-9 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white hover:bg-slate-700">Fechar</button>
                     </div>
