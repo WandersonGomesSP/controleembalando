@@ -2093,3 +2093,67 @@ export const atualizarLeadTimeConsumoCola = createServerFn({ method: 'POST' })
     if (error) throw new Error(`Não foi possível salvar o lead time do consumo de cola: ${error.message}`)
     return registro as { lead_time_dias: number }
   })
+
+
+export const limparHistoricoConferenciaBopp = createServerFn({ method: 'POST' })
+  .validator(tokenInput)
+  .handler(async ({ data }) => {
+    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const { data: removidos, error } = await (client as any).schema('estoque_atual')
+      .from('bopp_baixa_conferencias_historico')
+      .delete()
+      .not('codigo', 'is', null)
+      .select('id')
+    if (error) throw new Error('Não foi possível limpar o histórico de conferência: ' + error.message)
+    return { removidos: removidos?.length ?? 0 }
+  })
+
+export const excluirItemEntradaBopp = createServerFn({ method: 'POST' })
+  .validator(tokenInput.extend({ itemId: z.uuid() }))
+  .handler(async ({ data }) => {
+    const { client } = await requireCobrideiraEditor(data.accessToken)
+    const estoque = (client as any).schema('estoque_atual')
+    const { data: item, error: itemError } = await estoque.from('entradas_bopp_virgem_itens')
+      .select('id,entrada_id,bobina_id,codigo,peso_kg')
+      .eq('id', data.itemId)
+      .maybeSingle()
+    if (itemError || !item) throw new Error('O item desta entrada não foi encontrado.')
+    if (!item.bobina_id) throw new Error('Esta bobina já saiu do estoque (consumo ou envio). O histórico dela foi preservado e não pode ser apagado pela entrada.')
+
+    const { data: bobina, error: bobinaError } = await estoque.from('bobinas_estoque_virgem')
+      .select('id,entrada_id')
+      .eq('id', item.bobina_id)
+      .maybeSingle()
+    if (bobinaError) throw new Error('Não foi possível conferir a bobina no estoque: ' + bobinaError.message)
+    if (!bobina || bobina.entrada_id !== item.entrada_id) {
+      throw new Error('A bobina não está mais vinculada a esta entrada no estoque. O histórico foi preservado.')
+    }
+
+    const { data: removida, error: deleteStockError } = await estoque.from('bobinas_estoque_virgem')
+      .delete().eq('id', item.bobina_id).select('id').maybeSingle()
+    if (deleteStockError) throw new Error('Não foi possível retirar a bobina do estoque: ' + deleteStockError.message)
+    if (!removida) throw new Error('A bobina já não está no estoque. Nenhum registro foi apagado.')
+
+    const { error: deleteItemError } = await estoque.from('entradas_bopp_virgem_itens')
+      .delete().eq('id', item.id)
+    if (deleteItemError) throw new Error('A bobina saiu do estoque, mas não foi possível apagar o item da entrada: ' + deleteItemError.message)
+
+    const { data: restantes, error: remainingError } = await estoque.from('entradas_bopp_virgem_itens')
+      .select('peso_kg').eq('entrada_id', item.entrada_id)
+    if (remainingError) throw new Error('Item excluído, mas não foi possível atualizar o resumo da entrada: ' + remainingError.message)
+
+    const quantidade = restantes?.length ?? 0
+    if (quantidade === 0) {
+      const { error: deleteHeaderError } = await estoque.from('entradas_bopp_virgem')
+        .delete().eq('id', item.entrada_id)
+      if (deleteHeaderError) throw new Error('Item excluído, mas não foi possível remover a entrada vazia: ' + deleteHeaderError.message)
+    } else {
+      const pesoTotal = (restantes ?? []).reduce((total: number, linha: { peso_kg: number | null }) => total + Number(linha.peso_kg ?? 0), 0)
+      const { error: updateHeaderError } = await estoque.from('entradas_bopp_virgem')
+        .update({ quantidade_bobinas: quantidade, peso_total_kg: Number(pesoTotal.toFixed(3)) })
+        .eq('id', item.entrada_id)
+      if (updateHeaderError) throw new Error('Item excluído, mas não foi possível atualizar os totais da entrada: ' + updateHeaderError.message)
+    }
+
+    return { success: true, codigo: item.codigo, quantidade_restante: quantidade }
+  })
