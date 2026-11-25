@@ -435,7 +435,12 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
       </div>
 
       {tipoEstoque === 'ADESIVADO' && (() => {
-        const alertas = (tipoEstoque === 'ADESIVADO' ? resumos : []).filter((r) => numero(r.estoque_minimo_semanal_m) > 0 && numero(r.metragem_disponivel_m) < numero(r.estoque_minimo_semanal_m) && !alertasDesativados.includes(chaveAlertaEstoque(r.medida_produto)))
+        const alertas = (tipoEstoque === 'ADESIVADO' ? resumos : []).filter((r) => {
+          const atual = numero(r.metragem_disponivel_m)
+          const minimo = numero(r.estoque_minimo_semanal_m)
+          const status = minimo <= 0 ? 'ATENÇÃO' : atual < minimo ? 'COMPRAR' : atual === minimo ? 'ATENÇÃO' : 'OK'
+          return status !== 'OK' && !alertasDesativados.includes(chaveAlertaEstoque(r.medida_produto))
+        })
         const porPagina = 4
         const totalPaginas = Math.ceil(alertas.length / porPagina)
         const paginaAtual = totalPaginas ? paginaAlertas % totalPaginas : 0
@@ -451,7 +456,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
               <div className="divide-y divide-amber-200">
                 {visiveis.map((r) => <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                   <div className="flex min-w-0 items-start gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700" /><div className="min-w-0">
-                    <div className="text-sm font-bold text-amber-950">{r.medida_produto}</div>
+                    <div className="flex items-center gap-2"><div className="text-sm font-bold text-amber-950">{r.medida_produto}</div><span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${numero(r.estoque_minimo_semanal_m) <= 0 || numero(r.metragem_disponivel_m) === numero(r.estoque_minimo_semanal_m) ? 'bg-amber-200 text-amber-950' : 'bg-red-100 text-red-800'}`}>{numero(r.estoque_minimo_semanal_m) <= 0 || numero(r.metragem_disponivel_m) === numero(r.estoque_minimo_semanal_m) ? 'ATENÇÃO' : 'COMPRAR'}</span></div>
                     <div className="text-xs text-amber-900">Atual: {fmt(r.metragem_disponivel_m)} m · mínimo: {fmt(r.estoque_minimo_semanal_m)} m</div>
                   </div></div>
                   <div className="text-right text-xs text-amber-900"><div className="font-bold">{usosPorProduto[r.medida_produto] ?? 0} utilizações</div><div>nos últimos 90 dias</div></div>
