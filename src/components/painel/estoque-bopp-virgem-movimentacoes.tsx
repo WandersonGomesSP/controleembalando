@@ -84,7 +84,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
     if (novo.has(item.id)) { novo.delete(item.id); setAbertos(novo); return }
     novo.add(item.id); setAbertos(novo)
     if (!itensEntrada[item.id]) {
-      const { data, error } = await db.from('bobinas_estoque_virgem').select('id,codigo,peso_kg,medida_texto,fornecedor').eq('entrada_id', item.id).order('codigo')
+      const { data, error } = await db.from('entradas_bopp_virgem_itens').select('codigo,peso_rateado_kg').eq('entrada_id', item.id).order('codigo')
       if (error) return toast.error('Não foi possível abrir os códigos da entrada.', { description: error.message })
       setItensEntrada(atual => ({ ...atual, [item.id]: data ?? [] }))
     }
@@ -145,10 +145,22 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
         origem_arquivo: 'Entrada agrupada BOPP',
         observacoes: 'Peso médio rateado do peso total informado no recebimento; não representa pesagem individual.',
       }))
-      const { error: bobinasError } = await db.from('bobinas_estoque_virgem').insert(registros)
+      const { data: bobinasCriadas, error: bobinasError } = await db.from('bobinas_estoque_virgem').insert(registros).select('id,codigo')
       if (bobinasError) {
         await db.from('entradas_bopp_virgem').delete().eq('id', entrada.id)
         throw bobinasError
+      }
+      const itensEntrada = (bobinasCriadas ?? []).map((bobina: any) => ({
+        entrada_id: entrada.id,
+        bobina_id: bobina.id,
+        codigo: bobina.codigo,
+        peso_rateado_kg: Number(pesoMedio.toFixed(3)),
+      }))
+      const { error: itensEntradaError } = await db.from('entradas_bopp_virgem_itens').insert(itensEntrada)
+      if (itensEntradaError) {
+        await db.from('bobinas_estoque_virgem').delete().eq('entrada_id', entrada.id)
+        await db.from('entradas_bopp_virgem').delete().eq('id', entrada.id)
+        throw itensEntradaError
       }
       toast.success(`Entrada salva: ${codigos.length} bobina(s) vinculada(s) ao recebimento.`)
       setFornecedor(''); setMedida(''); setEmpresa(''); setNf(''); setDataEmissao(''); setDataEntrada(hoje); setPesoTotal(''); setCodigosEntrada('')
@@ -222,7 +234,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
               <span className="min-w-0 flex-1"><strong className="block text-sm">{item.fornecedor} · {item.medida_texto}</strong><span className="text-xs text-slate-500">{item.empresa || 'Empresa não informada'} · NF {item.nf || '—'} · Emissão {formatarData(item.data_emissao)} · Entrada {formatarData(item.data_entrada)}</span></span>
               <span className="text-right text-xs font-bold">{formatarKg(item.peso_total_kg)}<span className="block font-normal text-slate-500">{item.quantidade_bobinas} bobinas</span></span>
             </button>
-            {abertos.has(item.id) && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3 lg:grid-cols-4">{(itensEntrada[item.id] ?? []).map(b => <div key={b.id} className="rounded-md bg-slate-50 p-2"><p className="break-all font-mono text-xs font-bold">{b.codigo}</p><p className="text-[10px] text-slate-500">{formatarKg(b.peso_kg)} · peso médio rateado</p></div>)}</div>}
+            {abertos.has(item.id) && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3 lg:grid-cols-4">{(itensEntrada[item.id] ?? []).map(b => <div key={b.codigo} className="rounded-md bg-slate-50 p-2"><p className="break-all font-mono text-xs font-bold">{b.codigo}</p><p className="text-[10px] text-slate-500">{formatarKg(b.peso_rateado_kg)} · peso médio rateado</p></div>)}</div>}
           </article>)}
           {!entradas.length && <p className="py-4 text-center text-xs text-slate-500">Nenhum recebimento registrado.</p>}
         </div>
