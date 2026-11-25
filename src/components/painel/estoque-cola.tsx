@@ -560,28 +560,30 @@ export function EstoqueColaCobrideira() {
       )}
       {aba === 'envios' && (
         <Panel title="Histórico de envio para BA" description="Cada container enviado aparece com a data da retirada e o lote de origem.">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1500px] text-left text-xs">
-              <thead className="bg-slate-100 text-slate-700"><tr>
-                {['Data de entrada','NF','Produto','Lote','Container','Peso','Valor por container','Valor por kg','Fornecedor'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
-                <th className="px-3 py-2"><button type="button" onClick={() => setOrdemEnvios((atual) => atual === 'desc' ? 'asc' : 'desc')}>Data de envio {ordemEnvios === 'desc' ? '↓' : '↑'}</button></th>
-                {['Mês','Status'].map((x) => <th key={x} className="px-3 py-2">{x}</th>)}
-              </tr></thead>
-              <tbody>{enviadosParaBahia.map((item) => <tr key={item.codigo_container} className="border-b border-slate-100">
-                <td className="px-3 py-2">{new Date(item.data_entrada + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
-                <td className="px-3 py-2">{item.nf}</td>
-                <td className="px-3 py-2">{item.produto}</td>
-                <td className="px-3 py-2">{item.lote}</td>
-                <td className="px-3 py-2 font-mono font-semibold">{item.codigo_container}</td>
-                <td className="px-3 py-2">{Number(item.peso_kg).toLocaleString('pt-BR',{maximumFractionDigits:0})} Kg</td>
-                <td className="px-3 py-2">{item.valor_por_container === null ? '—' : dinheiro(Number(item.valor_por_container))}</td>
-                <td className="px-3 py-2">{dinheiro(Number(item.valor_por_kg || 0))}</td>
-                <td className="px-3 py-2">{item.fornecedor}</td>
-                <td className="px-3 py-2">{new Date(item.data_envio + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
-                <td className="px-3 py-2">{item.mes}</td>
-                <td className="px-3 py-2 font-semibold text-slate-700">{item.status}</td>
-              </tr>)}</tbody>
-            </table>
+          <div className="space-y-2">
+            <div className="flex justify-end">
+              <button type="button" onClick={() => setOrdemEnvios((atual) => atual === 'desc' ? 'asc' : 'desc')} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                Data de envio {ordemEnvios === 'desc' ? '↓ mais recentes' : '↑ mais antigos'}
+              </button>
+            </div>
+            {enviadosParaBahia.map((item) => (
+              <article key={item.codigo_container} className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                  <p className="min-w-0 break-all font-mono text-sm font-bold text-slate-900">{item.codigo_container}</p>
+                  <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-700">{item.status}</span>
+                </div>
+                <div className="mt-2 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 text-xs sm:grid-cols-3 lg:grid-cols-4">
+                  <div><p className="text-slate-500">Data de envio</p><p className="font-semibold">{new Date(item.data_envio + 'T12:00:00').toLocaleDateString('pt-BR')}</p></div>
+                  <div><p className="text-slate-500">Data de entrada</p><p className="font-semibold">{new Date(item.data_entrada + 'T12:00:00').toLocaleDateString('pt-BR')}</p></div>
+                  <div><p className="text-slate-500">NF</p><p className="font-semibold">{item.nf}</p></div>
+                  <div><p className="text-slate-500">Produto / lote</p><p className="break-words font-semibold">{item.produto} · {item.lote}</p></div>
+                  <div><p className="text-slate-500">Peso</p><p className="font-semibold">{Number(item.peso_kg).toLocaleString('pt-BR',{maximumFractionDigits:0})} kg</p></div>
+                  <div><p className="text-slate-500">Valor/container</p><p className="font-semibold">{item.valor_por_container === null ? '—' : dinheiro(Number(item.valor_por_container))}</p></div>
+                  <div><p className="text-slate-500">Valor/kg</p><p className="font-semibold">{dinheiro(Number(item.valor_por_kg || 0))}</p></div>
+                  <div><p className="text-slate-500">Fornecedor · mês</p><p className="break-words font-semibold">{item.fornecedor} · {item.mes}</p></div>
+                </div>
+              </article>
+            ))}
             {!enviadosParaBahia.length && <p className="py-8 text-center text-sm text-slate-500">Nenhum envio para Bahia registrado ainda.</p>}
           </div>
         </Panel>
