@@ -561,6 +561,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [buscaBaixa, setBuscaBaixa] = React.useState('')
   const [bobinaSelecionadaBaixa, setBobinaSelecionadaBaixa] = React.useState<CobrideiraBobinaRow | null>(null)
   const [baixandoEstoque, setBaixandoEstoque] = React.useState(false)
+  const [conferirBaixaVirgem, setConferirBaixaVirgem] = React.useState(true)
+  const [alertaBaixaVirgem, setAlertaBaixaVirgem] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (carregando || editandoNumero || numeroBobinaManual || !form.data) return
@@ -1006,6 +1008,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   }
 
   function iniciarEdicao(registro: CobrideiraBobinaRow) {
+    setConferirBaixaVirgem(registro.conferir_baixa_virgem ?? true)
+    setAlertaBaixaVirgem(null)
     setForm({
       numeroBobina: registro.numero_bobina,
       operador: registro.operador ?? '',
@@ -1041,6 +1045,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   }
 
   function cancelarEdicao() {
+    setConferirBaixaVirgem(true)
+    setAlertaBaixaVirgem(null)
     setEditandoNumero(null)
     setNumeroBobinaManual(false)
     setForm(() => {
@@ -1168,6 +1174,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         cor_impressao: form.corImpressao.trim(),
         emenda: form.emenda === 'SIM',
         codigo_emenda: form.codigoEmenda.trim(),
+        conferir_baixa_virgem: conferirBaixaVirgem,
       }
       const resultado = editandoNumero
         ? { data: await (async () => {
@@ -1189,7 +1196,30 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             .select('*')
             .single()
       if (resultado.error) throw resultado.error
-      if (editandoNumero) {
+      if (conferirBaixaVirgem && form.material.trim().toUpperCase() === 'BOPP') {
+        const { data: conferencia, error: conferenciaError } = await (supabase.schema('estoque_atual') as any)
+          .from('bopp_baixa_conferencias')
+          .select('status,mensagem,peso_estoque_kg,peso_produzido_kg,diferenca_percentual,quantidade_bobinas')
+          .eq('codigo', codigoNormalizado)
+          .maybeSingle()
+        if (conferenciaError) throw conferenciaError
+        if (conferencia?.status === 'BAIXADA') {
+          toast.success(conferencia.mensagem || 'Baixa automática do BOPP realizada.')
+          setAlertaBaixaVirgem(null)
+        } else if (conferencia?.status === 'ALERTA_EXCESSO') {
+          const mensagem = conferencia.mensagem || 'A produção ultrapassou a tolerância de 5%. A baixa foi bloqueada.'
+          setAlertaBaixaVirgem(mensagem)
+          toast.error('ALERTA DE CONFERÊNCIA DO BOPP', { description: mensagem, duration: 20000 })
+        } else if (conferencia?.status === 'AGUARDANDO') {
+          setAlertaBaixaVirgem(null)
+          toast.info(conferencia.mensagem || 'Produção ainda abaixo do peso para baixa automática.')
+        } else if (conferencia?.status === 'SEM_ESTOQUE') {
+          setAlertaBaixaVirgem(conferencia.mensagem)
+        } else if (conferencia?.status === 'SEM_PESO') {
+          setAlertaBaixaVirgem(conferencia.mensagem)
+          toast.error('Peso da bobina do estoque não informado.', { description: conferencia.mensagem })
+        }
+      }
         setRegistros((atuais) =>
           atuais.map((registro) =>
             registro.numero_bobina === editandoNumero ? resultado.data : registro,
@@ -1203,6 +1233,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
       }
       salvarCamposReutilizaveis(form)
       setEditandoNumero(null)
+      setConferirBaixaVirgem(true)
       setNumeroBobinaManual(false)
       setForm(() => {
         const proximo = { ...formularioInicial(), ...lerCamposReutilizaveis() }
@@ -1262,14 +1293,6 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             >
               <PackagePlus className="size-4" />
               Cadastrar bobina
-            </button>
-            <button
-              type="button"
-              onClick={() => { setBuscaBaixa(''); setBobinaSelecionadaBaixa(null); setModalBaixaAberto(true) }}
-              className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-[#c91d26] bg-white px-2 text-center text-[11px] font-semibold leading-tight text-[#9f1820] hover:bg-[#fff1f2] sm:gap-2 sm:px-4 sm:text-sm"
-            >
-              <ArrowDownToLine className="size-4" />
-              Baixa no Estoque
             </button>
             <button
               type="button"
@@ -1708,7 +1731,12 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   </div>
                 </div>
 
-                <div className="col-span-full flex justify-end gap-2">
+                <div className="col-span-full flex flex-wrap items-center justify-between gap-3">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800">
+                    <input type="checkbox" checked={conferirBaixaVirgem} onChange={e => setConferirBaixaVirgem(e.target.checked)} className="size-4 accent-emerald-600" />
+                    Conferir baixa automática no Estoque Atual Virgem
+                  </label>
+                  <div className="flex items-center gap-2">
                   {editandoNumero && (
                     <button
                       type="button"
@@ -1727,6 +1755,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                     <Save className="size-4" />
                     {salvando ? 'Salvando...' : editandoNumero ? 'Salvar alterações' : 'Salvar registro'}
                   </PrimaryButton>
+                  </div>
                 </div>
               </form>
             </Panel>
