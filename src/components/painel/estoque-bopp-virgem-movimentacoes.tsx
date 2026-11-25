@@ -287,7 +287,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
             <button type="button" onClick={() => void alternarEntrada(item)} className="flex w-full min-w-0 items-center gap-2 text-left">
               {abertos.has(item.id) ? <ChevronDown className="size-4 shrink-0" /> : <ChevronRight className="size-4 shrink-0" />}
               <span className="min-w-0 flex-1"><strong className="block text-sm">{item.fornecedor} · {item.medida_texto}</strong><span className="text-xs text-slate-500">{item.empresa || 'Empresa não informada'} · NF {item.nf || '—'} · Emissão {formatarData(item.data_emissao)} · Entrada {formatarData(item.data_entrada)}</span></span>
-              <span className="text-right text-xs font-bold">{formatarKg(item.peso_total_kg)}<span className="block font-normal text-slate-500">{item.quantidade_bobinas} bobinas</span></span>
+              <span className="text-right text-xs font-bold">{formatarKg(item.peso_total_kg)}<span className="mt-1 inline-flex rounded bg-[#b91c26] px-2 py-0.5 text-[10px] font-semibold text-white">{item.quantidade_bobinas} bobinas</span></span>
             </button>
             {abertos.has(item.id) && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3 lg:grid-cols-4">{(itensEntrada[item.id] ?? []).map(b => <div key={b.codigo} className="flex min-w-0 items-center justify-between gap-2 rounded-md bg-slate-50 p-2"><p className="break-all font-mono text-xs font-bold">{b.codigo}</p><p className="shrink-0 text-xs font-semibold">{formatarKg(b.peso_kg)}</p></div>)}</div>}
           </article>)}
