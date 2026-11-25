@@ -30,6 +30,14 @@ const hoje = new Date().toISOString().slice(0, 10)
 const formatarData = (v?: string | null) => v ? new Date(v + 'T12:00:00').toLocaleDateString('pt-BR') : '—'
 const formatarKg = (v: number | string | null | undefined) => v == null ? '—' : `${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`
 const lerCodigos = (v: string) => [...new Set(v.split(/[\r\n;,\t]+/).map(x => x.trim()).filter(Boolean))]
+const numeroBR = (valor: string) => {
+  let texto = valor.trim().replace(/\s/g, '')
+  if (!texto) return NaN
+  if (texto.includes(',') && texto.includes('.')) {
+    texto = texto.lastIndexOf(',') > texto.lastIndexOf('.') ? texto.replace(/\./g, '').replace(',', '.') : texto.replace(/,/g, '')
+  } else if (texto.includes(',')) texto = texto.replace(',', '.')
+  return Number(texto)
+}
 
 export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
   const db = supabase.schema('estoque_atual') as any
@@ -103,7 +111,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
 
   async function salvarEntrada() {
     const codigos = lerCodigos(codigosEntrada)
-    const peso = Number(pesoTotal.replace(',', '.'))
+    const peso = numeroBR(pesoTotal)
     if (!fornecedor.trim() || !medida.trim() || !dataEntrada || !Number.isFinite(peso) || peso <= 0 || !codigos.length) {
       return toast.error('Preencha fornecedor, medida, data de entrada, peso total e pelo menos um código.')
     }
@@ -128,7 +136,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
         quantidade_bobinas: codigos.length,
       }).select('*').single()
       if (entradaError) throw entradaError
-      const medidaNumero = Number(medida.replace(',', '.'))
+      const medidaNumero = numeroBR(medida)
       const pesoMedio = peso / codigos.length
       const registros = codigos.map(codigo => ({
         categoria: 'BOPP',
@@ -223,7 +231,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
           <textarea value={codigosEntrada} onChange={e => setCodigosEntrada(e.target.value)} rows={6} placeholder={'Cole os códigos aqui, um em cada linha'} className="w-full min-w-0 rounded-md border border-slate-300 p-3 font-mono text-sm font-normal" />
         </label>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-slate-500">{lerCodigos(codigosEntrada).length} código(s) únicos · peso médio rateado: {pesoTotal.trim() && lerCodigos(codigosEntrada).length ? formatarKg(Number(pesoTotal.replace(',', '.')) / lerCodigos(codigosEntrada).length) : '—'}</p>
+          <p className="text-xs text-slate-500">{lerCodigos(codigosEntrada).length} código(s) únicos · peso médio rateado: {pesoTotal.trim() && lerCodigos(codigosEntrada).length ? formatarKg(numeroBR(pesoTotal) / lerCodigos(codigosEntrada).length) : '—'}</p>
           <button type="button" onClick={() => void salvarEntrada()} disabled={salvando} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#c91d26] px-4 text-xs font-bold text-white hover:bg-[#a9151e] disabled:opacity-50"><Save className="size-4" />{salvando ? 'Salvando...' : 'Salvar entrada'}</button>
         </div>
         <div className="space-y-2 border-t border-slate-200 pt-3">
