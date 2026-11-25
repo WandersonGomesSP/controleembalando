@@ -632,19 +632,23 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     setConsultandoCodigoBopp(true)
     const temporizador = window.setTimeout(() => {
       void (async () => {
-        const { data, error } = await (supabase.schema('estoque_atual') as any)
-          .from('bobinas_estoque_virgem')
-          .select('codigo,medida_texto,medida,peso_kg,fornecedor,cor')
-          .eq('categoria', 'BOPP')
-          .ilike('codigo', `${codigo}%`)
-          .order('importado_em', { ascending: false })
-          .limit(12)
+        const dbEstoque = supabase.schema('estoque_atual') as any
+        const campos = 'codigo,medida_texto,medida,peso_kg,fornecedor,cor'
+        const { data: exata, error: erroExata } = await dbEstoque.from('bobinas_estoque_virgem')
+          .select(campos).eq('categoria', 'BOPP').eq('codigo', codigo)
+          .order('importado_em', { ascending: false }).limit(1).maybeSingle()
         if (!ativo) return
-        if (error) {
+        const busca = exata
+          ? { data: [exata], error: null }
+          : await dbEstoque.from('bobinas_estoque_virgem')
+              .select(campos).eq('categoria', 'BOPP')
+              .ilike('codigo', `${codigo}%`)
+              .order('importado_em', { ascending: false }).limit(12)
+        if (erroExata || busca.error) {
           setEstoqueBoppEncontrado(null)
           setSugestoesBopp([])
         } else {
-          const opcoes = (data ?? []).map((item: any) => ({
+          const opcoes = (busca.data ?? []).map((item: any) => ({
             codigo: String(item.codigo),
             medida_texto: normalizarMedidaEstoque(item.medida_texto || item.medida),
             peso_kg: item.peso_kg == null ? null : Number(item.peso_kg),
@@ -1547,7 +1551,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                             setSugestoesBopp([])
                           }} className="mb-1 block w-full rounded-full bg-[#e51f2a] px-3 py-2 text-left text-white last:mb-0 hover:bg-[#c91d26]">
                             <strong className="block text-xs">{item.codigo}</strong>
-                            <span className="block text-[10px] font-medium text-white">BOPP · {item.medida_texto || 'medida não informada'} · {item.peso_kg == null ? 'peso não informado' : formatarPeso(item.peso_kg) + ' kg'} · {item.fornecedor || 'fornecedor não informado'}{item.cor ? ' · ' + item.cor : ''}</span>
+                            <span className="block text-[10px] font-medium text-slate-950">BOPP · {item.medida_texto || 'medida não informada'} · {item.peso_kg == null ? 'peso não informado' : formatarPeso(item.peso_kg) + ' kg'} · {item.fornecedor || 'fornecedor não informado'}{item.cor ? ' · ' + item.cor : ''}</span>
                           </button>
                         ))}
                       </div>
