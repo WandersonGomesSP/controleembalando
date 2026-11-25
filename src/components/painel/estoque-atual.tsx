@@ -372,7 +372,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
     if (peso !== null && (!Number.isFinite(peso) || peso < 0)) return toast.error('Informe um peso válido.')
     if (metros !== null && (!Number.isFinite(metros) || metros < 0)) return toast.error('Informe uma metragem válida.')
     if (medida !== null && (!Number.isFinite(medida) || medida <= 0)) return toast.error('Informe uma medida válida.')
-    if (!form.codigo.trim()) return toast.error('Informe o código da bobina.')
+    if (!editandoEmMassa.length && !form.codigo.trim()) return toast.error('Informe o código da bobina.')
     setSalvando(true)
     try {
       const { data: sessionData } = await supabase.auth.getSession()
