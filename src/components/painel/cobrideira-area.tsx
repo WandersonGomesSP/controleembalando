@@ -562,7 +562,6 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [bobinaSelecionadaBaixa, setBobinaSelecionadaBaixa] = React.useState<CobrideiraBobinaRow | null>(null)
   const [baixandoEstoque, setBaixandoEstoque] = React.useState(false)
   const [conferirBaixaVirgem, setConferirBaixaVirgem] = React.useState(true)
-  const [alertaBaixaVirgem, setAlertaBaixaVirgem] = React.useState<string | null>(null)
   const [alertasBaixaVirgem, setAlertasBaixaVirgem] = React.useState<Array<{ codigo: string; mensagem: string; peso_estoque_kg: number | null; peso_produzido_kg: number | null; diferenca_percentual: number | null; updated_at: string }>>([])
 
   React.useEffect(() => {
@@ -1024,7 +1023,6 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
 
   function iniciarEdicao(registro: CobrideiraBobinaRow) {
     setConferirBaixaVirgem(registro.conferir_baixa_virgem ?? true)
-    setAlertaBaixaVirgem(null)
     setForm({
       numeroBobina: registro.numero_bobina,
       operador: registro.operador ?? '',
@@ -1220,17 +1218,14 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         if (conferenciaError) throw conferenciaError
         if (conferencia?.status === 'BAIXADA') {
           toast.success(conferencia.mensagem || 'Baixa automática do BOPP realizada.')
-          setAlertaBaixaVirgem(null)
         } else if (conferencia?.status === 'ALERTA_EXCESSO') {
           const mensagem = conferencia.mensagem || 'A produção ultrapassou a tolerância de 5%. A baixa foi bloqueada.'
-          setAlertaBaixaVirgem(mensagem)
           setAlertasBaixaVirgem(atual => [{ codigo: codigoNormalizado, mensagem, peso_estoque_kg: conferencia.peso_estoque_kg, peso_produzido_kg: conferencia.peso_produzido_kg, diferenca_percentual: conferencia.diferenca_percentual, updated_at: new Date().toISOString() }, ...atual.filter(item => item.codigo !== codigoNormalizado)].slice(0, 20))
           toast.error('ALERTA DE CONFERÊNCIA DO BOPP', { description: mensagem, duration: 20000 })
         } else if (conferencia?.status === 'AGUARDANDO') {
           setAlertaBaixaVirgem(null)
           toast.info(conferencia.mensagem || 'Produção ainda abaixo do peso para baixa automática.')
         } else if (conferencia?.status === 'SEM_ESTOQUE') {
-          setAlertaBaixaVirgem(conferencia.mensagem)
         } else if (conferencia?.status === 'SEM_PESO') {
           setAlertaBaixaVirgem(conferencia.mensagem)
           toast.error('Peso da bobina do estoque não informado.', { description: conferencia.mensagem })
