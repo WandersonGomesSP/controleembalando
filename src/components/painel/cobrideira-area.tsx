@@ -1605,7 +1605,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                               return proximo
                             })
                           }
-                          options={LARGURAS}
+                          options={[...new Set([...LARGURAS, ...(form.largura ? [form.largura] : [])])]}
                         />
                       </Field>
                       <CampoDecimal
