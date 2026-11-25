@@ -328,8 +328,9 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
     }
   }
 
-  function abrirNovo() { setEditando(null); setForm({ ...vazio }); setFormAberto(true) }
+  function abrirNovo() { setEditando(null); setEditandoEmMassa([]); setForm({ ...vazio }); setFormAberto(true) }
   function abrirEdicao(b: BobinaEstoque) {
+    setEditandoEmMassa([])
     setEditando(b.id)
     setForm({
       categoria: b.categoria, localizacao: b.localizacao ?? 'ESTOQUE', data_entrada: b.data_entrada ?? '', fornecedor: b.fornecedor ?? '',
@@ -641,8 +642,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                                       <input type="checkbox" checked={selecionadasMedida.has(b.id)} onChange={() => alternarSelecaoMedida(b.id)} className="size-4 shrink-0 accent-[#c91c26]" />
                                       <span className="font-mono text-sm font-bold text-slate-900">{b.codigo}</span>
                                     </label>
-                                    <div className="text-xs text-slate-500">{b.categoria} · {b.fornecedor || 'Fornecedor não informado'}</div>
-                                    <div className="flex gap-1"><p className="text-xs text-slate-500">{b.categoria} · {b.fornecedor || 'Fornecedor não informado'}</p></div>
+                                    <div className="flex gap-1">
                                     <div className="flex gap-1">
                                       <button type="button" onClick={() => abrirEdicao(b)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700">Editar dados</button>
                                       {isDeveloper && <button type="button" onClick={() => void excluir(b)} className="rounded-md bg-[#e3262e] px-3 py-2 text-xs font-semibold text-white">Mover para lixeira</button>}
