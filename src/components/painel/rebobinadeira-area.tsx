@@ -240,7 +240,6 @@ export function EstoqueMinimoCobrideira({ isDeveloper }: { isDeveloper: boolean 
                   <div className="rounded-md bg-muted/60 p-2"><p className="text-muted-foreground">Consumo mensal</p><p className="font-bold tabular-nums">{formatar(item.consumo_mensal_kg, true)} kg</p></div>
                   <div className="rounded-md bg-muted/60 p-2"><p className="text-muted-foreground">Mínimo calculado</p><p className="font-bold tabular-nums">{formatar(item.minimo_calculado_kg, true)} kg</p></div>
                   <div className="rounded-md bg-muted/60 p-2"><p className="text-muted-foreground">Mínimo calibrado</p><p className="font-bold tabular-nums">{formatar(item.minimo_calibrado_kg, true)} kg</p></div>
-                  <div className="rounded-md bg-muted/60 p-2"><p className="text-muted-foreground">Capacidade de produção</p><p className="font-bold tabular-nums">{item.capacidade_jumbos == null ? 'Não calculável' : `${inteiro.format(Number(item.capacidade_jumbos))} jumbos`}</p></div>
                 </div>
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   <label className="grid gap-1 text-[10px] font-semibold text-muted-foreground">Lead time (dias)
