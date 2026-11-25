@@ -44,6 +44,12 @@ const numeroBR = (valor: string) => {
   } else if (texto.includes(',')) texto = texto.replace(',', '.')
   return Number(texto)
 }
+const lerLinhasEntrada = (v: string) => v.split(/\\r?\\n/).map((linha, indice) => {
+  const partes = linha.split(/[;|\\t]/).map(x => x.trim())
+  const codigo = partes[0] || ''
+  const peso = partes.length > 1 ? numeroBR(partes[1]) : NaN
+  return { codigo, peso, linha: indice + 1 }
+}).filter(x => x.codigo)
 
 export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
   const db = supabase.schema('estoque_atual') as any
