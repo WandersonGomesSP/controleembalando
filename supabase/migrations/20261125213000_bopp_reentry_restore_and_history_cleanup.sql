@@ -188,6 +188,16 @@ begin
 
   perform pg_advisory_xact_lock(hashtextextended(v_codigo, 0));
 
+  -- Se há uma nova bobina ativa com o mesmo código, esta exclusão pertence
+  -- ao novo ciclo: recalcula a produção, mas preserva o consumo do ciclo anterior.
+  if exists (
+    select 1 from estoque_atual.bobinas_estoque_virgem b
+    where b.categoria='BOPP' and upper(trim(b.codigo))=v_codigo
+  ) then
+    perform estoque_atual.conferir_baixa_bopp_virgem_por_codigo(v_codigo);
+    return old;
+  end if;
+
   select * into v_consumida
   from estoque_atual.bobinas_utilizadas u
   where upper(trim(u.codigo))=v_codigo
@@ -201,34 +211,29 @@ begin
     return old;
   end if;
 
-  if not exists (
-    select 1 from estoque_atual.bobinas_estoque_virgem b
-    where b.categoria='BOPP' and upper(trim(b.codigo))=v_codigo
-  ) then
-    if v_consumida.dados_bobina is not null then
-      v_dados := (v_consumida.dados_bobina - 'id')
-        || jsonb_build_object('id',gen_random_uuid(),'localizacao','ESTOQUE');
-      insert into estoque_atual.bobinas_estoque_virgem
-      select (jsonb_populate_record(null::estoque_atual.bobinas_estoque_virgem,v_dados)).*
-      returning id into v_bobina_restaurada_id;
-      if nullif(v_dados->>'entrada_id','') is not null then
-        update estoque_atual.entradas_bopp_virgem_itens
-        set bobina_id=v_bobina_restaurada_id
-        where entrada_id=(v_dados->>'entrada_id')::uuid
-          and upper(trim(codigo))=v_codigo;
-      end if;
-    else
-      v_medida_texto := to_char(v_consumida.medida,'FM999999990.00');
-      insert into estoque_atual.bobinas_estoque_virgem
-        (categoria,data_entrada,fornecedor,medida,peso_kg,metragem_m,codigo,
-         origem_arquivo,observacoes,cliente,nf,medida_texto,localizacao)
-      values
-        ('BOPP',v_consumida.data_entrada_origem,v_consumida.fornecedor,v_consumida.medida,
-         v_consumida.peso_kg,v_consumida.metragem_m,v_consumida.codigo,
-         'Estorno automático da baixa BOPP por exclusão da produção',
-         'Bobina devolvida ao estoque após exclusão do registro de produção.',
-         null,v_consumida.nota_fiscal,v_medida_texto,'ESTOQUE');
+  if v_consumida.dados_bobina is not null then
+    v_dados := (v_consumida.dados_bobina - 'id')
+      || jsonb_build_object('id',gen_random_uuid(),'localizacao','ESTOQUE');
+    insert into estoque_atual.bobinas_estoque_virgem
+    select (jsonb_populate_record(null::estoque_atual.bobinas_estoque_virgem,v_dados)).*
+    returning id into v_bobina_restaurada_id;
+    if nullif(v_dados->>'entrada_id','') is not null then
+      update estoque_atual.entradas_bopp_virgem_itens
+      set bobina_id=v_bobina_restaurada_id
+      where entrada_id=(v_dados->>'entrada_id')::uuid
+        and upper(trim(codigo))=v_codigo;
     end if;
+  else
+    v_medida_texto := to_char(v_consumida.medida,'FM999999990.00');
+    insert into estoque_atual.bobinas_estoque_virgem
+      (categoria,data_entrada,fornecedor,medida,peso_kg,metragem_m,codigo,
+       origem_arquivo,observacoes,cliente,nf,medida_texto,localizacao)
+    values
+      ('BOPP',v_consumida.data_entrada_origem,v_consumida.fornecedor,v_consumida.medida,
+       v_consumida.peso_kg,v_consumida.metragem_m,v_consumida.codigo,
+       'Estorno automático da baixa BOPP por exclusão da produção',
+       'Bobina devolvida ao estoque após exclusão do registro de produção.',
+       null,v_consumida.nota_fiscal,v_medida_texto,'ESTOQUE');
   end if;
 
   delete from estoque_atual.bobinas_utilizadas_eventos
