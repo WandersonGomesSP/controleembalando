@@ -1686,7 +1686,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                 <div className="col-span-full flex flex-wrap items-center justify-between gap-3">
                   <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800">
                     <input type="checkbox" checked={conferirBaixaVirgem} onChange={e => setConferirBaixaVirgem(e.target.checked)} className="size-4 accent-emerald-600" />
-                    Conferir baixa automática no Estoque Atual Virgem
+                    Incluir este registro na conferência automática de baixa do BOPP
                   </label>
                   <div className="flex items-center gap-2">
                   {editandoNumero && (
