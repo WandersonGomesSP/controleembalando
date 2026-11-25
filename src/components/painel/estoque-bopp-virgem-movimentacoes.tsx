@@ -173,11 +173,12 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
         await db.from('entradas_bopp_virgem').delete().eq('id', entrada.id)
         throw bobinasError
       }
+      const pesosPorCodigo = new Map(linhas.map(x => [x.codigo.toUpperCase(), x.peso]))
       const itensEntrada = (bobinasCriadas ?? []).map((bobina: any) => ({
         entrada_id: entrada.id,
         bobina_id: bobina.id,
         codigo: bobina.codigo,
-        peso_kg: Number(pesoIndividual.toFixed(3)),
+        peso_kg: Number((pesosPorCodigo.get(String(bobina.codigo).toUpperCase()) ?? 0).toFixed(3)),
       }))
       const { error: itensEntradaError } = await db.from('entradas_bopp_virgem_itens').insert(itensEntrada)
       if (itensEntradaError) {
