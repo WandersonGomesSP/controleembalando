@@ -47,7 +47,7 @@ begin
     if v_tem_historico then
       insert into estoque_atual.bopp_baixa_conferencias
         (codigo,status,mensagem,updated_at,baixada_em)
-      values (v_codigo,'JA_BAIXADA','Este código já foi consumido e não hay uma nova entrada ativa no estoque.',now(),now())
+      values (v_codigo,'JA_BAIXADA','Este código já foi consumido e não há uma nova entrada ativa no estoque.',now(),now())
       on conflict (codigo) do update set
         status='JA_BAIXADA',mensagem=excluded.mensagem,updated_at=now(),
         baixada_em=coalesce(estoque_atual.bopp_baixa_conferencias.baixada_em,now());
