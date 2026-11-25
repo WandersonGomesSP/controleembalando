@@ -591,48 +591,56 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
         </section>
       )}
 
-      {tipoEstoque === 'ADESIVADO' && (
-        <section className="space-y-3">
-          <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {[...resumos].sort((a, b) => ordenarReferenciaEstoque(a.medida_produto, b.medida_produto)).map((item) => {
-              const atual = numero(item.metragem_disponivel_m)
-              const minimo = numero(item.estoque_minimo_semanal_m)
-              const status = item.status_origem ?? 'ATENÇÃO'
-              const estilo = status === 'COMPRAR' || status === 'PRODUZIR' ? 'bg-red-100 text-red-800' : status === 'ATENÇÃO' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800'
-              const chave = chaveAlertaEstoque(item.medida_produto)
-              const desativado = alertasDesativados.includes(chave)
-              return (
-                <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0"><h3 className="font-bold text-slate-900">{item.medida_produto}</h3><p className="text-xs text-slate-500">{item.categoria}</p></div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${estilo}`}>{status}</span>
-                      <button type="button" onClick={() => void alternarAlertaProduto(codigoPorProduto[chave] ?? '', item.medida_produto)} aria-label={desativado ? 'Ativar notificação' : 'Desativar notificação'} title={desativado ? 'Ativar notificação' : 'Desativar notificação'} className="inline-flex size-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-100">
-                        {desativado ? <BellOff className="size-4" /> : <Bell className="size-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-lg bg-slate-50 p-2"><p className="text-[10px] text-slate-500">Quantidade atual</p><p className="text-sm font-bold text-slate-900">{fmt(item.quantidade_jumbos)} jumbos</p></div>
-                    <div className="rounded-lg bg-slate-50 p-2"><p className="text-[10px] text-slate-500">Peso atual</p><p className="text-sm font-bold text-slate-900">{fmt(item.peso_estoque_kg, 1)} kg</p></div>
-                    <div className="rounded-lg bg-slate-50 p-2"><p className="text-[10px] text-slate-500">Metragem atual</p><p className="text-sm font-bold text-slate-900">{fmt(atual)} m</p></div>
-                    <div className="rounded-lg bg-slate-50 p-2"><p className="text-[10px] text-slate-500">Mínimo semanal</p><p className="text-sm font-bold text-slate-900">{fmt(minimo)} m</p></div>
-                  </div>
-                  <p className={`mt-2 text-right text-xs font-bold tabular-nums ${String(item.folga_estoque ?? '').startsWith('-') ? 'text-red-700' : String(item.folga_estoque ?? '') === '0' ? 'text-amber-700' : 'text-emerald-700'}`}>Folga: {item.folga_estoque ?? '—'} jumbos</p>
-                </article>
-              )
-            })}
+            {tipoEstoque === 'ADESIVADO' && (
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <h3 className="font-bold text-slate-900">Resumo do estoque por produto</h3>
+            <p className="text-xs text-slate-500">Quantidade, peso, metragem, mínimo, folga e situação de cada produto</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+                <tr>
+                  <th className="px-4 py-3">Produto / medida</th>
+                  <th className="px-4 py-3 text-right">Quantidade</th>
+                  <th className="px-4 py-3 text-right">Peso</th>
+                  <th className="px-4 py-3 text-right">Metragem</th>
+                  <th className="px-4 py-3 text-right">Estoque mínimo</th>
+                  <th className="px-4 py-3 text-right">Folga</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {[...resumos].sort((a, b) => ordenarReferenciaEstoque(a.medida_produto, b.medida_produto)).map((item) => {
+                  const atual = numero(item.metragem_disponivel_m)
+                  const minimo = numero(item.estoque_minimo_semanal_m)
+                  const percentual = minimo > 0 ? atual / minimo : null
+                  const categoria = String(item.categoria ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()
+                  const acaoEspecial = /DUPLA\s*FACE|CREPE|KRAFT/.test(categoria)
+                  const status = percentual === null ? 'ATENÇÃO'
+                    : percentual < 1 ? (acaoEspecial ? 'PRODUZIR OU COMPRA' : 'ATENÇÃO')
+                    : percentual < 1.1 ? 'ATENÇÃO' : 'OK'
+                  const estilo = status === 'PRODUZIR OU COMPRA' ? 'bg-red-100 text-red-800'
+                    : status === 'ATENÇÃO' ? 'bg-amber-100 text-amber-900'
+                    : 'bg-emerald-100 text-emerald-800'
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3"><div className="font-semibold text-slate-900">{item.medida_produto}</div><div className="text-xs text-slate-500">{item.categoria}</div></td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums">{fmt(item.quantidade_jumbos)} bobinas</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{fmt(item.peso_estoque_kg, 1)} kg</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{fmt(atual)} m</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{fmt(minimo)} m</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{item.folga_estoque ?? '—'} jumbos</td>
+                      <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${estilo}`}>{status}</span></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            {resumos.length === 0 && <p className="px-4 py-8 text-center text-sm text-slate-500">Nenhum produto encontrado no resumo de estoque.</p>}
           </div>
         </section>
       )}
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2 text-sm text-slate-500"><Boxes className="size-4"/> Bobinas no estoque</div><div className="mt-2 text-2xl font-bold text-slate-900">{fmt(bobinas.length)}</div></div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2 text-sm text-slate-500"><Weight className="size-4"/> Peso disponível</div><div className="mt-2 text-2xl font-bold text-slate-900">{fmt(totalKg, 1)} <span className="text-sm font-medium">kg</span></div></div>
-        {tipoEstoque === 'ADESIVADO' && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2 text-sm text-slate-500"><Ruler className="size-4"/> Metragem disponível</div><div className="mt-2 text-2xl font-bold text-slate-900">{fmt(totalM)} <span className="text-sm font-medium">m</span></div></div>}
-        <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2 text-sm text-slate-500"><Package className="size-4"/> {tipoEstoque === 'VIRGEM' ? 'Categoria' : 'Produtos monitorados'}</div><div className="mt-2 text-2xl font-bold text-slate-900">{tipoEstoque === 'VIRGEM' ? 'BOPP virgem' : fmt(resumos.length)}</div></div>
-      </div>
-
 
         {tipoEstoque === 'ADESIVADO' && (
         <section className="rounded-xl border border-slate-200 bg-white p-4">
