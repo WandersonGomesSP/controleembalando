@@ -143,7 +143,7 @@ export type CobrideiraBobinaRow = {
   created_at: string
   updated_at?: string
   updated_by?: string | null
-  conferir_baixa_virgem: boolean
+  conferir_baixa_virgem?: boolean
 }
 
 
