@@ -2118,25 +2118,26 @@ export const excluirItemEntradaBopp = createServerFn({ method: 'POST' })
       .eq('id', data.itemId)
       .maybeSingle()
     if (itemError || !item) throw new Error('O item desta entrada não foi encontrado.')
-    if (!item.bobina_id) throw new Error('Esta bobina já saiu do estoque (consumo ou envio). O histórico dela foi preservado e não pode ser apagado pela entrada.')
 
-    const { data: bobina, error: bobinaError } = await estoque.from('bobinas_estoque_virgem')
-      .select('id,entrada_id')
-      .eq('id', item.bobina_id)
-      .maybeSingle()
-    if (bobinaError) throw new Error('Não foi possível conferir a bobina no estoque: ' + bobinaError.message)
-    if (!bobina || bobina.entrada_id !== item.entrada_id) {
-      throw new Error('A bobina não está mais vinculada a esta entrada no estoque. O histórico foi preservado.')
+    let retiradaDoEstoque = false
+    if (item.bobina_id) {
+      const { data: bobina, error: bobinaError } = await estoque.from('bobinas_estoque_virgem')
+        .select('id,entrada_id')
+        .eq('id', item.bobina_id)
+        .maybeSingle()
+      if (bobinaError) throw new Error('Não foi possível conferir a bobina no estoque: ' + bobinaError.message)
+      if (bobina && bobina.entrada_id === item.entrada_id) {
+        const { data: removida, error: deleteStockError } = await estoque.from('bobinas_estoque_virgem')
+          .delete().eq('id', item.bobina_id).select('id').maybeSingle()
+        if (deleteStockError) throw new Error('Não foi possível retirar a bobina do estoque: ' + deleteStockError.message)
+        if (!removida) throw new Error('A bobina já não está no estoque. Atualize a tela e tente novamente.')
+        retiradaDoEstoque = true
+      }
     }
-
-    const { data: removida, error: deleteStockError } = await estoque.from('bobinas_estoque_virgem')
-      .delete().eq('id', item.bobina_id).select('id').maybeSingle()
-    if (deleteStockError) throw new Error('Não foi possível retirar a bobina do estoque: ' + deleteStockError.message)
-    if (!removida) throw new Error('A bobina já não está no estoque. Nenhum registro foi apagado.')
 
     const { error: deleteItemError } = await estoque.from('entradas_bopp_virgem_itens')
       .delete().eq('id', item.id)
-    if (deleteItemError) throw new Error('A bobina saiu do estoque, mas não foi possível apagar o item da entrada: ' + deleteItemError.message)
+    if (deleteItemError) throw new Error('Não foi possível apagar o item da entrada: ' + deleteItemError.message)
 
     const { data: restantes, error: remainingError } = await estoque.from('entradas_bopp_virgem_itens')
       .select('peso_kg').eq('entrada_id', item.entrada_id)
@@ -2155,5 +2156,5 @@ export const excluirItemEntradaBopp = createServerFn({ method: 'POST' })
       if (updateHeaderError) throw new Error('Item excluído, mas não foi possível atualizar os totais da entrada: ' + updateHeaderError.message)
     }
 
-    return { success: true, codigo: item.codigo, quantidade_restante: quantidade }
+    return { success: true, codigo: item.codigo, quantidade_restante: quantidade, retiradaDoEstoque }
   })
