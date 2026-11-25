@@ -50,6 +50,7 @@ export function RebobinadeiraArea({ onChangeArea, isDeveloper }: Props) {
     />
   }
   return <HistoricoProducao
+    key={tela}
     onChangeArea={onChangeArea}
     isDeveloper={isDeveloper}
     initialTela={tela}
