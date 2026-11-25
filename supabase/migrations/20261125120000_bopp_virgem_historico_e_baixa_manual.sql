@@ -50,6 +50,38 @@ on estoque_atual.bobinas_utilizadas_eventos for all to authenticated
 using (true) with check (true);
 grant select, insert, update, delete on estoque_atual.bobinas_utilizadas_eventos to authenticated;
 
+drop policy if exists "authenticated manage bopp virgem stock" on estoque_atual.bobinas_estoque_virgem;
+create policy "authenticated manage bopp virgem stock"
+on estoque_atual.bobinas_estoque_virgem for all to authenticated
+using ((select auth.uid()) is not null)
+with check ((select auth.uid()) is not null);
+
+drop policy if exists "authenticated manage bopp virgem consumption" on estoque_atual.bobinas_utilizadas;
+create policy "authenticated manage bopp virgem consumption"
+on estoque_atual.bobinas_utilizadas for all to authenticated
+using ((select auth.uid()) is not null)
+with check ((select auth.uid()) is not null);
+
+drop policy if exists "authenticated read bopp virgem stock history" on estoque_atual.bobinas_estoque_virgem_historico;
+create policy "authenticated read bopp virgem stock history"
+on estoque_atual.bobinas_estoque_virgem_historico for select to authenticated
+using ((select auth.uid()) is not null);
+
+drop policy if exists "authenticated insert bopp virgem stock history" on estoque_atual.bobinas_estoque_virgem_historico;
+create policy "authenticated insert bopp virgem stock history"
+on estoque_atual.bobinas_estoque_virgem_historico for insert to authenticated
+with check ((select auth.uid()) is not null);
+
+drop policy if exists "authenticated manage consumo virgem eventos" on estoque_atual.bobinas_utilizadas_eventos;
+create policy "authenticated manage consumo virgem eventos"
+on estoque_atual.bobinas_utilizadas_eventos for all to authenticated
+using ((select auth.uid()) is not null)
+with check ((select auth.uid()) is not null);
+
+grant select, insert, update, delete on estoque_atual.bobinas_estoque_virgem to authenticated;
+grant select, insert, update, delete on estoque_atual.bobinas_utilizadas to authenticated;
+grant select, insert on estoque_atual.bobinas_estoque_virgem_historico to authenticated;
+
 alter table estoque_atual.retiradas_bopp_virgem
   add column if not exists chave_importacao text;
 create unique index if not exists retiradas_bopp_virgem_chave_importacao_uidx
