@@ -31,6 +31,8 @@ type ResumoMinimoVirgem = {
   minimo_calibrado_kg: number | null
   minimo_calibrado_bobinas: number | null
   peso_medio_bobina_kg: number | null
+  kg_bopp_por_jumbo: number | null
+  capacidade_jumbos: number | null
 }
 type FormEstoque = {
   categoria: Categoria; data_entrada: string; fornecedor: string; medida: string; nf: string; aba: string; localizacao: 'ESTOQUE' | 'GALPAO_MARIO_COVAS'
@@ -542,6 +544,10 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                       <div className="rounded-lg bg-slate-50 p-2">
                         <p className="text-[10px] text-slate-500">Mínimo em bobinas</p>
                         <p className="text-sm font-bold tabular-nums text-slate-900">{minimoBobinas == null ? '—' : fmt(minimoBobinas)}</p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 p-2">
+                        <p className="text-[10px] text-slate-500">Capacidade de produção</p>
+                        <p className="text-sm font-bold tabular-nums text-slate-900">{item.capacidade_jumbos == null ? 'Não calculável' : `${fmt(item.capacidade_jumbos)} jumbos`}</p>
                       </div>
                     </div>
                     <div className="mt-2 border-t border-slate-100 pt-2">
