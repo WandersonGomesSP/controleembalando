@@ -607,11 +607,13 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
 
   React.useEffect(() => {
     const codigo = form.codBob.trim().toLocaleUpperCase('pt-BR')
+    setEstoqueBoppEncontrado(null)
     if (!codigo || form.material.trim().toUpperCase() !== 'BOPP') {
-      setEstoqueBoppEncontrado(null)
       setConsultandoCodigoBopp(false)
+      setForm(atual => atual.codBob.trim().toUpperCase() === codigo ? { ...atual, pesoBruto: '' } : atual)
       return
     }
+    setForm(atual => atual.codBob.trim().toUpperCase() === codigo ? { ...atual, pesoBruto: '' } : atual)
     let ativo = true
     setConsultandoCodigoBopp(true)
     const temporizador = window.setTimeout(() => {
@@ -1863,10 +1865,13 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       const kgFaltando = conferenciasBopp.filter(item => item.status === 'AGUARDANDO').reduce((total, item) => total + Math.max(0, Number(item.peso_estoque_kg ?? 0) - Number(item.peso_produzido_kg ?? 0)), 0)
                       return (
                         <>
-                          <div className="mb-4 grid gap-2 sm:grid-cols-3">
+                          <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
                             <article className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold uppercase text-slate-500">Códigos em aberto</p><p className="mt-1 text-xl font-bold text-slate-900">{abertos.length}</p></article>
                             <article className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold uppercase text-slate-500">Peso que falta</p><p className="mt-1 text-xl font-bold text-slate-900">{formatarPeso(kgFaltando)} kg</p></article>
-                            <article className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold uppercase text-slate-500">Registros no histórico</p><p className="mt-1 text-xl font-bold text-slate-900">{historico.length}</p></article>
+                            <article className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold uppercase text-slate-500">Últimos resultados por código</p><p className="mt-1 text-xl font-bold text-slate-900">{historico.length}</p></article>
+                            <article className="rounded-lg border border-emerald-200 bg-emerald-50 p-3"><p className="text-[11px] font-semibold uppercase text-emerald-700">Baixas sem divergência</p><p className="mt-1 text-xl font-bold text-emerald-900">{historico.filter(item => item.status === 'BAIXADA').length}</p></article>
+                            <article className="rounded-lg border border-amber-200 bg-amber-50 p-3"><p className="text-[11px] font-semibold uppercase text-amber-800">Baixas com alerta</p><p className="mt-1 text-xl font-bold text-amber-900">{historico.filter(item => item.status === 'BAIXADA_COM_ALERTA' || item.status === 'ALERTA_EXCESSO').length}</p></article>
+                            <article className="rounded-lg border border-red-200 bg-red-50 p-3"><p className="text-[11px] font-semibold uppercase text-red-700">Erros / pendências</p><p className="mt-1 text-xl font-bold text-red-900">{historico.filter(item => !['BAIXADA','BAIXADA_COM_ALERTA','ALERTA_EXCESSO'].includes(item.status)).length}</p></article>
                           </div>
                           <h3 className="mb-2 text-sm font-bold text-slate-900">Em aberto para baixa</h3>
                           {abertos.length === 0 ? <p className="mb-5 rounded-lg border border-slate-200 p-3 text-xs text-slate-600">Nenhum código aguardando baixa.</p> : (
