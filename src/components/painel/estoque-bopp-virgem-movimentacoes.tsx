@@ -24,7 +24,13 @@ type RegistroRetirada = {
   peso_total_kg: number
   created_at: string
 }
-type BobinaLinha = { id?: string; codigo: string; peso_kg?: number | null; peso_rateado_kg?: number | null; medida_texto?: string | null; fornecedor?: string | null }
+type BobinaLinha = { id?: string; codigo: string; peso_kg?: number | null; medida_texto?: string | null; fornecedor?: string | null }
+type EventoConsumo = {
+  id: string; codigo: string; data_utilizacao: string | null; fornecedor: string | null;
+  nota_fiscal: string | null; data_entrada_origem: string | null; medida: number | null;
+  peso_kg: number | null; operador: string | null; linha_arquivo: number | null;
+}
+type DadosEntradaCache = { fornecedor: string; empresa: string; nf: string; dataEmissao: string; dataEntrada: string }
 
 const hoje = new Date().toISOString().slice(0, 10)
 const formatarData = (v?: string | null) => v ? new Date(v + 'T12:00:00').toLocaleDateString('pt-BR') : '—'
@@ -41,19 +47,23 @@ const numeroBR = (valor: string) => {
 
 export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
   const db = supabase.schema('estoque_atual') as any
-  const [fornecedor, setFornecedor] = React.useState('')
+  const [cacheEntrada, setCacheEntrada] = React.useState<DadosEntradaCache>(() => {
+    try {
+      const salvo = localStorage.getItem('controleembalando-bopp-entrada-cache')
+      return salvo ? { ...{ fornecedor: '', empresa: '', nf: '', dataEmissao: '', dataEntrada: hoje }, ...JSON.parse(salvo) } : { fornecedor: '', empresa: '', nf: '', dataEmissao: '', dataEntrada: hoje }
+    } catch { return { fornecedor: '', empresa: '', nf: '', dataEmissao: '', dataEntrada: hoje } }
+  })
+  const { fornecedor, empresa, nf, dataEmissao, dataEntrada } = cacheEntrada
+  const atualizarCacheEntrada = (campo: keyof DadosEntradaCache, valor: string) => setCacheEntrada(atual => ({ ...atual, [campo]: valor }))
   const [medida, setMedida] = React.useState('')
-  const [empresa, setEmpresa] = React.useState('')
-  const [nf, setNf] = React.useState('')
-  const [dataEmissao, setDataEmissao] = React.useState('')
-  const [dataEntrada, setDataEntrada] = React.useState(hoje)
-  const [pesoTotal, setPesoTotal] = React.useState('')
   const [codigosEntrada, setCodigosEntrada] = React.useState('')
   const [dataEnvio, setDataEnvio] = React.useState(hoje)
   const [codigosRetirada, setCodigosRetirada] = React.useState('')
   const [entradas, setEntradas] = React.useState<RegistroEntrada[]>([])
   const [retiradas, setRetiradas] = React.useState<RegistroRetirada[]>([])
-  const [consumo, setConsumo] = React.useState<any[]>([])
+  const [consumo, setConsumo] = React.useState<EventoConsumo[]>([])
+  const [detalhesConsumo, setDetalhesConsumo] = React.useState<Record<string, any[]>>({})
+  const [carregandoDetalhes, setCarregandoDetalhes] = React.useState<string | null>(null)
   const [itensEntrada, setItensEntrada] = React.useState<Record<string, BobinaLinha[]>>({})
   const [itensRetirada, setItensRetirada] = React.useState<Record<string, any[]>>({})
   const [abertos, setAbertos] = React.useState<Set<string>>(new Set())
@@ -74,7 +84,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
         setRetiradas((data ?? []) as RegistroRetirada[])
       }
       if (aba === 'consumo') {
-        const { data, error } = await db.from('bobinas_utilizadas').select('id,codigo,data_utilizacao,fornecedor,medida,peso_kg,metragem_m,cor,linha,origem_arquivo').order('data_utilizacao', { ascending: false, nullsFirst: false }).order('codigo').range(0, 4999)
+        const { data, error } = await db.from('bobinas_utilizadas_eventos').select('id,codigo,data_utilizacao,fornecedor,nota_fiscal,data_entrada_origem,medida,peso_kg,operador,linha_arquivo').order('data_utilizacao', { ascending: false, nullsFirst: false }).order('codigo').range(0, 4999)
         if (error) throw error
         setConsumo(data ?? [])
       }
@@ -86,13 +96,16 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
   }, [aba])
 
   React.useEffect(() => { void carregar() }, [carregar])
+  React.useEffect(() => {
+    try { localStorage.setItem('controleembalando-bopp-entrada-cache', JSON.stringify(cacheEntrada)) } catch { /* cache local indisponível */ }
+  }, [cacheEntrada])
 
   async function alternarEntrada(item: RegistroEntrada) {
     const novo = new Set(abertos)
     if (novo.has(item.id)) { novo.delete(item.id); setAbertos(novo); return }
     novo.add(item.id); setAbertos(novo)
     if (!itensEntrada[item.id]) {
-      const { data, error } = await db.from('entradas_bopp_virgem_itens').select('codigo,peso_rateado_kg').eq('entrada_id', item.id).order('codigo')
+      const { data, error } = await db.from('entradas_bopp_virgem_itens').select('codigo,peso_kg').eq('entrada_id', item.id).order('codigo')
       if (error) return toast.error('Não foi possível abrir os códigos da entrada.', { description: error.message })
       setItensEntrada(atual => ({ ...atual, [item.id]: data ?? [] }))
     }
@@ -110,10 +123,13 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
   }
 
   async function salvarEntrada() {
-    const codigos = lerCodigos(codigosEntrada)
-    const peso = numeroBR(pesoTotal)
-    if (!fornecedor.trim() || !medida.trim() || !dataEntrada || !Number.isFinite(peso) || peso <= 0 || !codigos.length) {
-      return toast.error('Preencha fornecedor, medida, data de entrada, peso total e pelo menos um código.')
+    const linhas = lerLinhasEntrada(codigosEntrada)
+    const codigos = linhas.map(x => x.codigo)
+    const duplicados = codigos.filter((codigo, indice) => codigos.findIndex(x => x.toUpperCase() === codigo.toUpperCase()) !== indice)
+    const linhasInvalidas = linhas.filter(x => !Number.isFinite(x.peso) || x.peso <= 0)
+    const peso = linhas.reduce((total, x) => total + (Number.isFinite(x.peso) ? x.peso : 0), 0)
+    if (!fornecedor.trim() || !medida.trim() || !dataEntrada || !linhas.length || linhasInvalidas.length || duplicados.length) {
+      return toast.error('Informe fornecedor, medida, data de entrada e cada código com seu peso individual. Não repita códigos.')
     }
     setSalvando(true)
     try {
@@ -137,21 +153,20 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
       }).select('*').single()
       if (entradaError) throw entradaError
       const medidaNumero = numeroBR(medida)
-      const pesoMedio = peso / codigos.length
-      const registros = codigos.map(codigo => ({
+      const registros = linhas.map(({ codigo, peso: pesoIndividual }) => ({
         categoria: 'BOPP',
         data_entrada: dataEntrada,
         fornecedor: fornecedor.trim().toUpperCase(),
         medida: Number.isFinite(medidaNumero) ? medidaNumero : null,
         medida_texto: medida.trim(),
         nf: nf.trim() || null,
-        peso_kg: Number(pesoMedio.toFixed(3)),
+        peso_kg: Number(pesoIndividual.toFixed(3)),
         codigo,
         cliente: empresa.trim() || null,
         localizacao: 'ESTOQUE',
         entrada_id: entrada.id,
         origem_arquivo: 'Entrada agrupada BOPP',
-        observacoes: 'Peso médio rateado do peso total informado no recebimento; não representa pesagem individual.',
+        observacoes: 'Peso individual informado ao lado do código no recebimento.',
       }))
       const { data: bobinasCriadas, error: bobinasError } = await db.from('bobinas_estoque_virgem').insert(registros).select('id,codigo')
       if (bobinasError) {
@@ -162,7 +177,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
         entrada_id: entrada.id,
         bobina_id: bobina.id,
         codigo: bobina.codigo,
-        peso_rateado_kg: Number(pesoMedio.toFixed(3)),
+        peso_kg: Number(pesoIndividual.toFixed(3)),
       }))
       const { error: itensEntradaError } = await db.from('entradas_bopp_virgem_itens').insert(itensEntrada)
       if (itensEntradaError) {
@@ -170,12 +185,29 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
         await db.from('entradas_bopp_virgem').delete().eq('id', entrada.id)
         throw itensEntradaError
       }
-      toast.success(`Entrada salva: ${codigos.length} bobina(s) vinculada(s) ao recebimento.`)
-      setFornecedor(''); setMedida(''); setEmpresa(''); setNf(''); setDataEmissao(''); setDataEntrada(hoje); setPesoTotal(''); setCodigosEntrada('')
+      toast.success(`Entrada salva: ${codigos.length} bobina(s), total de ${formatarKg(peso)}.`)
+      setMedida(''); setCodigosEntrada('')
       await carregar()
     } catch (error) {
       toast.error('Não foi possível registrar a entrada.', { description: error instanceof Error ? error.message : 'Verifique os dados.' })
     } finally { setSalvando(false) }
+  }
+
+  async function abrirDetalhesConsumo(codigo: string) {
+    if (detalhesConsumo[codigo]) {
+      setDetalhesConsumo(atual => { const novo = { ...atual }; delete novo[codigo]; return novo })
+      return
+    }
+    setCarregandoDetalhes(codigo)
+    try {
+      const { data, error } = await supabase.schema('cobrideira').from('bobinas')
+        .select('numero_bobina,data,material,largura,micragem,peso_final')
+        .eq('cod_bob', codigo).order('data', { ascending: true }).order('numero_bobina')
+      if (error) throw error
+      setDetalhesConsumo(atual => ({ ...atual, [codigo]: data ?? [] }))
+    } catch (error) {
+      toast.error('Não foi possível consultar as bobinas produzidas.', { description: error instanceof Error ? error.message : 'Verifique a conexão.' })
+    } finally { setCarregandoDetalhes(null) }
   }
 
   async function salvarRetirada() {
@@ -219,19 +251,21 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
           <p className="text-xs text-slate-500">Cadastre um recebimento agrupado e vincule todos os códigos individuais a ele.</p>
         </div>
         <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="grid gap-1 text-xs font-semibold">Fornecedor<input value={fornecedor} onChange={e => setFornecedor(e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
+          <label className="grid gap-1 text-xs font-semibold">Fornecedor<input value={fornecedor} onChange={e => atualizarCacheEntrada('fornecedor', e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
           <label className="grid gap-1 text-xs font-semibold">Medida<input value={medida} onChange={e => setMedida(e.target.value)} placeholder="1270.20" className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
-          <label className="grid gap-1 text-xs font-semibold">Empresa<input value={empresa} onChange={e => setEmpresa(e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
-          <label className="grid gap-1 text-xs font-semibold">NF<input value={nf} onChange={e => setNf(e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
-          <label className="grid gap-1 text-xs font-semibold">Data de emissão<input type="date" value={dataEmissao} onChange={e => setDataEmissao(e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
-          <label className="grid gap-1 text-xs font-semibold">Data de entrada<input type="date" value={dataEntrada} onChange={e => setDataEntrada(e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
-          <label className="grid gap-1 text-xs font-semibold">Peso total (kg)<input inputMode="decimal" value={pesoTotal} onChange={e => setPesoTotal(e.target.value)} placeholder="1723,50" className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
+          <label className="grid gap-1 text-xs font-semibold">Empresa<input value={empresa} onChange={e => atualizarCacheEntrada('empresa', e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
+          <label className="grid gap-1 text-xs font-semibold">NF<input value={nf} onChange={e => atualizarCacheEntrada('nf', e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
+          <label className="grid gap-1 text-xs font-semibold">Data de emissão<input type="date" value={dataEmissao} onChange={e => atualizarCacheEntrada('dataEmissao', e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
+          <label className="grid gap-1 text-xs font-semibold">Data de entrada<input type="date" value={dataEntrada} onChange={e => atualizarCacheEntrada('dataEntrada', e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
         </div>
-        <label className="grid gap-1 text-xs font-semibold">Códigos das bobinas · um por linha
-          <textarea value={codigosEntrada} onChange={e => setCodigosEntrada(e.target.value)} rows={6} placeholder={'Cole os códigos aqui, um em cada linha'} className="w-full min-w-0 rounded-md border border-slate-300 p-3 font-mono text-sm font-normal" />
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+          <strong>Atenção:</strong> informe o peso individual ao lado de cada código, separados por ponto e vírgula, tabulação ou barra vertical. Exemplo: <code>9003065584; 440</code>. O sistema não divide o peso total por média.
+        </div>
+        <label className="grid gap-1 text-xs font-semibold">Código da bobina; peso individual (kg) · uma bobina por linha
+          <textarea value={codigosEntrada} onChange={e => setCodigosEntrada(e.target.value)} rows={7} placeholder={'9003065584; 440\n9003065425; 432\n9003065583; 439'} className="w-full min-w-0 rounded-md border border-slate-300 p-3 font-mono text-sm font-normal" />
         </label>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-slate-500">{lerCodigos(codigosEntrada).length} código(s) únicos · peso médio rateado: {pesoTotal.trim() && lerCodigos(codigosEntrada).length ? formatarKg(numeroBR(pesoTotal) / lerCodigos(codigosEntrada).length) : '—'}</p>
+          <p className="text-xs text-slate-500">{lerLinhasEntrada(codigosEntrada).length} código(s) · peso total calculado: {formatarKg(lerLinhasEntrada(codigosEntrada).reduce((t,x)=>t+(Number.isFinite(x.peso)?x.peso:0),0))}</p>
           <button type="button" onClick={() => void salvarEntrada()} disabled={salvando} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#c91d26] px-4 text-xs font-bold text-white hover:bg-[#a9151e] disabled:opacity-50"><Save className="size-4" />{salvando ? 'Salvando...' : 'Salvar entrada'}</button>
         </div>
         <div className="space-y-2 border-t border-slate-200 pt-3">
@@ -242,7 +276,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
               <span className="min-w-0 flex-1"><strong className="block text-sm">{item.fornecedor} · {item.medida_texto}</strong><span className="text-xs text-slate-500">{item.empresa || 'Empresa não informada'} · NF {item.nf || '—'} · Emissão {formatarData(item.data_emissao)} · Entrada {formatarData(item.data_entrada)}</span></span>
               <span className="text-right text-xs font-bold">{formatarKg(item.peso_total_kg)}<span className="block font-normal text-slate-500">{item.quantidade_bobinas} bobinas</span></span>
             </button>
-            {abertos.has(item.id) && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3 lg:grid-cols-4">{(itensEntrada[item.id] ?? []).map(b => <div key={b.codigo} className="rounded-md bg-slate-50 p-2"><p className="break-all font-mono text-xs font-bold">{b.codigo}</p><p className="text-[10px] text-slate-500">{formatarKg(b.peso_rateado_kg)} · peso médio rateado</p></div>)}</div>}
+            {abertos.has(item.id) && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3 lg:grid-cols-4">{(itensEntrada[item.id] ?? []).map(b => <div key={b.codigo} className="flex min-w-0 items-center justify-between gap-2 rounded-md bg-slate-50 p-2"><p className="break-all font-mono text-xs font-bold">{b.codigo}</p><p className="shrink-0 text-xs font-semibold">{formatarKg(b.peso_kg)}</p></div>)}</div>}
           </article>)}
           {!entradas.length && <p className="py-4 text-center text-xs text-slate-500">Nenhum recebimento registrado.</p>}
         </div>
@@ -256,9 +290,28 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
       </>}
 
       {aba === 'consumo' && <>
-        <div><h3 className="text-base font-bold">Histórico de Consumo Virgem</h3><p className="text-xs text-slate-500">Bobinas adesivas importadas como consumo histórico. Campos que não vieram no arquivo permanecem em branco.</p></div>
-        <div className="rounded-lg bg-slate-50 p-3 text-sm font-semibold">{consumo.length.toLocaleString('pt-BR')} registro(s) carregados</div>
-        <div className="max-h-[560px] overflow-auto rounded-lg border border-slate-200"><table className="w-full text-left text-xs"><thead className="sticky top-0 bg-slate-100"><tr>{['Código','Data de consumo','Fornecedor','Medida','Peso','Origem'].map(x => <th key={x} className="px-3 py-2">{x}</th>)}</tr></thead><tbody>{consumo.map(item => <tr key={item.id} className="border-t border-slate-100"><td className="px-3 py-2 font-mono font-bold">{item.codigo}</td><td className="px-3 py-2">{formatarData(item.data_utilizacao)}</td><td className="px-3 py-2">{item.fornecedor || '—'}</td><td className="px-3 py-2">{item.medida || '—'}</td><td className="px-3 py-2">{formatarKg(item.peso_kg)}</td><td className="px-3 py-2">{item.origem_arquivo || '—'}</td></tr>)}</tbody></table></div>
+        <div><h3 className="text-base font-bold">Histórico de Consumo Virgem</h3><p className="text-xs text-slate-500">Consumos importados do CSV, com fornecedor, NF, entrada, peso e operador.</p></div>
+        <div className="rounded-lg bg-slate-50 p-3 text-sm font-semibold">{consumo.length.toLocaleString('pt-BR')} evento(s) de produção carregados</div>
+        <div className="max-h-[620px] overflow-auto rounded-lg border border-slate-200">
+          <table className="w-full min-w-[760px] text-left text-xs">
+            <thead className="sticky top-0 bg-slate-100"><tr>{['Código','Data produção','Fornecedor / NF','Medida','Peso','Operador','Detalhes'].map(x => <th key={x} className="px-3 py-2">{x}</th>)}</tr></thead>
+            <tbody>{consumo.map(item => <React.Fragment key={item.id}>
+              <tr className="border-t border-slate-100">
+                <td className="px-3 py-2 font-mono font-bold">{item.codigo}</td>
+                <td className="px-3 py-2">{formatarData(item.data_utilizacao)}</td>
+                <td className="px-3 py-2">{item.fornecedor || '—'}<span className="block text-[10px] text-slate-500">NF {item.nota_fiscal || '—'}</span></td>
+                <td className="px-3 py-2">{item.medida ?? '—'}</td>
+                <td className="px-3 py-2">{formatarKg(item.peso_kg)}</td>
+                <td className="px-3 py-2">{item.operador || '—'}</td>
+                <td className="px-3 py-2"><button type="button" onClick={() => void abrirDetalhesConsumo(item.codigo)} className="rounded-md border border-slate-300 px-2 py-1 font-semibold text-slate-700 hover:border-red-500 hover:text-red-700">{carregandoDetalhes === item.codigo ? 'Buscando...' : detalhesConsumo[item.codigo] ? 'Ocultar' : 'Detalhes'}</button></td>
+              </tr>
+              {detalhesConsumo[item.codigo] && <tr className="border-t border-slate-100 bg-slate-50"><td colSpan={7} className="p-3">
+                <p className="mb-2 font-semibold">Bobinas produzidas com o código {item.codigo}</p>
+                {detalhesConsumo[item.codigo].length ? <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{detalhesConsumo[item.codigo].map((b:any)=><div key={b.numero_bobina} className="rounded-md border border-slate-200 bg-white p-2"><strong className="font-mono">{b.numero_bobina}</strong><p className="text-[10px] text-slate-500">{formatarData(b.data)} · {b.material} · {b.largura}.{String(b.micragem).padStart(2,'0')}</p><p className="text-[10px] text-slate-500">{formatarKg(b.peso_final)}</p></div>)}</div> : <p className="text-xs text-slate-500">Não localizei número de bobina produzido para este código no cadastro da Cobrideira.</p>}
+              </td></tr>}
+            </React.Fragment>)}</tbody>
+          </table>
+        </div>
       </>}
 
       {aba === 'envios' && <>
@@ -269,7 +322,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
             <span className="flex-1"><strong className="block text-sm">{item.destino} · {formatarData(item.data_envio)}</strong><span className="text-xs text-slate-500">{item.quantidade_bobinas} bobinas enviadas</span></span>
             <strong className="text-sm">{formatarKg(item.peso_total_kg)}</strong>
           </button>
-          {abertos.has(item.id) && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3 lg:grid-cols-4">{(itensRetirada[item.id] ?? []).map((b, i) => <div key={i} className="rounded-md bg-slate-50 p-2"><p className="break-all font-mono text-xs font-bold">{b.codigo}</p><p className="text-[10px] text-slate-500">{b.dados_bobina?.medida_texto || '—'} · {formatarKg(b.dados_bobina?.peso_kg)}</p></div>)}</div>}
+          {abertos.has(item.id) && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3 lg:grid-cols-4">{(itensRetirada[item.id] ?? []).map((b, i) => <div key={i} className="rounded-md bg-slate-50 p-2"><p className="break-all font-mono text-xs font-bold">{b.codigo}</p><p className="text-[10px] text-slate-500">{b.dados_bobina?.medida_texto || b.dados_bobina?.medida || '—'} · {formatarKg(b.dados_bobina?.peso_kg)} · NF {b.dados_bobina?.nf || '—'}</p></div>)}</div>}
         </article>)}
         {!retiradas.length && <p className="py-6 text-center text-xs text-slate-500">Nenhum envio para Bahia registrado.</p>}
       </>}
