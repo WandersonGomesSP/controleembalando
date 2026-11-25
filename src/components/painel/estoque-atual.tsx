@@ -185,6 +185,8 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
   const [codigoPorProduto, setCodigoPorProduto] = React.useState<Record<string, string>>({})
   const [paginaAlertas, setPaginaAlertas] = React.useState(0)
   const [detalhesMedida, setDetalhesMedida] = React.useState<string | null>(null)
+  const [selecionadasMedida, setSelecionadasMedida] = React.useState<Set<string>>(new Set())
+  const [editandoEmMassa, setEditandoEmMassa] = React.useState<string[]>([])
   const [carregando, setCarregando] = React.useState(true)
   const [salvando, setSalvando] = React.useState(false)
   const [importando, setImportando] = React.useState(false)
@@ -337,6 +339,29 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
     })
     setFormAberto(true)
   }
+  function abrirEdicaoEmMassa(itens: BobinaEstoque[]) {
+    const ids = itens.map(item => item.id).filter(Boolean)
+    if (!ids.length) return
+    const primeira = itens[0]
+    setEditandoEmMassa(ids)
+    setEditando(null)
+    setForm({
+      categoria: primeira.categoria, data_entrada: primeira.data_entrada ?? '', fornecedor: primeira.fornecedor ?? '',
+      medida: primeira.medida_texto || (primeira.medida == null ? '' : String(primeira.medida)), nf: primeira.nf ?? '',
+      aba: primeira.aba ?? '', localizacao: primeira.localizacao ?? 'ESTOQUE',
+      peso_kg: primeira.peso_kg == null ? '' : String(primeira.peso_kg), metragem_m: primeira.metragem_m == null ? '' : String(primeira.metragem_m),
+      codigo: '', cor: primeira.cor ?? '', cliente: primeira.cliente ?? '', linha: primeira.linha ?? '', observacoes: primeira.observacoes ?? '',
+    })
+    setFormAberto(true)
+  }
+  function alternarSelecaoMedida(id: string) {
+    setSelecionadasMedida(atual => {
+      const nova = new Set(atual)
+      if (nova.has(id)) nova.delete(id)
+      else nova.add(id)
+      return nova
+    })
+  }
   async function salvar(e: React.FormEvent) {
     e.preventDefault()
     const peso = form.peso_kg.trim() ? Number(form.peso_kg.replace(',', '.')) : null
@@ -359,9 +384,21 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
         observacoes: form.observacoes.trim() || null,
         ...(tipoEstoque === 'VIRGEM' ? { localizacao: form.localizacao } : {}),
       }
-      if (editando) await updateCurrentStockRecord({ data: { accessToken, tipoEstoque, id: editando, registro } })
-      else await createCurrentStockRecord({ data: { accessToken, tipoEstoque, registro } })
-      toast.success(editando ? 'Bobina atualizada.' : 'Bobina adicionada ao estoque atual.')
+      if (editandoEmMassa.length) {
+        const itensOriginais = bobinas.filter(item => editandoEmMassa.includes(item.id))
+        await Promise.all(itensOriginais.map(item => updateCurrentStockRecord({
+          data: { accessToken, tipoEstoque, id: item.id, registro: { ...registro, codigo: item.codigo } },
+        })))
+        toast.success(`${itensOriginais.length} bobina(s) atualizada(s). Os códigos individuais foram preservados.`)
+        setEditandoEmMassa([])
+        setSelecionadasMedida(new Set())
+      } else if (editando) {
+        await updateCurrentStockRecord({ data: { accessToken, tipoEstoque, id: editando, registro } })
+        toast.success('Bobina atualizada.')
+      } else {
+        await createCurrentStockRecord({ data: { accessToken, tipoEstoque, registro } })
+        toast.success('Bobina adicionada ao estoque atual.')
+      }
       setFormAberto(false)
       await carregar()
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível salvar a bobina.') }
@@ -589,10 +626,23 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                               <button type="button" onClick={() => setDetalhesMedida(null)} className="rounded-md bg-[#b91c26] px-4 py-2 text-sm font-bold text-white hover:bg-[#991b1b]">Ocultar</button>
                             </header>
                             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-4">
-                              {bobinasMedida.length === 0 ? <p className="text-sm text-slate-500">Não há bobinas individuais cadastradas nesta medida.</p> : bobinasMedida.map((b) => (
+                              {bobinasMedida.length === 0 ? <p className="text-sm text-slate-500">Não há bobinas individuais cadastradas nesta medida.</p> : <>
+                                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-100 p-2">
+                                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                                    <input type="checkbox" checked={bobinasMedida.length > 0 && bobinasMedida.every(b => selecionadasMedida.has(b.id))} onChange={e => setSelecionadasMedida(atual => { const nova = new Set(atual); bobinasMedida.forEach(b => e.target.checked ? nova.add(b.id) : nova.delete(b.id)); return nova })} className="size-4 accent-[#c91d26]" />
+                                    Selecionar todas desta medida
+                                  </label>
+                                  <button type="button" disabled={!bobinasMedida.some(b => selecionadasMedida.has(b.id))} onClick={() => abrirEdicaoEmMassa(bobinasMedida.filter(b => selecionadasMedida.has(b.id)))} className="rounded-md bg-[#b91c26] px-3 py-2 text-xs font-bold text-white disabled:opacity-40">Editar selecionadas ({bobinasMedida.filter(b => selecionadasMedida.has(b.id)).length})</button>
+                                </div>
+                                {bobinasMedida.map((b) => (
                                 <div key={b.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                                   <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div><p className="font-mono text-sm font-bold text-slate-900">{b.codigo}</p><p className="text-xs text-slate-500">{b.categoria} · {b.fornecedor || 'Fornecedor não informado'}</p></div>
+                                    <label className="flex min-w-0 items-center gap-2">
+                                      <input type="checkbox" checked={selecionadasMedida.has(b.id)} onChange={() => alternarSelecaoMedida(b.id)} className="size-4 shrink-0 accent-[#c91c26]" />
+                                      <span className="font-mono text-sm font-bold text-slate-900">{b.codigo}</span>
+                                    </label>
+                                    <div className="text-xs text-slate-500">{b.categoria} · {b.fornecedor || 'Fornecedor não informado'}</div>
+                                    <div className="flex gap-1"><p className="text-xs text-slate-500">{b.categoria} · {b.fornecedor || 'Fornecedor não informado'}</p></div>
                                     <div className="flex gap-1">
                                       <button type="button" onClick={() => abrirEdicao(b)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700">Editar dados</button>
                                       {isDeveloper && <button type="button" onClick={() => void excluir(b)} className="rounded-md bg-[#e3262e] px-3 py-2 text-xs font-semibold text-white">Mover para lixeira</button>}
@@ -606,6 +656,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                                   </div>
                                 </div>
                               ))}
+                              </>}
                             </div>
                           </section>
                         </div>
@@ -699,12 +750,12 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
 
       {formAberto && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-3" onMouseDown={(e) => { if (e.target === e.currentTarget) setFormAberto(false) }}>
         <form onSubmit={salvar} className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-5 shadow-2xl">
-          <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-bold text-slate-900">{editando ? 'Editar bobina do estoque' : 'Adicionar bobina ao estoque'}</h3><p className="text-sm text-slate-500">Esta alteração afeta somente o saldo do Estoque Atual.</p></div><button type="button" onClick={() => setFormAberto(false)} className="rounded-lg p-2 hover:bg-slate-100"><X className="size-5"/></button></div>
+          <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-bold text-slate-900">{editandoEmMassa.length ? `Editar ${editandoEmMassa.length} bobinas selecionadas` : editando ? 'Editar bobina do estoque' : 'Adicionar bobina ao estoque'}</h3><p className="text-sm text-slate-500">{editandoEmMassa.length ? 'Os campos abaixo serão aplicados a todas. Cada código individual será mantido sem alteração.' : 'Esta alteração afeta somente o saldo do Estoque Atual.'}</p></div><button type="button" onClick={() => setFormAberto(false)} className="rounded-lg p-2 hover:bg-slate-100"><X className="size-5"/></button></div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-sm font-medium text-slate-700">Categoria<select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value as Categoria })} className="h-10 rounded-lg border border-slate-300 px-3">{categorias.map((c) => <option key={c}>{c}</option>)}</select></label>
             {tipoEstoque === 'VIRGEM' && <label className="grid gap-1 text-sm font-medium text-slate-700">Localização<select value={form.localizacao} onChange={(e) => setForm({ ...form, localizacao: e.target.value as FormEstoque['localizacao'] })} className="h-10 rounded-lg border border-slate-300 px-3"><option value="ESTOQUE">Estoque</option><option value="GALPAO_MARIO_COVAS">Galpão Mario Covas</option></select></label>}
             <label className="grid gap-1 text-sm font-medium text-slate-700">Data de entrada<input type="date" value={form.data_entrada} onChange={(e) => setForm({ ...form, data_entrada: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
-            <label className="grid gap-1 text-sm font-medium text-slate-700">Código da bobina *<input required value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
+            {!editandoEmMassa.length && <label className="grid gap-1 text-sm font-medium text-slate-700">Código da bobina *<input required value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>}
             <label className="grid gap-1 text-sm font-medium text-slate-700">Fornecedor<input value={form.fornecedor} onChange={(e) => setForm({ ...form, fornecedor: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
             <label className="grid gap-1 text-sm font-medium text-slate-700">NF<input value={form.nf} onChange={(e) => setForm({ ...form, nf: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
             <label className="grid gap-1 text-sm font-medium text-slate-700">ABA / guia<input value={form.aba} onChange={(e) => setForm({ ...form, aba: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
@@ -716,7 +767,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
             <label className="grid gap-1 text-sm font-medium text-slate-700">Linha<input value={form.linha} onChange={(e) => setForm({ ...form, linha: e.target.value })} className="h-10 rounded-lg border border-slate-300 px-3"/></label>
             <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2">Observações<textarea value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={2} className="rounded-lg border border-slate-300 px-3 py-2"/></label>
           </div>
-          <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setFormAberto(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button><button disabled={salvando} type="submit" className="rounded-lg bg-[#e3262e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c91f27] disabled:opacity-50">{salvando ? 'Salvando...' : 'Salvar bobina'}</button></div>
+          <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setFormAberto(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button><button disabled={salvando} type="submit" className="rounded-lg bg-[#e3262e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c91f27] disabled:opacity-50">{salvando ? 'Salvando...' : editandoEmMassa.length ? `Salvar em ${editandoEmMassa.length} bobinas` : 'Salvar bobina'}</button></div>
         </form>
       </div>}
         </>
