@@ -456,6 +456,26 @@ function formatarPeso(valor: number) {
   }).format(valor)
 }
 
+function normalizarMedidaEstoque(valor: unknown): string {
+  const texto = String(valor ?? '').trim().replace(/\\s/g, '')
+  const medida = texto.match(/^(\\d+)[,.](\\d{1,2})$/)
+  if (medida) return `${Number(medida[1])}.${medida[2].padEnd(2, '0')}`
+  const numeroConvertido = Number(texto.replace(',', '.'))
+  return Number.isFinite(numeroConvertido) && numeroConvertido > 0 ? numeroConvertido.toFixed(2) : ''
+}
+
+type ConferenciaBaixaBopp = {
+  codigo: string
+  status: string
+  quantidade_bobinas: number | null
+  peso_estoque_kg: number | null
+  peso_produzido_kg: number | null
+  diferenca_percentual: number | null
+  mensagem: string | null
+  updated_at: string
+  baixada_em: string | null
+}
+
 function formatarData(valor: string) {
   return new Date(`${valor}T00:00:00`).toLocaleDateString('pt-BR')
 }
@@ -558,6 +578,71 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [mostrarPreviaCSV, setMostrarPreviaCSV] = React.useState(false)
   const [conferirBaixaVirgem, setConferirBaixaVirgem] = React.useState(true)
   const [alertasBaixaVirgem, setAlertasBaixaVirgem] = React.useState<Array<{ codigo: string; mensagem: string; peso_estoque_kg: number | null; peso_produzido_kg: number | null; diferenca_percentual: number | null; updated_at: string }>>([])
+  const [estoqueBoppEncontrado, setEstoqueBoppEncontrado] = React.useState<{ codigo: string; medida_texto: string; peso_kg: number | null } | null>(null)
+  const [consultandoCodigoBopp, setConsultandoCodigoBopp] = React.useState(false)
+  const [conferenciasBopp, setConferenciasBopp] = React.useState<ConferenciaBaixaBopp[]>([])
+  const [painelConferenciaBoppAberto, setPainelConferenciaBoppAberto] = React.useState(false)
+  const [carregandoConferenciasBopp, setCarregandoConferenciasBopp] = React.useState(false)
+
+  async function carregarConferenciasBopp(notificarErro = false) {
+    setCarregandoConferenciasBopp(true)
+    try {
+      const { data, error } = await (supabase.schema('estoque_atual') as any)
+        .from('bopp_baixa_conferencias')
+        .select('codigo,status,quantidade_bobinas,peso_estoque_kg,peso_produzido_kg,diferenca_percentual,mensagem,updated_at,baixada_em')
+        .order('updated_at', { ascending: false })
+        .limit(300)
+      if (error) throw error
+      setConferenciasBopp((data ?? []) as ConferenciaBaixaBopp[])
+    } catch (error) {
+      if (notificarErro) toast.error('Não foi possível carregar o acompanhamento das baixas.', { description: erroMensagem(error) })
+    } finally {
+      setCarregandoConferenciasBopp(false)
+    }
+  }
+
+  React.useEffect(() => {
+    void carregarConferenciasBopp()
+  }, [])
+
+  React.useEffect(() => {
+    const codigo = form.codBob.trim().toLocaleUpperCase('pt-BR')
+    if (!codigo || form.material.trim().toUpperCase() !== 'BOPP') {
+      setEstoqueBoppEncontrado(null)
+      setConsultandoCodigoBopp(false)
+      return
+    }
+    let ativo = true
+    setConsultandoCodigoBopp(true)
+    const temporizador = window.setTimeout(() => {
+      void (async () => {
+        const { data, error } = await (supabase.schema('estoque_atual') as any)
+          .from('bobinas_estoque_virgem')
+          .select('codigo,medida_texto,medida,peso_kg')
+          .eq('categoria', 'BOPP')
+          .eq('codigo', codigo)
+          .maybeSingle()
+        if (!ativo) return
+        if (error) {
+          setEstoqueBoppEncontrado(null)
+        } else if (data) {
+          const medidaTexto = normalizarMedidaEstoque(data.medida_texto || data.medida)
+          const peso = data.peso_kg == null ? null : Number(data.peso_kg)
+          setEstoqueBoppEncontrado({ codigo: data.codigo, medida_texto: medidaTexto, peso_kg: peso })
+          if (peso != null && peso > 0) {
+            setForm(atual => atual.codBob.trim().toUpperCase() === codigo ? { ...atual, pesoBruto: String(peso) } : atual)
+          }
+        } else {
+          setEstoqueBoppEncontrado(null)
+        }
+        setConsultandoCodigoBopp(false)
+      })()
+    }, 250)
+    return () => {
+      ativo = false
+      window.clearTimeout(temporizador)
+    }
+  }, [form.codBob, form.material])
 
   React.useEffect(() => {
     let ativo = true
@@ -1068,6 +1153,31 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     event.preventDefault()
     const numeroBobinaNormalizado = normalizarNumeroBobina(form.numeroBobina)
     const codigoNormalizado = form.codBob.trim().toLocaleUpperCase('pt-BR')
+    let bobinaEstoqueBopp: { codigo: string; medida_texto: string; peso_kg: number | null } | null = null
+    if (form.material.trim().toUpperCase() === 'BOPP' && codigoNormalizado) {
+      const { data: estoque, error: estoqueError } = await (supabase.schema('estoque_atual') as any)
+        .from('bobinas_estoque_virgem')
+        .select('codigo,medida_texto,medida,peso_kg')
+        .eq('categoria', 'BOPP')
+        .eq('codigo', codigoNormalizado)
+        .maybeSingle()
+      if (estoqueError) return toast.error('Não foi possível conferir o código no Estoque Atual Virgem.', { description: estoqueError.message })
+      if (estoque) {
+        const medidaEstoque = normalizarMedidaEstoque(estoque.medida_texto || estoque.medida)
+        const medidaCadastro = normalizarMedidaEstoque(form.largura)
+        if (medidaEstoque && medidaCadastro && medidaEstoque !== medidaCadastro) {
+          return toast.error('DIVERGÊNCIA DE MEDIDA — CADASTRO BLOQUEADO', {
+            description: `O código ${codigoNormalizado} está no Estoque Atual Virgem como ${medidaEstoque}, mas o formulário está em ${medidaCadastro}. Corrija a largura/micragem antes de salvar.`,
+            duration: 20000,
+          })
+        }
+        bobinaEstoqueBopp = {
+          codigo: estoque.codigo,
+          medida_texto: medidaEstoque,
+          peso_kg: estoque.peso_kg == null ? null : Number(estoque.peso_kg),
+        }
+      }
+    }
     const pesoBrutoConhecido = [...registros]
       .filter((registro) =>
         registro.cod_bob.trim().toLocaleUpperCase('pt-BR') === codigoNormalizado &&
@@ -1075,7 +1185,9 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
       )
       .sort((x, y) => x.created_at.localeCompare(y.created_at))[0]?.peso_bruto
     const brutoInformado = numero(form.pesoBruto)
-    const bruto = pesoBrutoConhecido !== undefined ? Number(pesoBrutoConhecido) : brutoInformado
+    const bruto = bobinaEstoqueBopp?.peso_kg != null && bobinaEstoqueBopp.peso_kg > 0
+      ? bobinaEstoqueBopp.peso_kg
+      : pesoBrutoConhecido !== undefined ? Number(pesoBrutoConhecido) : brutoInformado
     const final = numero(form.pesoFinal)
     const cilindro = numero(form.pesoCilindro)
     const metragem = Number.parseInt(form.metragem, 10)
@@ -1212,6 +1324,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         }
       }
       salvarCamposReutilizaveis(form)
+      await carregarConferenciasBopp()
       setEditandoNumero(null)
       setConferirBaixaVirgem(true)
       setNumeroBobinaManual(false)
@@ -1330,7 +1443,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         ) : secao === 'cadastro' ? (
           <>
             {alertasBaixaVirgem.length > 0 && <section className="mb-3 rounded-xl border border-red-300 bg-red-50 p-3 text-red-950">
-              <div className="mb-2 flex items-center gap-2 text-sm font-bold"><span className="rounded-full bg-red-600 px-2 py-0.5 text-xs text-white">{alertasBaixaVirgem.length}</span> Alertas de conferência do BOPP — baixa automática bloqueada</div>
+              <div className="mb-2 flex items-center gap-2 text-sm font-bold"><span className="rounded-full bg-red-600 px-2 py-0.5 text-xs text-white">{alertasBaixaVirgem.length}</span> Alertas de divergência do BOPP — baixa realizada, conferir</div>
               <div className="grid gap-2">
                 {alertasBaixaVirgem.map(alerta => <article key={alerta.codigo} className="rounded-lg border border-red-200 bg-white p-2 text-xs">
                   <strong className="font-mono">{alerta.codigo}</strong>
@@ -1343,6 +1456,16 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               className="[&>div:last-child]:!p-2"
               title={editandoNumero ? `Editar bobina · ${editandoNumero}` : 'Cadastro de produção · nova bobina'}
               description="Preencha os dados da bobina. O peso líquido é calculado pelo peso final menos o peso do cilindro."
+              action={
+                <button
+                  type="button"
+                  onClick={() => { setPainelConferenciaBoppAberto(true); void carregarConferenciasBopp(true) }}
+                  className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-red-600 bg-red-50 px-3 py-2 text-xs font-bold text-red-800 hover:bg-red-100"
+                >
+                  <ClipboardList className="size-4" />
+                  Baixas BOPP · {conferenciasBopp.filter(item => item.status === 'AGUARDANDO' || item.status === 'SEM_PESO').length} em aberto · {formatarPeso(conferenciasBopp.filter(item => item.status === 'AGUARDANDO').reduce((total, item) => total + Math.max(0, Number(item.peso_estoque_kg ?? 0) - Number(item.peso_produzido_kg ?? 0)), 0))} kg faltando
+                </button>
+              }
             >
               <form onSubmit={salvar} autoComplete="off" className="grid grid-cols-2 gap-x-2 gap-y-1.5 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-7">
                 <section className="contents">
@@ -1371,6 +1494,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       required
                       maxLength={100}
                     />
+                    {consultandoCodigoBopp && <p className="mt-1 text-[10px] text-slate-500">Consultando código no Estoque Atual Virgem...</p>}
+                    {estoqueBoppEncontrado && <p className="mt-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800">No estoque: medida {estoqueBoppEncontrado.medida_texto} · peso bruto {estoqueBoppEncontrado.peso_kg == null ? 'não informado' : formatarPeso(estoqueBoppEncontrado.peso_kg) + ' kg'} (preenchido automaticamente)</p>}
                   </Field>
                   <Field label="Data" htmlFor="cb-data">
                     <TextInput highlightValid
@@ -1716,6 +1841,66 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                 </div>
               </form>
             </Panel>
+            {painelConferenciaBoppAberto && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Acompanhamento das baixas BOPP">
+                <section className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+                  <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5">
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900">Acompanhamento das baixas do BOPP</h2>
+                      <p className="mt-1 text-xs text-slate-600">Códigos em aberto, peso que falta para a baixa e histórico das conferências automáticas.</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button type="button" onClick={() => void carregarConferenciasBopp(true)} disabled={carregandoConferenciasBopp} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                        <RefreshCw className={`size-4 ${carregandoConferenciasBopp ? 'animate-spin' : ''}`} /> Atualizar
+                      </button>
+                      <button type="button" onClick={() => setPainelConferenciaBoppAberto(false)} className="h-9 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white hover:bg-slate-700">Fechar</button>
+                    </div>
+                  </header>
+                  <div className="overflow-y-auto p-4 sm:p-5">
+                    {(() => {
+                      const abertos = conferenciasBopp.filter(item => item.status === 'AGUARDANDO' || item.status === 'SEM_PESO')
+                      const historico = conferenciasBopp.filter(item => !['AGUARDANDO'].includes(item.status))
+                      const kgFaltando = conferenciasBopp.filter(item => item.status === 'AGUARDANDO').reduce((total, item) => total + Math.max(0, Number(item.peso_estoque_kg ?? 0) - Number(item.peso_produzido_kg ?? 0)), 0)
+                      return (
+                        <>
+                          <div className="mb-4 grid gap-2 sm:grid-cols-3">
+                            <article className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold uppercase text-slate-500">Códigos em aberto</p><p className="mt-1 text-xl font-bold text-slate-900">{abertos.length}</p></article>
+                            <article className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold uppercase text-slate-500">Peso que falta</p><p className="mt-1 text-xl font-bold text-slate-900">{formatarPeso(kgFaltando)} kg</p></article>
+                            <article className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold uppercase text-slate-500">Registros no histórico</p><p className="mt-1 text-xl font-bold text-slate-900">{historico.length}</p></article>
+                          </div>
+                          <h3 className="mb-2 text-sm font-bold text-slate-900">Em aberto para baixa</h3>
+                          {abertos.length === 0 ? <p className="mb-5 rounded-lg border border-slate-200 p-3 text-xs text-slate-600">Nenhum código aguardando baixa.</p> : (
+                            <div className="mb-5 overflow-x-auto rounded-lg border border-slate-200">
+                              <table className="w-full min-w-[650px] text-left text-xs">
+                                <thead className="bg-slate-100 text-slate-600"><tr><th className="p-2">Código</th><th className="p-2">Status</th><th className="p-2 text-right">Peso no estoque</th><th className="p-2 text-right">Produzido</th><th className="p-2 text-right">Falta</th><th className="p-2">Última atualização</th></tr></thead>
+                                <tbody>{abertos.map(item => <tr key={item.codigo} className="border-t border-slate-100"><td className="p-2 font-mono font-bold">{item.codigo}</td><td className="p-2">{item.status === 'SEM_PESO' ? 'Corrigir peso do estoque' : 'Aguardando produção'}</td><td className="p-2 text-right tabular-nums">{formatarPeso(Number(item.peso_estoque_kg ?? 0))} kg</td><td className="p-2 text-right tabular-nums">{formatarPeso(Number(item.peso_produzido_kg ?? 0))} kg</td><td className="p-2 text-right font-bold tabular-nums">{item.status === 'SEM_PESO' ? '—' : formatarPeso(Math.max(0, Number(item.peso_estoque_kg ?? 0) - Number(item.peso_produzido_kg ?? 0))) + ' kg'}</td><td className="p-2">{new Date(item.updated_at).toLocaleString('pt-BR')}</td></tr>)}</tbody>
+                              </table>
+                            </div>
+                          )}
+                          <h3 className="mb-2 text-sm font-bold text-slate-900">Histórico de conferências</h3>
+                          {historico.length === 0 ? <p className="rounded-lg border border-slate-200 p-3 text-xs text-slate-600">Ainda não há baixas concluídas ou alertas registrados.</p> : (
+                            <div className="grid gap-2">
+                              {historico.map(item => {
+                                const sucesso = item.status === 'BAIXADA'
+                                const alerta = item.status === 'BAIXADA_COM_ALERTA' || item.status === 'ALERTA_EXCESSO'
+                                return <article key={item.codigo} className="rounded-lg border border-slate-200 p-3">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2"><strong className="font-mono text-sm">{item.codigo}</strong><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${sucesso ? 'bg-emerald-100 text-emerald-800' : alerta ? 'bg-amber-100 text-amber-900' : 'bg-red-100 text-red-800'}`}>{sucesso ? 'BAIXA OK' : alerta ? 'BAIXA COM ALERTA' : item.status}</span></div>
+                                    <span className="text-[10px] text-slate-500">{new Date(item.updated_at).toLocaleString('pt-BR')}</span>
+                                  </div>
+                                  <p className="mt-2 text-xs text-slate-700">{item.mensagem || 'Sem mensagem registrada.'}</p>
+                                  <p className="mt-1 text-[10px] text-slate-500">Bobinas: {item.quantidade_bobinas ?? '—'} · Estoque: {item.peso_estoque_kg == null ? '—' : formatarPeso(Number(item.peso_estoque_kg)) + ' kg'} · Produção: {item.peso_produzido_kg == null ? '—' : formatarPeso(Number(item.peso_produzido_kg)) + ' kg'} · Diferença: {item.diferenca_percentual == null ? '—' : formatarPeso(Number(item.diferenca_percentual)) + '%'}</p>
+                                </article>
+                              })}
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
+                  </div>
+                </section>
+              </div>
+            )}
           </>
         ) : secao === 'registros' ? (
           <Panel
