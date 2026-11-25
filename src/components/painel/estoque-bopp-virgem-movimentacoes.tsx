@@ -206,14 +206,16 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
   }
 
   async function excluirItemEntrada(itemId: string, entradaId: string, codigo: string) {
-    if (!window.confirm(`Excluir a bobina ${codigo} desta entrada e removê-la do Estoque Atual Virgem?`)) return
+    if (!window.confirm(`Excluir o registro da bobina ${codigo} desta entrada? Se ela ainda estiver no estoque, também será removida. O histórico de consumo/envio será preservado.`)) return
     setExcluindoItemEntrada(itemId)
     try {
       const { data: sessao } = await supabase.auth.getSession()
       if (!sessao.session?.access_token) throw new Error('Sua sessão expirou. Entre novamente.')
-      await excluirItemEntradaBopp({ data: { accessToken: sessao.session.access_token, itemId } })
+      const resultado = await excluirItemEntradaBopp({ data: { accessToken: sessao.session.access_token, itemId } })
       setItensEntrada(atual => { const novo = { ...atual }; delete novo[entradaId]; return novo })
-      toast.success(`Bobina ${codigo} excluída da entrada e do estoque.`)
+      toast.success(resultado.retiradaDoEstoque
+        ? `Bobina ${codigo} removida da entrada e do estoque.`
+        : `Registro de ${codigo} removido da entrada. O histórico de consumo/envio foi preservado.`)
       await carregar()
       const entradaAtualizada = entradas.find(item => item.id === entradaId)
       if (entradaAtualizada && (entradaAtualizada.quantidade_bobinas ?? 0) > 1) {
@@ -310,7 +312,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
               <span className="min-w-0 flex-1"><strong className="block text-sm">{item.fornecedor} · {item.medida_texto}</strong><span className="text-xs text-slate-500">{item.empresa || 'Empresa não informada'} · NF {item.nf || '—'} · Emissão {formatarData(item.data_emissao)} · Entrada {formatarData(item.data_entrada)}</span></span>
               <span className="text-right text-xs font-bold">{formatarKg(item.peso_total_kg)}<span className="mt-1 inline-flex rounded bg-[#b91c26] px-2 py-0.5 text-[10px] font-semibold text-white">{item.quantidade_bobinas} bobinas</span></span>
             </button>
-            {abertos.has(item.id) && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3 lg:grid-cols-4">{(itensEntrada[item.id] ?? []).map(b => <div key={b.id ?? b.codigo} className="flex min-w-0 items-center justify-between gap-2 rounded-md bg-slate-50 p-2"><div className="min-w-0"><p className="break-all font-mono text-xs font-bold">{b.codigo}</p><p className="text-[11px] text-slate-600">{formatarKg(b.peso_kg)}</p></div>{b.bobina_id && b.id ? <button type="button" onClick={() => void excluirItemEntrada(b.id!, item.id, b.codigo)} disabled={excluindoItemEntrada === b.id} title="Excluir esta bobina da entrada e do estoque" className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"><Trash2 className={`size-4 ${excluindoItemEntrada === b.id ? 'animate-pulse' : ''}`} /></button> : <span className="shrink-0 text-[10px] font-semibold text-slate-500">Já saiu do estoque</span>}</div>)}</div>}
+            {abertos.has(item.id) && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3 lg:grid-cols-4">{(itensEntrada[item.id] ?? []).map(b => <div key={b.id ?? b.codigo} className="flex min-w-0 items-center justify-between gap-2 rounded-md bg-slate-50 p-2"><div className="min-w-0"><p className="break-all font-mono text-xs font-bold">{b.codigo}</p><p className="text-[11px] text-slate-600">{formatarKg(b.peso_kg)}</p></div>{b.id ? <button type="button" onClick={() => void excluirItemEntrada(b.id!, item.id, b.codigo)} disabled={excluindoItemEntrada === b.id} title={b.bobina_id ? "Excluir esta bobina da entrada e do estoque" : "Excluir apenas o registro da entrada; preservar consumo/envio"} className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"><Trash2 className={`size-4 ${excluindoItemEntrada === b.id ? 'animate-pulse' : ''}`} /></button> : <span className="shrink-0 text-[10px] font-semibold text-slate-500">Registro sem identificador</span>}</div>)}</div>}
           </article>)}
           {!entradas.length && <p className="py-4 text-center text-xs text-slate-500">Nenhum recebimento registrado.</p>}
         </div>
