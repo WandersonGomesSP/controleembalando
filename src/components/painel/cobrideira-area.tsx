@@ -474,6 +474,8 @@ type ConferenciaBaixaBopp = {
   mensagem: string | null
   updated_at: string
   baixada_em: string | null
+  id?: number
+  registrado_em?: string
 }
 
 function formatarData(valor: string) {
@@ -581,19 +583,28 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [estoqueBoppEncontrado, setEstoqueBoppEncontrado] = React.useState<{ codigo: string; medida_texto: string; peso_kg: number | null } | null>(null)
   const [consultandoCodigoBopp, setConsultandoCodigoBopp] = React.useState(false)
   const [conferenciasBopp, setConferenciasBopp] = React.useState<ConferenciaBaixaBopp[]>([])
+  const [historicoConferenciasBopp, setHistoricoConferenciasBopp] = React.useState<ConferenciaBaixaBopp[]>([])
   const [painelConferenciaBoppAberto, setPainelConferenciaBoppAberto] = React.useState(false)
   const [carregandoConferenciasBopp, setCarregandoConferenciasBopp] = React.useState(false)
 
   async function carregarConferenciasBopp(notificarErro = false) {
     setCarregandoConferenciasBopp(true)
     try {
-      const { data, error } = await (supabase.schema('estoque_atual') as any)
-        .from('bopp_baixa_conferencias')
-        .select('codigo,status,quantidade_bobinas,peso_estoque_kg,peso_produzido_kg,diferenca_percentual,mensagem,updated_at,baixada_em')
-        .order('updated_at', { ascending: false })
-        .limit(300)
-      if (error) throw error
-      setConferenciasBopp((data ?? []) as ConferenciaBaixaBopp[])
+      const dbEstoque = supabase.schema('estoque_atual') as any
+      const [atuais, historico] = await Promise.all([
+        dbEstoque.from('bopp_baixa_conferencias')
+          .select('codigo,status,quantidade_bobinas,peso_estoque_kg,peso_produzido_kg,diferenca_percentual,mensagem,updated_at,baixada_em')
+          .order('updated_at', { ascending: false })
+          .limit(300),
+        dbEstoque.from('bopp_baixa_conferencias_historico')
+          .select('id,codigo,status,quantidade_bobinas,peso_estoque_kg,peso_produzido_kg,diferenca_percentual,mensagem,registrado_em,baixada_em')
+          .order('registrado_em', { ascending: false })
+          .limit(500),
+      ])
+      if (atuais.error) throw atuais.error
+      if (historico.error) throw historico.error
+      setConferenciasBopp((atuais.data ?? []) as ConferenciaBaixaBopp[])
+      setHistoricoConferenciasBopp((historico.data ?? []) as ConferenciaBaixaBopp[])
     } catch (error) {
       if (notificarErro) toast.error('Não foi possível carregar o acompanhamento das baixas.', { description: erroMensagem(error) })
     } finally {
@@ -1861,17 +1872,17 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                   <div className="overflow-y-auto p-4 sm:p-5">
                     {(() => {
                       const abertos = conferenciasBopp.filter(item => item.status === 'AGUARDANDO' || item.status === 'SEM_PESO')
-                      const historico = conferenciasBopp.filter(item => !['AGUARDANDO'].includes(item.status))
+                      const historico = historicoConferenciasBopp
                       const kgFaltando = conferenciasBopp.filter(item => item.status === 'AGUARDANDO').reduce((total, item) => total + Math.max(0, Number(item.peso_estoque_kg ?? 0) - Number(item.peso_produzido_kg ?? 0)), 0)
                       return (
                         <>
                           <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
                             <article className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold uppercase text-slate-500">Códigos em aberto</p><p className="mt-1 text-xl font-bold text-slate-900">{abertos.length}</p></article>
                             <article className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold uppercase text-slate-500">Peso que falta</p><p className="mt-1 text-xl font-bold text-slate-900">{formatarPeso(kgFaltando)} kg</p></article>
-                            <article className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold uppercase text-slate-500">Últimos resultados por código</p><p className="mt-1 text-xl font-bold text-slate-900">{historico.length}</p></article>
+                            <article className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-semibold uppercase text-slate-500">Eventos registrados</p><p className="mt-1 text-xl font-bold text-slate-900">{historico.length}</p></article>
                             <article className="rounded-lg border border-emerald-200 bg-emerald-50 p-3"><p className="text-[11px] font-semibold uppercase text-emerald-700">Baixas sem divergência</p><p className="mt-1 text-xl font-bold text-emerald-900">{historico.filter(item => item.status === 'BAIXADA').length}</p></article>
                             <article className="rounded-lg border border-amber-200 bg-amber-50 p-3"><p className="text-[11px] font-semibold uppercase text-amber-800">Baixas com alerta</p><p className="mt-1 text-xl font-bold text-amber-900">{historico.filter(item => item.status === 'BAIXADA_COM_ALERTA' || item.status === 'ALERTA_EXCESSO').length}</p></article>
-                            <article className="rounded-lg border border-red-200 bg-red-50 p-3"><p className="text-[11px] font-semibold uppercase text-red-700">Erros / pendências</p><p className="mt-1 text-xl font-bold text-red-900">{historico.filter(item => !['BAIXADA','BAIXADA_COM_ALERTA','ALERTA_EXCESSO'].includes(item.status)).length}</p></article>
+                            <article className="rounded-lg border border-red-200 bg-red-50 p-3"><p className="text-[11px] font-semibold uppercase text-red-700">Erros / pendências</p><p className="mt-1 text-xl font-bold text-red-900">{historico.filter(item => ['SEM_ESTOQUE','SEM_PESO','JA_BAIXADA'].includes(item.status)).length}</p></article>
                           </div>
                           <h3 className="mb-2 text-sm font-bold text-slate-900">Em aberto para baixa</h3>
                           {abertos.length === 0 ? <p className="mb-5 rounded-lg border border-slate-200 p-3 text-xs text-slate-600">Nenhum código aguardando baixa.</p> : (
@@ -1883,15 +1894,15 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                             </div>
                           )}
                           <h3 className="mb-2 text-sm font-bold text-slate-900">Histórico de conferências</h3>
-                          {historico.length === 0 ? <p className="rounded-lg border border-slate-200 p-3 text-xs text-slate-600">Ainda não há baixas concluídas ou alertas registrados.</p> : (
+                          {historico.length === 0 ? <p className="rounded-lg border border-slate-200 p-3 text-xs text-slate-600">Ainda não há eventos de conferência registrados.</p> : (
                             <div className="grid gap-2">
                               {historico.map(item => {
                                 const sucesso = item.status === 'BAIXADA'
                                 const alerta = item.status === 'BAIXADA_COM_ALERTA' || item.status === 'ALERTA_EXCESSO'
                                 return <article key={item.codigo} className="rounded-lg border border-slate-200 p-3">
                                   <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2"><strong className="font-mono text-sm">{item.codigo}</strong><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${sucesso ? 'bg-emerald-100 text-emerald-800' : alerta ? 'bg-amber-100 text-amber-900' : 'bg-red-100 text-red-800'}`}>{sucesso ? 'BAIXA OK' : alerta ? 'BAIXA COM ALERTA' : item.status}</span></div>
-                                    <span className="text-[10px] text-slate-500">{new Date(item.updated_at).toLocaleString('pt-BR')}</span>
+                                    <div className="flex items-center gap-2"><strong className="font-mono text-sm">{item.codigo}</strong><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${sucesso ? 'bg-emerald-100 text-emerald-800' : alerta ? 'bg-amber-100 text-amber-900' : 'bg-red-100 text-red-800'}`}>{sucesso ? 'BAIXA OK' : alerta ? 'BAIXA COM ALERTA' : item.status === 'AGUARDANDO' ? 'EM ABERTO' : item.status}</span></div>
+                                    <span className="text-[10px] text-slate-500">{new Date(item.registrado_em || item.updated_at).toLocaleString('pt-BR')}</span>
                                   </div>
                                   <p className="mt-2 text-xs text-slate-700">{item.mensagem || 'Sem mensagem registrada.'}</p>
                                   <p className="mt-1 text-[10px] text-slate-500">Bobinas: {item.quantidade_bobinas ?? '—'} · Estoque: {item.peso_estoque_kg == null ? '—' : formatarPeso(Number(item.peso_estoque_kg)) + ' kg'} · Produção: {item.peso_produzido_kg == null ? '—' : formatarPeso(Number(item.peso_produzido_kg)) + ' kg'} · Diferença: {item.diferenca_percentual == null ? '—' : formatarPeso(Number(item.diferenca_percentual)) + '%'}</p>
