@@ -1216,6 +1216,9 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
           .eq('codigo', codigoNormalizado)
           .maybeSingle()
         if (conferenciaError) throw conferenciaError
+        if (conferencia && conferencia.status !== 'ALERTA_EXCESSO') {
+          setAlertasBaixaVirgem(atual => atual.filter(item => item.codigo !== codigoNormalizado))
+        }
         if (conferencia?.status === 'BAIXADA') {
           toast.success(conferencia.mensagem || 'Baixa automática do BOPP realizada.')
         } else if (conferencia?.status === 'ALERTA_EXCESSO') {
@@ -1223,11 +1226,10 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
           setAlertasBaixaVirgem(atual => [{ codigo: codigoNormalizado, mensagem, peso_estoque_kg: conferencia.peso_estoque_kg, peso_produzido_kg: conferencia.peso_produzido_kg, diferenca_percentual: conferencia.diferenca_percentual, updated_at: new Date().toISOString() }, ...atual.filter(item => item.codigo !== codigoNormalizado)].slice(0, 20))
           toast.error('ALERTA DE CONFERÊNCIA DO BOPP', { description: mensagem, duration: 20000 })
         } else if (conferencia?.status === 'AGUARDANDO') {
-          setAlertaBaixaVirgem(null)
           toast.info(conferencia.mensagem || 'Produção ainda abaixo do peso para baixa automática.')
         } else if (conferencia?.status === 'SEM_ESTOQUE') {
+          toast.info('O código não está no Estoque Atual Virgem; não houve baixa.')
         } else if (conferencia?.status === 'SEM_PESO') {
-          setAlertaBaixaVirgem(conferencia.mensagem)
           toast.error('Peso da bobina do estoque não informado.', { description: conferencia.mensagem })
         }
       }
