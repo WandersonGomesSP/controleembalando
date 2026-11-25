@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, Weight, Ruler, Boxes, FileUp, Bell, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, Weight, Ruler, Boxes, FileUp, Bell, BellOff, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import {
@@ -42,6 +42,18 @@ const fmt = (v: number | null | undefined, casas = 0) => numero(v).toLocaleStrin
 const categorias: Categoria[] = ['BOPP', 'PEBD', 'CREPE', 'KRAFT', 'DUPLA FACE']
 const fmtMedida = (v: number | null | undefined) => v == null ? '—' : Number(v).toFixed(2)
 const chaveAlertaEstoque = (valor: string) => valor.trim().toLocaleLowerCase('pt-BR')
+const ordenarReferenciaEstoque = (a: string, b: string) => {
+  const especial = (valor: string) => /(metalizad|pebd|crepe|kraft|dupla\s*face)/i.test(valor)
+  const ea = especial(a), eb = especial(b)
+  if (ea !== eb) return ea ? 1 : -1
+  const na = a.match(/\d{3,4}(?:[.,]\d{2})?/)?.[0]
+  const nb = b.match(/\d{3,4}(?:[.,]\d{2})?/)?.[0]
+  if (na && nb) {
+    const delta = Number(na.replace(',', '.')) - Number(nb.replace(',', '.'))
+    if (delta) return delta
+  } else if (na || nb) return na ? -1 : 1
+  return a.localeCompare(b, 'pt-BR', { numeric: true, sensitivity: 'base' })
+}
 function normalizarCabecalho(valor: string) {
   return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
     .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
@@ -180,7 +192,6 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
   const [editando, setEditando] = React.useState<string | null>(null)
   const [formAberto, setFormAberto] = React.useState(false)
   const categoriasVisiveis: Categoria[] = tipoEstoque === 'VIRGEM' ? ['BOPP', 'PEBD'] : categorias.filter((categoria) => categoria !== 'PEBD')
-  const tituloEstoque = tipoEstoque === 'VIRGEM' ? 'Estoque Atual Virgem' : 'Estoque Atual Adesivado'
 
   async function carregar() {
     setCarregando(true)
@@ -374,7 +385,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h2 className="text-lg font-bold text-slate-900">{tituloEstoque}</h2><p className="text-sm text-slate-500">{tipoEstoque === 'VIRGEM' ? 'Bobinas BOPP virgens da Cobrideira, em estoque separado do material adesivado.' : 'Bobinas e produtos adesivados utilizados na Rebobinadeira.'}</p><p className="mt-1 text-xs text-slate-500">Na importação, selecione vários CSVs de uma vez. Os arquivos são consolidados por categoria e código, sem duplicar bobinas.</p></div>
+        
         <div className="flex gap-2">
           <button type="button" onClick={() => void carregar()} className="inline-flex items-center gap-2 rounded-lg bg-[#e3262e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#c91f27]"><RefreshCw className="size-4"/> Atualizar</button>
           {<>
@@ -420,11 +431,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
       {tipoEstoque === 'VIRGEM' && (
         <section className="min-w-0 space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Painel de estoque por medida</h3>
-              <p className="text-xs text-slate-500">Saldo total comparado ao estoque mínimo de cada medida.</p>
-            </div>
-            <span className="text-xs text-slate-500">{minimosVirgem.length} medidas monitoradas</span>
+
           </div>
           {minimosVirgem.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
@@ -432,7 +439,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
             </div>
           ) : (
             <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              {minimosVirgem.map((item) => {
+              {[...minimosVirgem].sort((a, b) => ordenarReferenciaEstoque(a.referencia, b.referencia)).map((item) => {
                 const minimo = item.minimo_calibrado_kg ?? item.minimo_calculado_kg
                 const minimoValido = minimo != null && Number(minimo) > 0
                 const atual = Number(item.peso_estoque_kg ?? 0)
@@ -473,28 +480,36 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                       </div>
                     </div>
                     <div className="mt-2 border-t border-slate-100 pt-2">
-                      <button type="button" onClick={() => setDetalhesMedida((atual) => atual === item.referencia ? null : item.referencia)} aria-expanded={detalhesMedida === item.referencia} className="text-xs font-bold text-[#b91c26] hover:underline">
-                        {detalhesMedida === item.referencia ? 'Ocultar detalhes' : 'Detalhes'} · {bobinasMedida.length} bobinas
+                      <button type="button" onClick={() => setDetalhesMedida((atual) => atual === item.referencia ? null : item.referencia)} aria-expanded={detalhesMedida === item.referencia} className="inline-flex items-center rounded-md bg-[#b91c26] px-3 py-2 text-xs font-bold text-white hover:bg-[#991b1b]">
+                        {detalhesMedida === item.referencia ? 'Ocultar' : 'Detalhes'} · {bobinasMedida.length} bobinas
                       </button>
                       {detalhesMedida === item.referencia && (
-                        <div className="mt-2 space-y-2">
-                          {bobinasMedida.length === 0 ? <p className="text-xs text-slate-500">Não há bobinas individuais cadastradas nesta medida.</p> : bobinasMedida.map((b) => (
-                            <div key={b.id} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div><p className="font-mono text-sm font-bold text-slate-900">{b.codigo}</p><p className="text-[10px] text-slate-500">{b.categoria} · {b.fornecedor || 'Fornecedor não informado'}</p></div>
-                                <div className="flex gap-1">
-                                  <button type="button" onClick={() => abrirEdicao(b)} className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700">Editar dados</button>
-                                  {isDeveloper && <button type="button" onClick={() => void excluir(b)} className="rounded-md bg-[#e3262e] px-2.5 py-1 text-xs font-semibold text-white">Mover para lixeira</button>}
+                        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-3" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetalhesMedida(null) }}>
+                          <section role="dialog" aria-modal="true" aria-label={`Bobinas da medida ${item.referencia}`} className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                            <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+                              <div><h3 className="font-bold text-slate-900">Bobinas da medida {item.referencia}</h3><p className="text-xs text-slate-500">{bobinasMedida.length} bobinas no estoque</p></div>
+                              <button type="button" onClick={() => setDetalhesMedida(null)} className="rounded-md bg-[#b91c26] px-4 py-2 text-sm font-bold text-white hover:bg-[#991b1b]">Ocultar</button>
+                            </header>
+                            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-4">
+                              {bobinasMedida.length === 0 ? <p className="text-sm text-slate-500">Não há bobinas individuais cadastradas nesta medida.</p> : bobinasMedida.map((b) => (
+                                <div key={b.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div><p className="font-mono text-sm font-bold text-slate-900">{b.codigo}</p><p className="text-xs text-slate-500">{b.categoria} · {b.fornecedor || 'Fornecedor não informado'}</p></div>
+                                    <div className="flex gap-1">
+                                      <button type="button" onClick={() => { setDetalhesMedida(null); abrirEdicao(b) }} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700">Editar dados</button>
+                                      {isDeveloper && <button type="button" onClick={() => void excluir(b)} className="rounded-md bg-[#e3262e] px-3 py-2 text-xs font-semibold text-white">Mover para lixeira</button>}
+                                    </div>
+                                  </div>
+                                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600 sm:grid-cols-3">
+                                    <span>Entrada: {b.data_entrada ? new Date(`${b.data_entrada}T12:00:00`).toLocaleDateString('pt-BR') : '—'}</span>
+                                    <span>Peso: {fmt(b.peso_kg, 1)} kg</span>
+                                    <span>Local: {b.localizacao === 'GALPAO_MARIO_COVAS' ? 'Galpão Mario Covas' : 'Estoque'}</span>
+                                    <span>NF: {b.nf || '—'}</span><span>Cor: {b.cor || '—'}</span><span>Cliente: {b.cliente || '—'}</span>
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-600 sm:grid-cols-3">
-                                <span>Entrada: {b.data_entrada ? new Date(`${b.data_entrada}T12:00:00`).toLocaleDateString('pt-BR') : '—'}</span>
-                                <span>Peso: {fmt(b.peso_kg, 1)} kg</span>
-                                <span>Local: {b.localizacao === 'GALPAO_MARIO_COVAS' ? 'Galpão Mario Covas' : 'Estoque'}</span>
-                                <span>NF: {b.nf || '—'}</span><span>Cor: {b.cor || '—'}</span><span>Cliente: {b.cliente || '—'}</span>
-                              </div>
+                              ))}
                             </div>
-                          ))}
+                          </section>
                         </div>
                       )}
                     </div>
