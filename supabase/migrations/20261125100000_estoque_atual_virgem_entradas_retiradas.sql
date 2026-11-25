@@ -33,7 +33,7 @@ create table if not exists estoque_atual.entradas_bopp_virgem_itens (
   entrada_id uuid not null references estoque_atual.entradas_bopp_virgem(id) on delete cascade,
   bobina_id uuid references estoque_atual.bobinas_estoque_virgem(id) on delete set null,
   codigo text not null,
-  peso_rateado_kg numeric(14,3),
+  peso_kg numeric(14,3),
   created_at timestamptz not null default now(),
   unique (entrada_id, codigo)
 );
