@@ -563,6 +563,21 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [baixandoEstoque, setBaixandoEstoque] = React.useState(false)
   const [conferirBaixaVirgem, setConferirBaixaVirgem] = React.useState(true)
   const [alertaBaixaVirgem, setAlertaBaixaVirgem] = React.useState<string | null>(null)
+  const [alertasBaixaVirgem, setAlertasBaixaVirgem] = React.useState<Array<{ codigo: string; mensagem: string; peso_estoque_kg: number | null; peso_produzido_kg: number | null; diferenca_percentual: number | null; updated_at: string }>>([])
+
+  React.useEffect(() => {
+    let ativo = true
+    void (async () => {
+      const { data, error } = await (supabase.schema('estoque_atual') as any)
+        .from('bopp_baixa_conferencias')
+        .select('codigo,mensagem,peso_estoque_kg,peso_produzido_kg,diferenca_percentual,updated_at')
+        .eq('status', 'ALERTA_EXCESSO')
+        .order('updated_at', { ascending: false })
+        .limit(20)
+      if (!error && ativo) setAlertasBaixaVirgem(data ?? [])
+    })()
+    return () => { ativo = false }
+  }, [])
 
   React.useEffect(() => {
     if (carregando || editandoNumero || numeroBobinaManual || !form.data) return
@@ -1209,6 +1224,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         } else if (conferencia?.status === 'ALERTA_EXCESSO') {
           const mensagem = conferencia.mensagem || 'A produção ultrapassou a tolerância de 5%. A baixa foi bloqueada.'
           setAlertaBaixaVirgem(mensagem)
+          setAlertasBaixaVirgem(atual => [{ codigo: codigoNormalizado, mensagem, peso_estoque_kg: conferencia.peso_estoque_kg, peso_produzido_kg: conferencia.peso_produzido_kg, diferenca_percentual: conferencia.diferenca_percentual, updated_at: new Date().toISOString() }, ...atual.filter(item => item.codigo !== codigoNormalizado)].slice(0, 20))
           toast.error('ALERTA DE CONFERÊNCIA DO BOPP', { description: mensagem, duration: 20000 })
         } else if (conferencia?.status === 'AGUARDANDO') {
           setAlertaBaixaVirgem(null)
@@ -1382,6 +1398,16 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
           </Panel>
         ) : secao === 'cadastro' ? (
           <>
+            {alertasBaixaVirgem.length > 0 && <section className="mb-3 rounded-xl border border-red-300 bg-red-50 p-3 text-red-950">
+              <div className="mb-2 flex items-center gap-2 text-sm font-bold"><span className="rounded-full bg-red-600 px-2 py-0.5 text-xs text-white">{alertasBaixaVirgem.length}</span> Alertas de conferência do BOPP — baixa automática bloqueada</div>
+              <div className="grid gap-2">
+                {alertasBaixaVirgem.map(alerta => <article key={alerta.codigo} className="rounded-lg border border-red-200 bg-white p-2 text-xs">
+                  <strong className="font-mono">{alerta.codigo}</strong>
+                  <p className="mt-1">{alerta.mensagem}</p>
+                  <p className="mt-1 text-[10px] text-slate-600">Estoque: {alerta.peso_estoque_kg == null ? '—' : formatarPeso(Number(alerta.peso_estoque_kg)) + ' kg'} · Produção: {alerta.peso_produzido_kg == null ? '—' : formatarPeso(Number(alerta.peso_produzido_kg)) + ' kg'} · Diferença: {alerta.diferenca_percentual == null ? '—' : formatarPeso(Number(alerta.diferenca_percentual)) + '%'}</p>
+                </article>)}
+              </div>
+            </section>}
             <Panel
               className="[&>div:last-child]:!p-2"
               title={editandoNumero ? `Editar bobina · ${editandoNumero}` : 'Cadastro de produção · nova bobina'}
