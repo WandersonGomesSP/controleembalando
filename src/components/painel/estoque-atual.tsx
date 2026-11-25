@@ -253,6 +253,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
     } finally { setCarregando(false) }
   }
   React.useEffect(() => { void carregar() }, [tipoEstoque])
+  React.useEffect(() => { if (abaVirgem === 'estoque') void carregar() }, [abaVirgem])
 
   const filtradas = React.useMemo(() => {
     const resultado = bobinas.filter((b) => {
