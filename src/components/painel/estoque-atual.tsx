@@ -436,9 +436,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
 
       {tipoEstoque === 'ADESIVADO' && (() => {
         const alertas = (tipoEstoque === 'ADESIVADO' ? resumos : []).filter((r) => {
-          const atual = numero(r.metragem_disponivel_m)
-          const minimo = numero(r.estoque_minimo_semanal_m)
-          const status = minimo <= 0 ? 'ATENÇÃO' : atual < minimo ? 'COMPRAR' : atual === minimo ? 'ATENÇÃO' : 'OK'
+          const status = r.status_origem ?? 'ATENÇÃO'
           return status !== 'OK' && !alertasDesativados.includes(chaveAlertaEstoque(r.medida_produto))
         })
         const porPagina = 4
@@ -456,7 +454,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
               <div className="divide-y divide-amber-200">
                 {visiveis.map((r) => <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                   <div className="flex min-w-0 items-start gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700" /><div className="min-w-0">
-                    <div className="flex items-center gap-2"><div className="text-sm font-bold text-amber-950">{r.medida_produto}</div><span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${numero(r.estoque_minimo_semanal_m) <= 0 || numero(r.metragem_disponivel_m) === numero(r.estoque_minimo_semanal_m) ? 'bg-amber-200 text-amber-950' : 'bg-red-100 text-red-800'}`}>{numero(r.estoque_minimo_semanal_m) <= 0 || numero(r.metragem_disponivel_m) === numero(r.estoque_minimo_semanal_m) ? 'ATENÇÃO' : 'COMPRAR'}</span></div>
+                    <div className="flex items-center gap-2"><div className="text-sm font-bold text-amber-950">{r.medida_produto}</div><span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${r.status_origem === 'ATENÇÃO' || !r.status_origem ? 'bg-amber-200 text-amber-950' : 'bg-red-100 text-red-800'}`}>{r.status_origem ?? 'ATENÇÃO'}</span></div>
                     <div className="text-xs text-amber-900">Atual: {fmt(r.metragem_disponivel_m)} m · mínimo: {fmt(r.estoque_minimo_semanal_m)} m</div>
                   </div></div>
                   <div className="text-right text-xs text-amber-900"><div className="font-bold">{usosPorProduto[r.medida_produto] ?? 0} utilizações</div><div>nos últimos 90 dias</div></div>
@@ -599,9 +597,8 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
             {[...resumos].sort((a, b) => ordenarReferenciaEstoque(a.medida_produto, b.medida_produto)).map((item) => {
               const atual = numero(item.metragem_disponivel_m)
               const minimo = numero(item.estoque_minimo_semanal_m)
-              const folga = atual - minimo
-              const status = minimo <= 0 ? 'ATENÇÃO' : folga < 0 ? 'COMPRAR' : folga === 0 ? 'ATENÇÃO' : 'OK'
-              const estilo = status === 'COMPRAR' ? 'bg-red-100 text-red-800' : status === 'ATENÇÃO' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800'
+              const status = item.status_origem ?? 'ATENÇÃO'
+              const estilo = status === 'COMPRAR' || status === 'PRODUZIR' ? 'bg-red-100 text-red-800' : status === 'ATENÇÃO' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800'
               const chave = chaveAlertaEstoque(item.medida_produto)
               const desativado = alertasDesativados.includes(chave)
               return (
@@ -621,7 +618,7 @@ export function EstoqueAtualCobrideira({ isDeveloper, tipoEstoque = 'VIRGEM' }: 
                     <div className="rounded-lg bg-slate-50 p-2"><p className="text-[10px] text-slate-500">Metragem atual</p><p className="text-sm font-bold text-slate-900">{fmt(atual)} m</p></div>
                     <div className="rounded-lg bg-slate-50 p-2"><p className="text-[10px] text-slate-500">Mínimo semanal</p><p className="text-sm font-bold text-slate-900">{fmt(minimo)} m</p></div>
                   </div>
-                  <p className={`mt-2 text-right text-xs font-bold tabular-nums ${folga < 0 ? 'text-red-700' : folga === 0 ? 'text-amber-700' : 'text-emerald-700'}`}>{folga > 0 ? '+' : ''}{fmt(folga)} m sobre o mínimo</p>
+                  <p className={`mt-2 text-right text-xs font-bold tabular-nums ${String(item.folga_estoque ?? '').startsWith('-') ? 'text-red-700' : String(item.folga_estoque ?? '') === '0' ? 'text-amber-700' : 'text-emerald-700'}`}>Folga: {item.folga_estoque ?? '—'} jumbos</p>
                 </article>
               )
             })}
