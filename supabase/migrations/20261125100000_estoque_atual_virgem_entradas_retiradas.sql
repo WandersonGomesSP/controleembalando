@@ -68,7 +68,7 @@ alter table estoque_atual.retiradas_bopp_virgem_itens enable row level security;
 
 drop policy if exists "authenticated manage itens entradas bopp virgem" on estoque_atual.entradas_bopp_virgem_itens;
 create policy "authenticated manage itens entradas bopp virgem" on estoque_atual.entradas_bopp_virgem_itens
-for all to authenticated using (true) with check (true);
+for all to authenticated using ((select auth.uid()) is not null) with check ((select auth.uid()) is not null);
 
 drop policy if exists "authenticated manage entradas bopp virgem" on estoque_atual.entradas_bopp_virgem;
 create policy "authenticated manage entradas bopp virgem" on estoque_atual.entradas_bopp_virgem
