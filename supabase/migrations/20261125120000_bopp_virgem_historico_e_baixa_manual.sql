@@ -2,7 +2,8 @@ alter table estoque_atual.bobinas_utilizadas
   add column if not exists nota_fiscal text,
   add column if not exists data_entrada_origem date,
   add column if not exists operador text,
-  add column if not exists numero_bobina text;
+  add column if not exists numero_bobina text,
+  add column if not exists nota_fiscal_texto text;
 
 create unique index if not exists bobinas_utilizadas_codigo_uidx
   on estoque_atual.bobinas_utilizadas (upper(trim(codigo)));
@@ -14,6 +15,7 @@ create table if not exists estoque_atual.bobinas_utilizadas_eventos (
   data_utilizacao date,
   fornecedor text,
   nota_fiscal text,
+  nota_fiscal_texto text,
   data_entrada_origem date,
   medida numeric,
   peso_kg numeric,
