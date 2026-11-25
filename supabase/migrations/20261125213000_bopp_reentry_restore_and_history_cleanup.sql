@@ -179,6 +179,7 @@ declare
   v_consumida estoque_atual.bobinas_utilizadas%rowtype;
   v_dados jsonb;
   v_medida_texto text;
+  v_bobina_restaurada_id uuid;
 begin
   if v_codigo = '' or upper(trim(coalesce(old.material,''))) <> 'BOPP'
      or coalesce(old.conferir_baixa_virgem,false) is not true then
@@ -208,7 +209,14 @@ begin
       v_dados := (v_consumida.dados_bobina - 'id')
         || jsonb_build_object('id',gen_random_uuid(),'localizacao','ESTOQUE');
       insert into estoque_atual.bobinas_estoque_virgem
-      select (jsonb_populate_record(null::estoque_atual.bobinas_estoque_virgem,v_dados)).*;
+      select (jsonb_populate_record(null::estoque_atual.bobinas_estoque_virgem,v_dados)).*
+      returning id into v_bobina_restaurada_id;
+      if nullif(v_dados->>'entrada_id','') is not null then
+        update estoque_atual.entradas_bopp_virgem_itens
+        set bobina_id=v_bobina_restaurada_id
+        where entrada_id=(v_dados->>'entrada_id')::uuid
+          and upper(trim(codigo))=v_codigo;
+      end if;
     else
       v_medida_texto := to_char(v_consumida.medida,'FM999999990.00');
       insert into estoque_atual.bobinas_estoque_virgem
