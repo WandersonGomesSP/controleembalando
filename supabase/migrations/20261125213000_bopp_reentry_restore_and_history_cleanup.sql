@@ -70,7 +70,8 @@ begin
   from cobrideira.bobinas b
   where upper(trim(b.cod_bob))=v_codigo
     and upper(trim(b.material))='BOPP'
-    and b.conferir_baixa_virgem is true;
+    and b.conferir_baixa_virgem is true
+    and b.created_at >= v_bobina.importado_em;
 
   if coalesce(v_bobina.peso_kg,0) <= 0 then
     v_status := 'SEM_PESO';
