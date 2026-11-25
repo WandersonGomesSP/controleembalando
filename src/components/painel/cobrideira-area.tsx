@@ -1,6 +1,7 @@
 import * as React from 'react'
 import {
   ArrowLeft,
+  ArrowDownToLine,
   ClipboardList,
   ChevronDown,
   ChevronRight,
@@ -556,6 +557,10 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [csvNome, setCsvNome] = React.useState('')
   const [importandoCSV, setImportandoCSV] = React.useState(false)
   const [mostrarPreviaCSV, setMostrarPreviaCSV] = React.useState(false)
+  const [modalBaixaAberto, setModalBaixaAberto] = React.useState(false)
+  const [buscaBaixa, setBuscaBaixa] = React.useState('')
+  const [bobinaSelecionadaBaixa, setBobinaSelecionadaBaixa] = React.useState<CobrideiraBobinaRow | null>(null)
+  const [baixandoEstoque, setBaixandoEstoque] = React.useState(false)
 
   React.useEffect(() => {
     if (carregando || editandoNumero || numeroBobinaManual || !form.data) return
@@ -1045,6 +1050,39 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
     setSecao('registros')
   }
 
+  async function confirmarBaixaNoEstoque() {
+    if (!bobinaSelecionadaBaixa?.cod_bob.trim()) {
+      toast.error('A bobina selecionada não possui código de filme.')
+      return
+    }
+    setBaixandoEstoque(true)
+    try {
+      const { data, error } = await supabase.schema('estoque_atual').rpc('baixar_bopp_virgem', {
+        p_codigo: bobinaSelecionadaBaixa.cod_bob.trim(),
+        p_numero_bobina: bobinaSelecionadaBaixa.numero_bobina,
+        p_data_utilizacao: bobinaSelecionadaBaixa.data,
+      })
+      if (error) throw error
+      const resultado = data as { status?: string; codigo?: string; numero_bobina?: string }
+      if (resultado?.status === 'ja_baixada') {
+        toast.info(`O código ${resultado.codigo} já consta no histórico de consumo. Nenhuma alteração foi feita.`)
+      } else if (resultado?.status === 'nao_encontrada') {
+        toast.error(`O código ${resultado.codigo} não está no estoque atual de BOPP virgem.`)
+      } else if (resultado?.status === 'baixada') {
+        toast.success(`Baixa realizada: código ${resultado.codigo} · bobina produzida ${resultado.numero_bobina}.`)
+      } else {
+        throw new Error('O banco retornou um status de baixa não reconhecido.')
+      }
+      setModalBaixaAberto(false)
+      setBobinaSelecionadaBaixa(null)
+      setBuscaBaixa('')
+    } catch (error) {
+      toast.error('Não foi possível dar baixa no estoque.', { description: erroMensagem(error) })
+    } finally {
+      setBaixandoEstoque(false)
+    }
+  }
+
   async function salvar(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const numeroBobinaNormalizado = normalizarNumeroBobina(form.numeroBobina)
@@ -1215,7 +1253,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
               </button>
             </div>
           </div>
-          <nav aria-label="Menus da Cobrideira" className="grid grid-cols-3 gap-2 pb-0 sm:flex sm:flex-wrap">
+          <nav aria-label="Menus da Cobrideira" className="grid grid-cols-2 gap-2 pb-0 sm:flex sm:flex-wrap">
             <button
               type="button"
               aria-current={secao === 'cadastro' ? 'page' : undefined}
@@ -1224,6 +1262,14 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             >
               <PackagePlus className="size-4" />
               Cadastrar bobina
+            </button>
+            <button
+              type="button"
+              onClick={() => { setBuscaBaixa(''); setBobinaSelecionadaBaixa(null); setModalBaixaAberto(true) }}
+              className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-[#c91d26] bg-white px-2 text-center text-[11px] font-semibold leading-tight text-[#9f1820] hover:bg-[#fff1f2] sm:gap-2 sm:px-4 sm:text-sm"
+            >
+              <ArrowDownToLine className="size-4" />
+              Baixa no Estoque
             </button>
             <button
               type="button"
@@ -1266,6 +1312,41 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
           )}
         </div>
       </header>
+
+      {modalBaixaAberto && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3" role="dialog" aria-modal="true" aria-labelledby="titulo-baixa-estoque">
+          <section className="max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 p-4">
+              <div><h2 id="titulo-baixa-estoque" className="text-base font-bold text-slate-900">Baixa no Estoque</h2><p className="text-xs text-slate-500">Selecione a bobina produzida. O sistema usará o código de filme cadastrado para retirar a bobina do estoque virgem.</p></div>
+              <button type="button" onClick={() => setModalBaixaAberto(false)} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold">Fechar</button>
+            </div>
+            <div className="space-y-3 p-4">
+              <input value={buscaBaixa} onChange={e => setBuscaBaixa(e.target.value)} placeholder="Buscar pelo nº da bobina produzida ou código do filme" className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm" />
+              <div className="max-h-64 space-y-1 overflow-auto rounded-lg border border-slate-200 p-1">
+                {registros.filter(r => {
+                  const termo = buscaBaixa.trim().toLocaleLowerCase('pt-BR')
+                  return r.cod_bob && (!termo || r.numero_bobina.toLocaleLowerCase('pt-BR').includes(termo) || r.cod_bob.toLocaleLowerCase('pt-BR').includes(termo))
+                }).slice(0, 60).map(r => (
+                  <button key={r.numero_bobina} type="button" onClick={() => setBobinaSelecionadaBaixa(r)} className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-xs hover:bg-slate-50 ${bobinaSelecionadaBaixa?.numero_bobina === r.numero_bobina ? 'border border-red-300 bg-red-50' : 'border border-transparent'}`}>
+                    <span className="min-w-0"><strong className="block font-mono">{r.numero_bobina}</strong><span className="break-all text-slate-500">Código de filme: {r.cod_bob}</span></span>
+                    <span className="shrink-0 text-right text-slate-500">{formatarData(r.data)}<span className="block">{r.largura}.{String(r.micragem).padStart(2,'0')}</span></span>
+                  </button>
+                ))}
+                {!registros.some(r => r.cod_bob && (!buscaBaixa.trim() || r.numero_bobina.toLowerCase().includes(buscaBaixa.toLowerCase()) || r.cod_bob.toLowerCase().includes(buscaBaixa.toLowerCase()))) && <p className="p-4 text-center text-xs text-slate-500">Nenhuma bobina cadastrada corresponde à busca.</p>}
+              </div>
+              {bobinaSelecionadaBaixa && <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
+                <strong>Selecionada: {bobinaSelecionadaBaixa.numero_bobina}</strong>
+                <p className="mt-1 break-all">Código que será baixado: <strong className="font-mono">{bobinaSelecionadaBaixa.cod_bob}</strong></p>
+                <p className="text-slate-500">Data da baixa: {formatarData(bobinaSelecionadaBaixa.data)}</p>
+              </div>}
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setModalBaixaAberto(false)} className="h-9 rounded-lg border border-slate-300 px-4 text-xs font-semibold">Cancelar</button>
+                <button type="button" disabled={!bobinaSelecionadaBaixa || baixandoEstoque} onClick={() => void confirmarBaixaNoEstoque()} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#c91d26] px-4 text-xs font-bold text-white disabled:opacity-50"><ArrowDownToLine className="size-4" />{baixandoEstoque ? 'Baixando...' : 'Confirmar baixa'}</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
 
       <main className="mx-auto grid max-w-[96rem] gap-3 px-3 py-3 sm:px-4 sm:py-4">
         {secao === 'estoque-cola' ? (
