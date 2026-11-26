@@ -19,9 +19,10 @@ function money(value: unknown) {
 }
 
 function buildPdf(bobina: CobrideiraBobinaRow) {
-  const page = 340.16 // 12 cm
+  const pageWidth = 340.16 // 12 cm
+  const pageHeight = 283.46 // 10 cm
   const margin = 20 // cerca de 7 mm de margem de segurança para a Argox
-  const usable = page - margin * 2
+  const usable = pageWidth - margin * 2
   const navy = '0.02 0.12 0.30'
   const blue = '0.02 0.38 0.72'
   const commands: string[] = []
@@ -38,11 +39,12 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
     commands.push(navy + ' RG 0.8 w ' + x + ' ' + y + ' ' + w + ' ' + h + ' re S')
   }
   const card = (x: number, y: number, w: number, h: number, title: string, value: string, important = false) => {
-    const head = h > 25 ? 9 : 7
+    const compact = h <= 13.1
+    const head = h > 25 ? 9 : compact ? 5.5 : 7
     rect(x, y, w, h, '1 1 1')
     rect(x, y + h - head, w, head, important ? blue : navy)
-    centered(title.toUpperCase(), x + 2, y + h - (h > 25 ? 6.5 : 5.1), w - 4, h > 25 ? 5.8 : 5.1, '1 1 1')
-    centered(value, x + 3, y + (h - head) / 2 - 1.4, w - 6, important ? 11 : (h > 25 ? 8.2 : 7.4), '0 0 0')
+    centered(title.toUpperCase(), x + 2, y + h - (h > 25 ? 6.5 : compact ? 4.1 : 5.1), w - 4, h > 25 ? 5.8 : compact ? 4.2 : 5.1, '1 1 1')
+    centered(value, x + 3, y + (h - head) / 2 - (compact ? 0.8 : 1.4), w - 6, important ? 11 : (h > 25 ? 8.2 : compact ? 6 : 7.4), '0 0 0')
   }
 
   const line = String(bobina.linha || 'Padrão')
@@ -57,16 +59,16 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const fmt = (v: unknown) => String(v ?? '').trim() || '—'
 
   // Marca própria e cabeçalho com o número da bobina em primeiro plano.
-  rect(margin, page - margin - 31, 31, 31, navy)
+  rect(margin, pageHeight - margin - 31, 31, 31, navy)
   centered('CE', margin, page - margin - 19, 31, 13, '1 1 1')
-  text('CONTROLE', margin + 37, page - margin - 12, 8.5, true, navy)
-  text('EMBALANDO', margin + 37, page - margin - 23, 8.5, true, navy)
-  text('PCP  |  IDENTIFICACAO DE BOBINA', margin + 37, page - margin - 30, 4.4, true, blue)
+  text('CONTROLE', margin + 37, pageHeight - margin - 12, 8.5, true, navy)
+  text('EMBALANDO', margin + 37, pageHeight - margin - 23, 8.5, true, navy)
+  text('PCP  |  IDENTIFICACAO DE BOBINA', margin + 37, pageHeight - margin - 30, 4.4, true, blue)
   const numberX = margin + 132
   const numberW = usable - 132
   card(numberX, page - margin - 31, numberW, 31, 'Número da bobina', fmt(bobina.numero_bobina), true)
 
-  let y = page - margin - 36
+  let y = pageHeight - margin - 36
   const gap = 4
   const half = (usable - gap) / 2
   card(margin, y - 20, half, 20, 'Data da produção', date)
@@ -104,12 +106,15 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   fields.push(['Validade da bobina', '06 MESES'])
 
   const cellW = (usable - 4) / 2
-  const cellH = 17
+  const rowCount = Math.ceil(fields.length / 2)
+  const rowGap = 1.5
+  const availableRowsHeight = y - (margin + 10)
+  const cellH = Math.min(17, (availableRowsHeight - (rowCount - 1) * rowGap) / rowCount)
   for (let i = 0; i < fields.length; i += 2) {
     const rowY = y - cellH
     card(margin, rowY, cellW, cellH, fields[i][0], fields[i][1])
     if (fields[i + 1]) card(margin + cellW + 4, rowY, cellW, cellH, fields[i + 1][0], fields[i + 1][1])
-    y = rowY - 2
+    y = rowY - rowGap
   }
 
   // Rodapé interno; todo o conteúdo permanece afastado da borda física.
@@ -120,7 +125,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + page + ' ' + page + '] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + pageWidth + ' ' + pageHeight + ']' /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
     '<< /Length ' + stream.length + ' >>\nstream\n' + stream + '\nendstream',
@@ -143,7 +148,7 @@ export function downloadCobrideiraLabelNova(bobina: CobrideiraBobinaRow) {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
-  anchor.download = 'Etiqueta 12x12 - ' + bobina.numero_bobina + '.pdf'
+  anchor.download = 'Etiqueta 12x10 - ' + bobina.numero_bobina + '.pdf'
   document.body.appendChild(anchor)
   anchor.click()
   anchor.remove()
