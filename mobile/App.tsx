@@ -4,6 +4,7 @@ import {
   SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native'
 import { Camera, CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera'
+import { useAudioPlayer, setAudioModeAsync } from 'expo-audio'
 import TextRecognition from '@react-native-ml-kit/text-recognition'
 import { supabase } from './src/lib/supabase'
 import { getQueue, normalizarCodigo, saveQueue, type ScanDestination, type ScanItem } from './src/lib/queue'
@@ -40,6 +41,11 @@ export default function App() {
   const [cameraEnabled, setCameraEnabled] = useState(true)
   const cameraRef = useRef<CameraView>(null)
   const locked = useRef(false)
+  const beepPlayer = useAudioPlayer('data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAmKOYgGddZ3+Yo5iAZ11nf5ijmIBnXWd/mKOYgGddZ3+Yo5iAZ11nf5ijmIBnXWd/mKOYgGddZ3+Yo5iAZ11nf5ijmIBnXWd/mKOYgGddZ3+Yo5iAZ11nf5ijmIBnXWd/mKOYgGddZ3+Yo5h/Z11nf5ijmIBnXWd/mKOYgGddZ3+Yo5iAZ11nf5ijmIBnXWd/mKOYgGddZ3+Yo5iAZ11nf5ijmIBnXWd/mKOYgGddZ3+Yo5iAZ11nf5ijmIBnXWeAmKOYgGddZ3+Yo5iAZ11nf5ijmH9nXWd/mKOYgGddZ3+Yo5iAZ11nf5ijmIBnXWd/mKOYf2ddZ3+Yo5iAZ11nf5ijmIBnXWd/mKOYgGddZ3+Yo5iAZ11nf5ijmIBnXWd/mKOYgGddZ3+Yo5iAZ11nf5ijmIBnXWd/mKOYgGddZ3+Yo5iAZ11nf5ijmIBnXWeAmKOYgGddZ3+Yo5iAZ11nf5ijmIBnXWd/mKOYgGddZ3+Yo5h/Z11ngJijmIBnXWd/mKOYgGddZ3+Yo5iAZ11n')
+
+  useEffect(() => {
+    void setAudioModeAsync({ playsInSilentMode: true, interruptionMode: 'mixWithOthers' })
+  }, [])
 
   useEffect(() => {
     getQueue().then(items => { setQueue(items); setQueueLoaded(true) })
@@ -102,7 +108,7 @@ export default function App() {
     const unique = [...new Set(values.map(normalizarCodigo).filter(value => value.length > 0 && (!validateFormat || isCodeLike(value))))]
     if (!unique.length) {
       Alert.alert('Nenhum código identificado', 'Tente aproximar a etiqueta, melhorar a iluminação ou digitar o código manualmente.')
-      return
+      return false
     }
     const existing = new Set(queue.map(item => item.codigo))
     const fresh = unique.filter(code => !existing.has(code))
@@ -117,6 +123,7 @@ export default function App() {
       setQueue(current => [...additions, ...current])
       void enviarLeituras(additions)
     }
+    return additions.length > 0
   }, [destination, queue, enviarLeituras])
 
   const onBarcode = useCallback((event: BarcodeScanningResult) => {
@@ -125,9 +132,12 @@ export default function App() {
     if (!value) return
     // Evita processar dezenas de callbacks do mesmo QR enquanto ele permanece diante da câmera.
     locked.current = true
-    addCodes([value], typeof event.type === 'string' ? event.type : 'QR_CODE', 'CAMERA', false)
+    const added = addCodes([value], typeof event.type === 'string' ? event.type : 'QR_CODE', 'CAMERA', false)
+    if (added) {
+      try { beepPlayer.seekTo(0); beepPlayer.play() } catch { /* O bip não deve interromper a leitura. */ }
+    }
     setTimeout(() => { locked.current = false }, 1200)
-  }, [addCodes, scanPaused])
+  }, [addCodes, beepPlayer, scanPaused])
 
   const captureAndRead = async () => {
     if (!cameraRef.current || !cameraReady || busy) return
