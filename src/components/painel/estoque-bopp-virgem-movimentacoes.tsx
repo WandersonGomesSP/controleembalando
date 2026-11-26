@@ -90,10 +90,10 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
     setLeiturasMobileSelecionadas(atual => atual.includes(item.id) ? atual : [...atual, item.id])
     setCacheEntrada(atual => ({
       ...atual,
-      fornecedor: atual.fornecedor || item.metadados?.fornecedor || '',
-      empresa: atual.empresa || item.metadados?.empresa || '',
-      nf: atual.nf || item.metadados?.nf || '',
-      dataEmissao: atual.dataEmissao || item.metadados?.data_emissao || '',
+      fornecedor: item.metadados?.fornecedor || atual.fornecedor,
+      empresa: item.metadados?.empresa || atual.empresa,
+      nf: item.metadados?.nf || atual.nf,
+      dataEmissao: item.metadados?.data_emissao || atual.dataEmissao,
       dataEntrada: item.metadados?.data_entrada || atual.dataEntrada,
     }))
     if (item.metadados?.medida) setMedida(atual => atual || String(item.metadados.medida))
