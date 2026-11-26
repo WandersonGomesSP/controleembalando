@@ -78,6 +78,26 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
   const [carregando, setCarregando] = React.useState(false)
   const [salvando, setSalvando] = React.useState(false)
   const [excluindoItemEntrada, setExcluindoItemEntrada] = React.useState<string | null>(null)
+  const [leiturasMobileBopp, setLeiturasMobileBopp] = React.useState<Array<{ id: string; codigo: string; metadados: any; created_at: string }>>([])
+  const [leiturasMobileSelecionadas, setLeiturasMobileSelecionadas] = React.useState<string[]>([])
+
+  const adicionarLeituraMobile = (item: { id: string; codigo: string; metadados: any }) => {
+    const peso = item.metadados?.peso_kg ? String(item.metadados.peso_kg).replace('.', ',') : ''
+    setCodigosEntrada(atual => {
+      const jaExiste = lerLinhasEntrada(atual).some(linha => linha.codigo.toUpperCase() === item.codigo.toUpperCase())
+      return jaExiste ? atual : [atual.trim(), peso ? `${item.codigo}; ${peso}` : item.codigo].filter(Boolean).join('\\n')
+    })
+    setLeiturasMobileSelecionadas(atual => atual.includes(item.id) ? atual : [...atual, item.id])
+    setCacheEntrada(atual => ({
+      ...atual,
+      fornecedor: atual.fornecedor || item.metadados?.fornecedor || '',
+      empresa: atual.empresa || item.metadados?.empresa || '',
+      nf: atual.nf || item.metadados?.nf || '',
+      dataEmissao: atual.dataEmissao || item.metadados?.data_emissao || '',
+      dataEntrada: item.metadados?.data_entrada || atual.dataEntrada,
+    }))
+    if (item.metadados?.medida) setMedida(atual => atual || String(item.metadados.medida))
+  }
 
   const carregar = React.useCallback(async () => {
     setCarregando(true)
@@ -86,6 +106,14 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
         const { data, error } = await db.from('entradas_bopp_virgem').select('*').order('data_entrada', { ascending: false }).order('created_at', { ascending: false })
         if (error) throw error
         setEntradas((data ?? []) as RegistroEntrada[])
+        const { data: leituras, error: leiturasError } = await supabase.from('coletor_leituras')
+          .select('id,codigo,metadados,created_at')
+          .eq('destino', 'BOPP_ENTRADA')
+          .eq('status', 'PENDENTE')
+          .order('created_at', { ascending: false })
+          .limit(200)
+        if (leiturasError) throw leiturasError
+        setLeiturasMobileBopp(leituras ?? [])
       }
       if (aba === 'envios') {
         const { data, error } = await db.from('retiradas_bopp_virgem').select('*').order('data_envio', { ascending: false }).order('created_at', { ascending: false })
@@ -197,6 +225,17 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
         await db.from('entradas_bopp_virgem').delete().eq('id', entrada.id)
         throw itensEntradaError
       }
+      if (leiturasMobileSelecionadas.length) {
+        const { error: marcarLeiturasError } = await supabase.from('coletor_leituras')
+          .update({ status: 'PROCESSADO', processado_em: new Date().toISOString() })
+          .in('id', leiturasMobileSelecionadas)
+        if (marcarLeiturasError) {
+          toast.warning('Entrada registrada, mas algumas leituras do celular continuam pendentes.', { description: marcarLeiturasError.message })
+        } else {
+          setLeiturasMobileBopp(atual => atual.filter(item => !leiturasMobileSelecionadas.includes(item.id)))
+        }
+        setLeiturasMobileSelecionadas([])
+      }
       toast.success(`Entrada salva: ${codigos.length} bobina(s), total de ${formatarKg(peso)}.`)
       setMedida(''); setCodigosEntrada('')
       await carregar()
@@ -294,6 +333,24 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
           <label className="grid gap-1 text-xs font-semibold">Data de emissão<input type="date" value={dataEmissao} onChange={e => atualizarCacheEntrada('dataEmissao', e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
           <label className="grid gap-1 text-xs font-semibold">Data de entrada<input type="date" value={dataEntrada} onChange={e => atualizarCacheEntrada('dataEntrada', e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm font-normal" /></label>
         </div>
+        {leiturasMobileBopp.length > 0 && (
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <strong className="text-xs text-indigo-950">Leituras recebidas pelo Coletor Android ({leiturasMobileBopp.length})</strong>
+              <button type="button" onClick={() => leiturasMobileBopp.forEach(adicionarLeituraMobile)} className="rounded-md bg-indigo-700 px-3 py-1.5 text-[10px] font-bold text-white">Adicionar todas à entrada</button>
+            </div>
+            <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
+              {leiturasMobileBopp.map(item => (
+                <button key={item.id} type="button" onClick={() => adicionarLeituraMobile(item)}
+                  className={`rounded-md border px-2 py-1 text-left text-[10px] ${leiturasMobileSelecionadas.includes(item.id) ? 'border-indigo-700 bg-indigo-700 text-white' : 'border-indigo-200 bg-white text-indigo-950'}`}>
+                  <strong className="block font-mono">{item.codigo}</strong>
+                  <span>{item.metadados?.peso_kg ? `${item.metadados.peso_kg} kg` : 'peso não informado'}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[10px] text-indigo-800">Os códigos selecionados entram na lista abaixo. Depois de salvar a entrada, deixam de aparecer como pendentes.</p>
+          </div>
+        )}
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
           <strong>Atenção:</strong> informe o peso individual ao lado de cada código, separados por ponto e vírgula, tabulação ou barra vertical. Exemplo: <code>9003065584; 440</code>. O sistema não divide o peso total por média.
         </div>
