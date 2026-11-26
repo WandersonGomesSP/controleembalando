@@ -122,10 +122,10 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const pathRound = (x: number, top: number, w: number, h: number, r: number, fill: boolean) => {
     const X = mm(x), Y = yTop(top + h), W = mm(w), H = mm(h), R = mm(r)
     const k = 0.5522847498
-    commands.push(\`0 0 0 RG \${fill ? '0 0 0' : '1 1 1'} rg 0.8 w \${(X+R).toFixed(2)} \${Y.toFixed(2)} m \${(X+W-R).toFixed(2)} \${Y.toFixed(2)} l \${(X+W-R+R*k).toFixed(2)} \${Y.toFixed(2)} \${(X+W).toFixed(2)} \${(Y+R-R*k).toFixed(2)} \${(X+W).toFixed(2)} \${(Y+R).toFixed(2)} c \${(X+W).toFixed(2)} \${(Y+H-R).toFixed(2)} l \${(X+W).toFixed(2)} \${(Y+H-R+R*k).toFixed(2)} \${(X+W-R+R*k).toFixed(2)} \${(Y+H).toFixed(2)} \${(X+W-R).toFixed(2)} \${(Y+H).toFixed(2)} c \${(X+R).toFixed(2)} \${(Y+H).toFixed(2)} l \${(X+R-R*k).toFixed(2)} \${(Y+H).toFixed(2)} \${X.toFixed(2)} \${(Y+H-R+R*k).toFixed(2)} \${X.toFixed(2)} \${(Y+H-R).toFixed(2)} c \${X.toFixed(2)} \${(Y+R).toFixed(2)} l \${X.toFixed(2)} \${(Y+R-R*k).toFixed(2)} \${(X+R-R*k).toFixed(2)} \${Y.toFixed(2)} \${(X+R).toFixed(2)} \${Y.toFixed(2)} c \${fill ? 'B' : 'S'}\`)
+    commands.push(`0 0 0 RG ${fill ? '0 0 0' : '1 1 1'} rg 0.8 w ${(X+R).toFixed(2)} ${Y.toFixed(2)} m ${(X+W-R).toFixed(2)} ${Y.toFixed(2)} l ${(X+W-R+R*k).toFixed(2)} ${Y.toFixed(2)} ${(X+W).toFixed(2)} ${(Y+R-R*k).toFixed(2)} ${(X+W).toFixed(2)} ${(Y+R).toFixed(2)} c ${(X+W).toFixed(2)} ${(Y+H-R).toFixed(2)} l ${(X+W).toFixed(2)} ${(Y+H-R+R*k).toFixed(2)} ${(X+W-R+R*k).toFixed(2)} ${(Y+H).toFixed(2)} ${(X+W-R).toFixed(2)} ${(Y+H).toFixed(2)} c ${(X+R).toFixed(2)} ${(Y+H).toFixed(2)} l ${(X+R-R*k).toFixed(2)} ${(Y+H).toFixed(2)} ${X.toFixed(2)} ${(Y+H-R+R*k).toFixed(2)} ${X.toFixed(2)} ${(Y+H-R).toFixed(2)} c ${X.toFixed(2)} ${(Y+R).toFixed(2)} l ${X.toFixed(2)} ${(Y+R-R*k).toFixed(2)} ${(X+R-R*k).toFixed(2)} ${Y.toFixed(2)} ${(X+R).toFixed(2)} ${Y.toFixed(2)} c ${fill ? 'B' : 'S'}`)
   }
   const drawText = (value: string, x: number, baselineTop: number, size: number, font = 'F2', white = false) => {
-    commands.push(\`\${white ? '1 1 1' : '0 0 0'} rg BT /\${font} \${size.toFixed(2)} Tf 1 0 0 1 \${mm(x).toFixed(2)} \${yTop(baselineTop).toFixed(2)} Tm <\${pdfHex(value)}> Tj ET\`)
+    commands.push(`${white ? '1 1 1' : '0 0 0'} rg BT /${font} ${size.toFixed(2)} Tf 1 0 0 1 ${mm(x).toFixed(2)} ${yTop(baselineTop).toFixed(2)} Tm <${pdfHex(value)}> Tj ET`)
   }
   const centerText = (value: string, x: number, top: number, w: number, baseline: number, size: number, white = false, font = 'F2') => {
     const fitted = fitSize(value, mm(w - 4), size, 4.5)
@@ -136,7 +136,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
     pathRound(x, top, w, h, 1.6, black)
     const labelSize = fitSize(label, mm(w - 2), options.labelMax ?? 6.5, 5)
     centerText(label, x, top, w, 2.1 + (0.718 * labelSize / MM) / 2, labelSize, black)
-    commands.push(\`\${black ? '1 1 1' : '0 0 0'} RG 0.9 w \${mm(x+2).toFixed(2)} \${yTop(top+4.2).toFixed(2)} m \${mm(x+w-2).toFixed(2)} \${yTop(top+4.2).toFixed(2)} l S\`)
+    commands.push(`${black ? '1 1 1' : '0 0 0'} RG 0.9 w ${mm(x+2).toFixed(2)} ${yTop(top+4.2).toFixed(2)} m ${mm(x+w-2).toFixed(2)} ${yTop(top+4.2).toFixed(2)} l S`)
     const content = fmt(value)
     const size = fitSize(content, mm(w - 4), options.max ?? 15, 4.5)
     const valueArea = h - 4.2
@@ -155,8 +155,8 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   // Cabeçalho: logotipo, número da bobina, data e operador/turno.
   const logoX = x0, logoY = rows.l1, d = 6.5
   const cx = logoX + d / 2, cyTop = logoY + heights.l1 - 1 - d / 2
-  commands.push(\`0 0 0 rg \${mm(cx+d/2).toFixed(2)} \${yTop(cyTop).toFixed(2)} m \${mm(cx+d/2).toFixed(2)} \${yTop(cyTop-d/2).toFixed(2)} \${mm(cx+d/2*0.5522847498).toFixed(2)} \${yTop(cyTop-d/2).toFixed(2)} \${mm(cx).toFixed(2)} \${yTop(cyTop-d/2).toFixed(2)} c \${mm(cx-d/2*0.5522847498).toFixed(2)} \${yTop(cyTop-d/2).toFixed(2)} \${mm(cx-d/2).toFixed(2)} \${yTop(cyTop-d/2*0.5522847498).toFixed(2)} \${mm(cx-d/2).toFixed(2)} \${yTop(cyTop).toFixed(2)} c \${mm(cx-d/2).toFixed(2)} \${yTop(cyTop+d/2*0.5522847498).toFixed(2)} \${mm(cx-d/2*0.5522847498).toFixed(2)} \${yTop(cyTop+d/2).toFixed(2)} \${mm(cx).toFixed(2)} \${yTop(cyTop+d/2).toFixed(2)} c \${mm(cx+d/2*0.5522847498).toFixed(2)} \${yTop(cyTop+d/2).toFixed(2)} \${mm(cx+d/2).toFixed(2)} \${yTop(cyTop+d/2*0.5522847498).toFixed(2)} \${mm(cx+d/2).toFixed(2)} \${yTop(cyTop).toFixed(2)} c f\`)
-  commands.push(\`1 1 1 rg \${mm(cx-2.3).toFixed(2)} \${yTop(cyTop+0.2).toFixed(2)} \${mm(3.2).toFixed(2)} \${mm(1.5).toFixed(2)} re f \${mm(cx-0.9).toFixed(2)} \${yTop(cyTop-1.7).toFixed(2)} \${mm(3.2).toFixed(2)} \${mm(1.5).toFixed(2)} re f\`)
+  commands.push(`0 0 0 rg ${mm(cx+d/2).toFixed(2)} ${yTop(cyTop).toFixed(2)} m ${mm(cx+d/2).toFixed(2)} ${yTop(cyTop-d/2).toFixed(2)} ${mm(cx+d/2*0.5522847498).toFixed(2)} ${yTop(cyTop-d/2).toFixed(2)} ${mm(cx).toFixed(2)} ${yTop(cyTop-d/2).toFixed(2)} c ${mm(cx-d/2*0.5522847498).toFixed(2)} ${yTop(cyTop-d/2).toFixed(2)} ${mm(cx-d/2).toFixed(2)} ${yTop(cyTop-d/2*0.5522847498).toFixed(2)} ${mm(cx-d/2).toFixed(2)} ${yTop(cyTop).toFixed(2)} c ${mm(cx-d/2).toFixed(2)} ${yTop(cyTop+d/2*0.5522847498).toFixed(2)} ${mm(cx-d/2*0.5522847498).toFixed(2)} ${yTop(cyTop+d/2).toFixed(2)} ${mm(cx).toFixed(2)} ${yTop(cyTop+d/2).toFixed(2)} c ${mm(cx+d/2*0.5522847498).toFixed(2)} ${yTop(cyTop+d/2).toFixed(2)} ${mm(cx+d/2).toFixed(2)} ${yTop(cyTop+d/2*0.5522847498).toFixed(2)} ${mm(cx+d/2).toFixed(2)} ${yTop(cyTop).toFixed(2)} c f`)
+  commands.push(`1 1 1 rg ${mm(cx-2.3).toFixed(2)} ${yTop(cyTop+0.2).toFixed(2)} ${mm(3.2).toFixed(2)} ${mm(1.5).toFixed(2)} re f ${mm(cx-0.9).toFixed(2)} ${yTop(cyTop-1.7).toFixed(2)} ${mm(3.2).toFixed(2)} ${mm(1.5).toFixed(2)} re f`)
   drawText('Controle', logoX+d+1, 8.4, 7.5, 'F3')
   drawText('Embalando', logoX+d+1, 11.5, 7.5, 'F3')
   drawText('Planejamento e Controle', logoX, 16.8, 5.3, 'F4')
@@ -168,7 +168,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   x += 29 + gap
   field('DATA DA PRODUÇÃO', dateBR(bobina.data), x, rows.l1, 26, heights.l1, { max: 14 })
   x += 26 + gap
-  field('OPERADOR / TURNO', \`\${upper(bobina.operador)} / \${shift || '-'}\`, x, rows.l1, 24, heights.l1, { max: 14 })
+  field('OPERADOR / TURNO', `${upper(bobina.operador)} / ${shift || '-'}`, x, rows.l1, 24, heights.l1, { max: 14 })
 
   // Linha 2.
   x = x0
@@ -191,7 +191,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const pigmentos = [String(bobina.cor_mistura ?? '').trim(), String(bobina.pigmento_mistura ?? '').trim()].filter(Boolean)
   const pigmento = pigmentos.length ? upper(pigmentos.join(' / ')) : (/^CRISTAL$/i.test(corFundo) ? '-' : corFundo)
   const cola = upper(bobina.fornecedor_cola || (Number(bobina.kg_cola) > 0 ? '100% DOW' : '-'))
-  const pesoPigmento = Number(bobina.pigmento_kg) > 0 ? \`\${money(bobina.pigmento_kg)} KG\` : '-'
+  const pesoPigmento = Number(bobina.pigmento_kg) > 0 ? `${money(bobina.pigmento_kg)} KG` : '-'
   const row4: Array<[string, number, string]> = [
     ['COLA', 25, cola], ['PIGMENTO', 19.5, pigmento], ['PESO PIGM.', 15.5, pesoPigmento],
     ['COR FUNDO', 19, corFundo], ['COR IMPRESSÃO', 21, upper(bobina.cor_impressao)],
@@ -207,7 +207,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   x += 24.5 + gap
   field('MICRAS', bobina.micragem, x, rows.l5, 17, heights.l5)
   x += 17 + gap
-  field('GRAMATURA', \`\${fmt(bobina.vareta_g)} G\`, x, rows.l5, 22, heights.l5)
+  field('GRAMATURA', `${fmt(bobina.vareta_g)} G`, x, rows.l5, 22, heights.l5)
 
   // QR Code com margem branca, ocupando as duas últimas linhas à esquerda.
   const matrix = qrMatrix(String(bobina.numero_bobina))
@@ -216,16 +216,16 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const module = 0.72, side = module * 21, quiet = 1
   const originX = qrX + (qrW - side - quiet * 2) / 2 + quiet
   const originTop = qrTop + (qrH - side - quiet * 2) / 2 + quiet
-  commands.push(\`1 1 1 rg \${mm(originX-quiet).toFixed(2)} \${yTop(originTop+side+quiet).toFixed(2)} \${mm(side+quiet*2).toFixed(2)} \${mm(side+quiet*2).toFixed(2)} re f 0 0 0 rg\`)
+  commands.push(`1 1 1 rg ${mm(originX-quiet).toFixed(2)} ${yTop(originTop+side+quiet).toFixed(2)} ${mm(side+quiet*2).toFixed(2)} ${mm(side+quiet*2).toFixed(2)} re f 0 0 0 rg`)
   matrix.forEach((row, rowIndex) => row.forEach((dark, colIndex) => {
-    if (dark) commands.push(\`\${mm(originX+colIndex*module).toFixed(3)} \${yTop(originTop+(rowIndex+1)*module).toFixed(2)} \${mm(module).toFixed(3)} \${mm(module).toFixed(3)} re f\`)
+    if (dark) commands.push(`${mm(originX+colIndex*module).toFixed(3)} ${yTop(originTop+(rowIndex+1)*module).toFixed(2)} ${mm(module).toFixed(3)} ${mm(module).toFixed(3)} re f`)
   }))
 
   const rightX = x0 + qrW + gap
   const rightW = x1 - rightX
   const blackW = (rightW - gap) / 2
   field('METRAGEM TOTAL', Number(bobina.metragem || 0).toLocaleString('pt-BR'), rightX, rows.l6, blackW, heights.l6, { black: true, max: 20 })
-  field('PESO TOTAL', \`\${money(bobina.peso_final)} Kg\`, rightX + blackW + gap, rows.l6, blackW, heights.l6, { black: true, max: 20 })
+  field('PESO TOTAL', `${money(bobina.peso_final)} Kg`, rightX + blackW + gap, rows.l6, blackW, heights.l6, { black: true, max: 20 })
 
   pathRound(rightX, rows.l7, rightW, heights.l7, 1.6, false)
   centerText('VALIDADE: 06 MESES   |   ESCANEIE ESTA BOBINA', rightX, rows.l7, rightW, 4.55, 8)
@@ -234,20 +234,20 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    \`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 \${PAGE_W.toFixed(2)} \${PAGE_H.toFixed(2)}] /Resources << /Font << /F1 4 0 R /F2 5 0 R /F3 6 0 R /F4 7 0 R >> >> /Contents 8 0 R >>\`,
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_W.toFixed(2)} ${PAGE_H.toFixed(2)}] /Resources << /Font << /F1 4 0 R /F2 5 0 R /F3 6 0 R /F4 7 0 R >> >> /Contents 8 0 R >>`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-BoldOblique /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>',
-    \`<< /Length \${stream.length} >>\nstream\n\${stream}\nendstream\`,
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
   ]
   let pdf = '%PDF-1.4\n'
   const offsets = [0]
-  objects.forEach((obj, i) => { offsets.push(pdf.length); pdf += \`\${i+1} 0 obj\n\${obj}\nendobj\n\` })
+  objects.forEach((obj, i) => { offsets.push(pdf.length); pdf += `${i+1} 0 obj\n${obj}\nendobj\n` })
   const xref = pdf.length
-  pdf += \`xref\n0 \${objects.length+1}\n0000000000 65535 f \n\`
+  pdf += `xref\n0 ${objects.length+1}\n0000000000 65535 f \n`
   offsets.slice(1).forEach((offset) => { pdf += String(offset).padStart(10, '0') + ' 00000 n \n' })
-  pdf += \`trailer\n<< /Size \${objects.length+1} /Root 1 0 R >>\nstartxref\n\${xref}\n%%EOF\`
+  pdf += `trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`
   return new Blob([new Uint8Array(Array.from(pdf, (character) => character.charCodeAt(0)))], { type: 'application/pdf' })
 }
 
