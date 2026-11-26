@@ -111,9 +111,7 @@ export default function App() {
       criado_em: new Date().toISOString(), sincronizado: false,
       
     }))
-    if (fresh.length < unique.length) {
-      Alert.alert('Leitura conferida', (unique.length - fresh.length) + ' código(s) já estavam na fila e não foram duplicados.')
-    }
+    // Códigos já presentes são ignorados silenciosamente durante a leitura contínua.
     setLastRead(fresh.join(', ') || unique.join(', '))
     if (additions.length) {
       setQueue(current => [...additions, ...current])
@@ -125,11 +123,10 @@ export default function App() {
     if (locked.current || scanPaused) return
     const value = typeof event?.data === 'string' ? event.data.trim() : ''
     if (!value) return
+    // Evita processar dezenas de callbacks do mesmo QR enquanto ele permanece diante da câmera.
     locked.current = true
-    setScanPaused(true)
-    // Trava até o usuário tocar em "Ler próximo", evitando callbacks repetidos do mesmo QR.
-    // Não aplicar filtro de OCR/tamanho: guardar diretamente o conteúdo retornado pela câmera.
     addCodes([value], typeof event.type === 'string' ? event.type : 'QR_CODE', 'CAMERA', false)
+    setTimeout(() => { locked.current = false }, 1200)
   }, [addCodes, scanPaused])
 
   const captureAndRead = async () => {
@@ -328,8 +325,8 @@ export default function App() {
                 <Pressable style={styles.cameraToggle} onPress={() => {
                   if (!cameraEnabled) { locked.current = false; setCameraEnabled(true); setScanPaused(false) }
                   else if (scanPaused) { locked.current = false; setScanPaused(false) }
-                  else setCameraEnabled(false)
-                }}><Text style={styles.white}>{!cameraEnabled ? 'Abrir câmera' : scanPaused ? 'Ler próximo' : 'Pausar'}</Text></Pressable>
+                  else setScanPaused(true)
+                }}><Text style={styles.white}>{!cameraEnabled ? 'Abrir câmera' : scanPaused ? 'Retomar leitura' : 'Pausar leitura'}</Text></Pressable>
               </View>
             </View>
           )}
