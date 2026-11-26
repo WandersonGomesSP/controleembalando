@@ -105,7 +105,7 @@ export default function App() {
       setQueue(current => [...additions, ...current])
       void enviarLeituras(additions)
     }
-  }, [destination, weight, queue, enviarLeituras])
+  }, [destination, queue, enviarLeituras])
 
   const onBarcode = useCallback((event: BarcodeScanningResult) => {
     if (locked.current) return
