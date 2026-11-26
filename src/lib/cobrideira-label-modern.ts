@@ -38,11 +38,11 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
     commands.push(navy + ' RG 0.8 w ' + x + ' ' + y + ' ' + w + ' ' + h + ' re S')
   }
   const card = (x: number, y: number, w: number, h: number, title: string, value: string, important = false) => {
-    const head = 9
+    const head = h > 25 ? 9 : 7
     rect(x, y, w, h, '1 1 1')
     rect(x, y + h - head, w, head, important ? blue : navy)
-    centered(title.toUpperCase(), x + 2, y + h - 6.5, w - 4, 5.8, '1 1 1')
-    centered(value, x + 3, y + (h - head) / 2 - 1.8, w - 6, important ? 11 : 8.2, '0 0 0')
+    centered(title.toUpperCase(), x + 2, y + h - (h > 25 ? 6.5 : 5.1), w - 4, h > 25 ? 5.8 : 5.1, '1 1 1')
+    centered(value, x + 3, y + (h - head) / 2 - 1.4, w - 6, important ? 11 : (h > 25 ? 8.2 : 7.4), '0 0 0')
   }
 
   const line = String(bobina.linha || 'Padrão')
@@ -104,12 +104,12 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   fields.push(['Validade da bobina', '06 MESES'])
 
   const cellW = (usable - 4) / 2
-  const cellH = 20
+  const cellH = 17
   for (let i = 0; i < fields.length; i += 2) {
     const rowY = y - cellH
     card(margin, rowY, cellW, cellH, fields[i][0], fields[i][1])
     if (fields[i + 1]) card(margin + cellW + 4, rowY, cellW, cellH, fields[i + 1][0], fields[i + 1][1])
-    y = rowY - 3
+    y = rowY - 2
   }
 
   // Rodapé interno; todo o conteúdo permanece afastado da borda física.
