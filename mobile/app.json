@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Controle Embalando",
+    "slug": "controle-embalando-coletor",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.embalando.controlecoletor",
+      "versionCode": 1,
+      "permissions": ["CAMERA"],
+      "adaptiveIcon": {
+        "backgroundColor": "#00008B"
+      }
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O Controle Embalando precisa acessar a câmera para ler códigos de bobinas e materiais.",
+          "microphonePermission": "O Controle Embalando não grava áudio.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}
