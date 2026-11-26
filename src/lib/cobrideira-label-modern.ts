@@ -1,4 +1,5 @@
 import type { CobrideiraBobinaRow } from '@/lib/database.types'
+import QRCode from 'qrcode'
 
 const PAGE_W = 120 * 72 / 25.4
 const PAGE_H = 100 * 72 / 25.4
@@ -68,39 +69,14 @@ function dateBR(value: unknown) {
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('pt-BR')
 }
 
-// QR Code Model 2, versão 1-L, codificação numérica (o número da bobina).
-// O desenho é composto por módulos vetoriais, sem PNG ou suavização.
+// QR Code gerado por biblioteca padronizada para garantir leitura por scanners.
 function qrMatrix(input: string): boolean[][] {
-  // QR Model 2 v1-L, modo numérico: 19 bytes de dados e 7 de correção.
-  if (!/^\d{1,41}$/.test(input)) throw new Error('Número da bobina deve conter de 1 a 41 dígitos.')
-  const bits:number[]=[]
-  const append=(v:number,n:number)=>{for(let i=n-1;i>=0;i--)bits.push((v>>>i)&1)}
-  append(1,4); append(input.length,10)
-  for(let i=0;i<input.length;i+=3){const g=input.slice(i,i+3);append(Number(g),g.length===3?10:g.length===2?7:4)}
-  append(0,Math.min(4,152-bits.length)); while(bits.length%8)bits.push(0)
-  const data:number[]=[]
-  for(let i=0;i<bits.length;i+=8)data.push(bits.slice(i,i+8).reduce((v,x)=>(v<<1)|x,0))
-  for(let p=0;data.length<19;p++)data.push(p%2?0x11:0xec)
-  const exp=new Array<number>(512).fill(0),log=new Array<number>(256).fill(0);let v=1
-  for(let i=0;i<255;i++){exp[i]=v;log[v]=i;v<<=1;if(v&256)v^=0x11d}
-  for(let i=255;i<512;i++)exp[i]=exp[i-255]
-  const mul=(x:number,y:number)=>!x||!y?0:exp[log[x]+log[y]]
-  let gen=[1]
-  for(let i=0;i<7;i++){const n=new Array<number>(gen.length+1).fill(0);gen.forEach((x,j)=>{n[j]^=x;n[j+1]^=mul(x,exp[i])});gen=n}
-  const work=[...data,...new Array<number>(7).fill(0)]
-  for(let i=0;i<19;i++){const f=work[i];if(f)for(let j=0;j<gen.length;j++)work[i+j]^=mul(gen[j],f)}
-  const stream=[...data,...work.slice(19)].flatMap(x=>Array.from({length:8},(_,i)=>(x>>>(7-i))&1))
-  const n=21,m=Array.from({length:n},()=>new Array<boolean>(n).fill(false)),res=Array.from({length:n},()=>new Array<boolean>(n).fill(false))
-  const set=(x:number,y:number,d:boolean)=>{if(x>=0&&y>=0&&x<n&&y<n){m[y][x]=d;res[y][x]=true}}
-  const finder=(ox:number,oy:number)=>{for(let y=-1;y<=7;y++)for(let x=-1;x<=7;x++){const xx=ox+x,yy=oy+y;if(xx<0||yy<0||xx>=n||yy>=n)continue;set(xx,yy,x>=0&&x<=6&&y>=0&&y<=6&&(x===0||x===6||y===0||y===6||(x>=2&&x<=4&&y>=2&&y<=4)))}}
-  finder(0,0);finder(14,0);finder(0,14)
-  for(let i=8;i<13;i++){set(i,6,i%2===0);set(6,i,i%2===0)}
-  const format=0x77c4
-  for(let i=0;i<15;i++){const bit=((format>>>i)&1)!==0;const p=i<6?[8,i]:i<8?[8,i+1]:[8,14-i];const q=i<8?[20-i,8]:i<9?[15-i,8]:[14-i,8];set(p[0],p[1],bit);set(q[0],q[1],bit)}
-  set(8,13,true)
-  let k=0,up=true
-  for(let right=20;right>=1;right-=2){if(right===6)right=5;for(let z=0;z<n;z++){const y=up?n-1-z:z;for(let off=0;off<2;off++){const x=right-off;if(res[y][x])continue;const bit=k<stream.length?stream[k++]===1:false;m[y][x]=bit!==((x+y)%2===0)}}up=!up}
-  return m
+  const qr = QRCode.create(input, { errorCorrectionLevel: 'M' })
+  const size = qr.modules.size
+  const data = qr.modules.data
+  return Array.from({ length: size }, (_, y) =>
+    Array.from({ length: size }, (_, x) => Boolean(data[y * size + x]))
+  )
 }
 
 function buildPdf(bobina: CobrideiraBobinaRow) {
@@ -198,10 +174,15 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   field('GRAMATURA', `${fmt(bobina.vareta_g)} G`, x, rows.l5, 22, heights.l5)
 
   // QR Code com margem branca, ocupando as duas últimas linhas à esquerda.
-  const matrix = qrMatrix(String(bobina.numero_bobina))
+  const qrPayload = [
+    `NUMERO DA BOBINA: ${String(bobina.numero_bobina ?? '').trim()}`,
+    `CODIGO DA BOBINA: ${String(bobina.cod_bob ?? '').trim()}`,
+    `PESO TOTAL: ${Number(bobina.peso_final ?? 0).toFixed(2)} KG`,
+  ].join('\\n')
+  const matrix = qrMatrix(qrPayload)
   const qrX = x0, qrTop = rows.l7, qrW = 21
   const qrH = heights.l6 + gap + heights.l7
-  const module = 0.72, side = module * 21, quiet = 1
+  const module = 0.48, side = module * matrix.length, quiet = module * 4
   const originX = qrX + (qrW - side - quiet * 2) / 2 + quiet
   const originTop = qrTop + (qrH - side - quiet * 2) / 2 + quiet - 15
   commands.push(`1 1 1 rg ${mm(originX-quiet).toFixed(2)} ${yTop(originTop+side+quiet).toFixed(2)} ${mm(side+quiet*2).toFixed(2)} ${mm(side+quiet*2).toFixed(2)} re f 0 0 0 rg`)
