@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable,
   SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
@@ -188,6 +188,7 @@ export default function App() {
           observacao: item.observacao || null,
         },
         status: 'PENDENTE',
+        sincronizado_em: new Date().toISOString(),
       }))
       const { error } = await supabase.from('coletor_leituras').upsert(rows, { onConflict: 'id' })
       if (error) throw error
