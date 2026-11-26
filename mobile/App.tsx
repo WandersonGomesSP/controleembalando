@@ -96,8 +96,10 @@ export default function App() {
     }
   }, [session, supplier, company, nf, issueDate, entryDate, measure])
 
-  const addCodes = useCallback((values: string[], type: string, origin: ScanItem['origem']) => {
-    const unique = [...new Set(values.map(normalizarCodigo).filter(isCodeLike))]
+  const addCodes = useCallback((values: string[], type: string, origin: ScanItem['origem'], validateFormat = true) => {
+    // Leitura direta da câmera: guardar exatamente o conteúdo do código, sem exigir tamanho/formato.
+    // A validação mais restrita fica apenas para OCR e digitação manual.
+    const unique = [...new Set(values.map(normalizarCodigo).filter(value => value.length > 0 && (!validateFormat || isCodeLike(value))))]
     if (!unique.length) {
       Alert.alert('Nenhum código identificado', 'Tente aproximar a etiqueta, melhorar a iluminação ou digitar o código manualmente.')
       return
@@ -125,14 +127,10 @@ export default function App() {
     if (!value) return
     locked.current = true
     setScanPaused(true)
-    try {
-      addCodes([value], typeof event.type === 'string' ? event.type : 'QR_CODE', 'CAMERA')
-    } catch {
-      Alert.alert('Falha na leitura', 'Não foi possível processar esse código. Tente novamente.')
-      setScanPaused(false)
-    } finally {
-      locked.current = false
-    }
+    // O conteúdo lido pelo leitor é o próprio código da bobina.
+    // Não aplicar filtro de OCR/tamanho: QR e etiquetas podem ter códigos curtos ou formatos variados.
+    addCodes([value], typeof event.type === 'string' ? event.type : 'QR_CODE', 'CAMERA', false)
+    locked.current = false
   }, [addCodes, scanPaused])
 
   const captureAndRead = async () => {
