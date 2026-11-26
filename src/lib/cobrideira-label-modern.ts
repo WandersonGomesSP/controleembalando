@@ -71,77 +71,36 @@ function dateBR(value: unknown) {
 // QR Code Model 2, versão 1-L, codificação numérica (o número da bobina).
 // O desenho é composto por módulos vetoriais, sem PNG ou suavização.
 function qrMatrix(input: string): boolean[][] {
-  if (!/^\d{1,34}$/.test(input)) throw new Error('O número da bobina precisa conter de 1 a 34 dígitos para gerar o QR Code.')
-  const bits: number[] = []
-  const append = (value: number, length: number) => { for (let i = length - 1; i >= 0; i--) bits.push((value >>> i) & 1) }
-  append(1, 4); append(input.length, 10)
-  for (let i = 0; i < input.length; i += 3) {
-    const group = input.slice(i, i + 3)
-    append(Number(group), group.length === 3 ? 10 : group.length === 2 ? 7 : 4)
-  }
-  const capacity = 16 * 8
-  append(0, Math.min(4, capacity - bits.length))
-  while (bits.length % 8) bits.push(0)
-  const data: number[] = []
-  for (let i = 0; i < bits.length; i += 8) data.push(bits.slice(i, i + 8).reduce((v, b) => (v << 1) | b, 0))
-  for (let pad = 0; data.length < 16; pad++) data.push(pad % 2 ? 0x11 : 0xec)
-
-  const exp = new Array<number>(512).fill(0), log = new Array<number>(256).fill(0)
-  let value = 1
-  for (let i = 0; i < 255; i++) { exp[i] = value; log[value] = i; value <<= 1; if (value & 0x100) value ^= 0x11d }
-  for (let i = 255; i < 512; i++) exp[i] = exp[i - 255]
-  const mul = (a: number, b: number) => (!a || !b ? 0 : exp[log[a] + log[b]])
-  let gen = [1]
-  for (let i = 0; i < 10; i++) {
-    const next = new Array<number>(gen.length + 1).fill(0)
-    gen.forEach((coef, j) => { next[j] ^= coef; next[j + 1] ^= mul(coef, exp[i]) })
-    gen = next
-  }
-  const work = [...data, ...new Array<number>(10).fill(0)]
-  for (let i = 0; i < 16; i++) {
-    const factor = work[i]
-    if (factor) for (let j = 0; j < gen.length; j++) work[i + j] ^= mul(gen[j], factor)
-  }
-  const codewords = [...data, ...work.slice(19)]
-  const stream = codewords.flatMap((byte) => Array.from({ length: 8 }, (_, i) => (byte >>> (7 - i)) & 1))
-  const n = 21
-  const matrix = Array.from({ length: n }, () => new Array<boolean>(n).fill(false))
-  const reserved = Array.from({ length: n }, () => new Array<boolean>(n).fill(false))
-  const set = (x: number, y: number, dark: boolean) => { if (x >= 0 && y >= 0 && x < n && y < n) { matrix[y][x] = dark; reserved[y][x] = true } }
-  const finder = (ox: number, oy: number) => {
-    for (let y = -1; y <= 7; y++) for (let x = -1; x <= 7; x++) {
-      const xx = ox + x, yy = oy + y
-      if (xx < 0 || yy < 0 || xx >= n || yy >= n) continue
-      const dark = x >= 0 && x <= 6 && y >= 0 && y <= 6 && (x === 0 || x === 6 || y === 0 || y === 6 || (x >= 2 && x <= 4 && y >= 2 && y <= 4))
-      set(xx, yy, dark)
-    }
-  }
-  finder(0, 0); finder(14, 0); finder(0, 14)
-  for (let i = 8; i < 13; i++) { set(i, 6, i % 2 === 0); set(6, i, i % 2 === 0) }
-  // Formato: nível L, máscara 0 (BCH do padrão QR).
-  const format = 0x5412
-  for (let i = 0; i < 15; i++) {
-    const bit = ((format >>> i) & 1) !== 0
-    const a = i < 6 ? [8, i] : i < 8 ? [8, i + 1] : [8, 14 - i]
-    const b = i < 8 ? [20 - i, 8] : i < 9 ? [15 - i, 8] : [14 - i, 8]
-    set(a[0], a[1], bit); set(b[0], b[1], bit)
-  }
-  set(8, 13, true)
-  let bitIndex = 0, upward = true
-  for (let right = 20; right >= 1; right -= 2) {
-    if (right === 6) right = 5
-    for (let vert = 0; vert < n; vert++) {
-      const y = upward ? n - 1 - vert : vert
-      for (let offset = 0; offset < 2; offset++) {
-        const x = right - offset
-        if (reserved[y][x]) continue
-        const bit = bitIndex < stream.length ? stream[bitIndex++] === 1 : false
-        matrix[y][x] = bit !== ((x + y) % 2 === 0)
-      }
-    }
-    upward = !upward
-  }
-  return matrix
+  // QR Model 2 v1-L, modo numérico: 19 bytes de dados e 7 de correção.
+  if (!/^\\d{1,41}$/.test(input)) throw new Error('Número da bobina deve conter de 1 a 41 dígitos.')
+  const bits:number[]=[]
+  const append=(v:number,n:number)=>{for(let i=n-1;i>=0;i--)bits.push((v>>>i)&1)}
+  append(1,4); append(input.length,10)
+  for(let i=0;i<input.length;i+=3){const g=input.slice(i,i+3);append(Number(g),g.length===3?10:g.length===2?7:4)}
+  append(0,Math.min(4,152-bits.length)); while(bits.length%8)bits.push(0)
+  const data:number[]=[]
+  for(let i=0;i<bits.length;i+=8)data.push(bits.slice(i,i+8).reduce((v,x)=>(v<<1)|x,0))
+  for(let p=0;data.length<19;p++)data.push(p%2?0x11:0xec)
+  const exp=new Array<number>(512).fill(0),log=new Array<number>(256).fill(0);let v=1
+  for(let i=0;i<255;i++){exp[i]=v;log[v]=i;v<<=1;if(v&256)v^=0x11d}
+  for(let i=255;i<512;i++)exp[i]=exp[i-255]
+  const mul=(x:number,y:number)=>!x||!y?0:exp[log[x]+log[y]]
+  let gen=[1]
+  for(let i=0;i<7;i++){const n=new Array<number>(gen.length+1).fill(0);gen.forEach((x,j)=>{n[j]^=x;n[j+1]^=mul(x,exp[i])});gen=n}
+  const work=[...data,...new Array<number>(7).fill(0)]
+  for(let i=0;i<19;i++){const f=work[i];if(f)for(let j=0;j<gen.length;j++)work[i+j]^=mul(gen[j],f)}
+  const stream=[...data,...work.slice(19)].flatMap(x=>Array.from({length:8},(_,i)=>(x>>>(7-i))&1))
+  const n=21,m=Array.from({length:n},()=>new Array<boolean>(n).fill(false)),res=Array.from({length:n},()=>new Array<boolean>(n).fill(false))
+  const set=(x:number,y:number,d:boolean)=>{if(x>=0&&y>=0&&x<n&&y<n){m[y][x]=d;res[y][x]=true}}
+  const finder=(ox:number,oy:number)=>{for(let y=-1;y<=7;y++)for(let x=-1;x<=7;x++){const xx=ox+x,yy=oy+y;if(xx<0||yy<0||xx>=n||yy>=n)continue;set(xx,yy,x>=0&&x<=6&&y>=0&&y<=6&&(x===0||x===6||y===0||y===6||(x>=2&&x<=4&&y>=2&&y<=4)))}}
+  finder(0,0);finder(14,0);finder(0,14)
+  for(let i=8;i<13;i++){set(i,6,i%2===0);set(6,i,i%2===0)}
+  const format=0x77c4
+  for(let i=0;i<15;i++){const bit=((format>>>i)&1)!==0;const p=i<6?[8,i]:i<8?[8,i+1]:[8,14-i];const q=i<8?[20-i,8]:i<9?[15-i,8]:[14-i,8];set(p[0],p[1],bit);set(q[0],q[1],bit)}
+  set(8,13,true)
+  let k=0,up=true
+  for(let right=20;right>=1;right-=2){if(right===6)right=5;for(let z=0;z<n;z++){const y=up?n-1-z:z;for(let off=0;off<2;off++){const x=right-off;if(res[y][x])continue;const bit=k<stream.length?stream[k++]===1:false;m[y][x]=bit!==((x+y)%2===0)}}up=!up}
+  return m
 }
 
 function buildPdf(bobina: CobrideiraBobinaRow) {
@@ -244,7 +203,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const qrH = heights.l6 + gap + heights.l7
   const module = 0.72, side = module * 21, quiet = 1
   const originX = qrX + (qrW - side - quiet * 2) / 2 + quiet
-  const originTop = qrTop + (qrH - side - quiet * 2) / 2 + quiet - 10
+  const originTop = qrTop + (qrH - side - quiet * 2) / 2 + quiet - 15
   commands.push(`1 1 1 rg ${mm(originX-quiet).toFixed(2)} ${yTop(originTop+side+quiet).toFixed(2)} ${mm(side+quiet*2).toFixed(2)} ${mm(side+quiet*2).toFixed(2)} re f 0 0 0 rg`)
   matrix.forEach((row, rowIndex) => row.forEach((dark, colIndex) => {
     if (dark) commands.push(`${mm(originX+colIndex*module).toFixed(3)} ${yTop(originTop+(rowIndex+1)*module).toFixed(2)} ${mm(module).toFixed(3)} ${mm(module).toFixed(3)} re f`)
@@ -259,8 +218,8 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   pathRound(rightX, rows.l7, rightW, heights.l7, 1.6, false)
   centerText('VALIDADE: 06 MESES   |   ESCANEIE ESTA BOBINA', rightX, rows.l7, rightW, 4.55, 8)
 
-  // Centraliza a arte na mídia de 140 mm: desloca 10 mm à direita.
-  const stream = `1 0 0 1 28.3465 0 cm\n${commands.join('\n')}`
+  // Alinhamento lateral original da etiqueta.
+  const stream = commands.join('\n')
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
