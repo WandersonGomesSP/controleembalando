@@ -23,6 +23,7 @@ export default function App() {
   const [loginBusy, setLoginBusy] = useState(false)
   const [destination, setDestination] = useState<ScanDestination>('COBRIDEIRA_PRODUCAO')
   const [queue, setQueue] = useState<ScanItem[]>([])
+  const [queueLoaded, setQueueLoaded] = useState(false)
   const [permission, requestPermission] = useCameraPermissions()
   const [cameraReady, setCameraReady] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -41,14 +42,47 @@ export default function App() {
   const locked = useRef(false)
 
   useEffect(() => {
-    getQueue().then(setQueue)
+    getQueue().then(items => { setQueue(items); setQueueLoaded(true) })
     if (!supabase) return
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
     const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
     return () => data.subscription.unsubscribe()
   }, [])
 
-  useEffect(() => { saveQueue(queue) }, [queue])
+  useEffect(() => { if (queueLoaded) void saveQueue(queue) }, [queue, queueLoaded])
+
+  const enviarLeituras = useCallback(async (items: ScanItem[]) => {
+    if (!supabase || !session || !items.length) return
+    try {
+      const { data: auth } = await supabase.auth.getUser()
+      if (!auth.user) return
+      const rows = items.map(item => ({
+        id: item.id,
+        user_id: auth.user!.id,
+        codigo: item.codigo,
+        destino: item.destino,
+        tipo_leitura: item.tipo_leitura,
+        origem: item.origem,
+        metadados: {
+          peso_kg: item.peso_kg || null,
+          fornecedor: supplier || null,
+          empresa: company || null,
+          nf: nf || null,
+          data_emissao: issueDate || null,
+          data_entrada: entryDate || null,
+          medida: measure || null,
+          observacao: item.observacao || null,
+        },
+        status: 'PENDENTE',
+      }))
+      const { error } = await supabase.from('coletor_leituras').upsert(rows, { onConflict: 'id' })
+      if (error) throw error
+      const ids = new Set(items.map(item => item.id))
+      setQueue(current => current.map(item => ids.has(item.id) ? { ...item, sincronizado: true } : item))
+    } catch {
+      // Mantém a leitura como pendente no aparelho; o botão de sincronizar permite tentar novamente.
+    }
+  }, [session, supplier, company, nf, issueDate, entryDate, measure])
 
   const addCodes = useCallback((values: string[], type: string, origin: ScanItem['origem']) => {
     const unique = [...new Set(values.map(normalizarCodigo).filter(isCodeLike))]
@@ -56,21 +90,22 @@ export default function App() {
       Alert.alert('Nenhum código identificado', 'Tente aproximar a etiqueta, melhorar a iluminação ou digitar o código manualmente.')
       return
     }
-    setQueue(current => {
-      const existing = new Set(current.map(item => item.codigo))
-      const fresh = unique.filter(code => !existing.has(code))
-      const additions: ScanItem[] = fresh.map(codigo => ({
-        id: createId(), codigo, destino: destination, tipo_leitura: type, origem,
-        criado_em: new Date().toISOString(), sincronizado: false,
-        ...(destination === 'BOPP_ENTRADA' && weight.trim() ? { peso_kg: weight.trim().replace(',', '.') } : {}),
-      }))
-      if (fresh.length < unique.length) {
-        Alert.alert('Leitura conferida', (unique.length - fresh.length) + ' código(s) já estavam na fila e não foram duplicados.')
-      }
-      setLastRead(fresh.join(', ') || unique.join(', '))
-      return [...additions, ...current]
-    })
-  }, [destination, weight])
+    const existing = new Set(queue.map(item => item.codigo))
+    const fresh = unique.filter(code => !existing.has(code))
+    const additions: ScanItem[] = fresh.map(codigo => ({
+      id: createId(), codigo, destino: destination, tipo_leitura: type, origem,
+      criado_em: new Date().toISOString(), sincronizado: false,
+      ...(destination === 'BOPP_ENTRADA' && weight.trim() ? { peso_kg: weight.trim().replace(',', '.') } : {}),
+    }))
+    if (fresh.length < unique.length) {
+      Alert.alert('Leitura conferida', (unique.length - fresh.length) + ' código(s) já estavam na fila e não foram duplicados.')
+    }
+    setLastRead(fresh.join(', ') || unique.join(', '))
+    if (additions.length) {
+      setQueue(current => [...additions, ...current])
+      void enviarLeituras(additions)
+    }
+  }, [destination, weight, queue, enviarLeituras])
 
   const onBarcode = useCallback((event: BarcodeScanningResult) => {
     if (locked.current) return
