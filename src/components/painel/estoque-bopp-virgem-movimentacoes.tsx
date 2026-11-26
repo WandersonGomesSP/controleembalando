@@ -337,7 +337,10 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
           <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <strong className="text-xs text-indigo-950">Leituras recebidas pelo Coletor Android ({leiturasMobileBopp.length})</strong>
-              <button type="button" onClick={() => leiturasMobileBopp.forEach(adicionarLeituraMobile)} className="rounded-md bg-indigo-700 px-3 py-1.5 text-[10px] font-bold text-white">Adicionar todas à entrada</button>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => void carregar()} className="rounded-md border border-indigo-300 bg-white px-3 py-1.5 text-[10px] font-bold text-indigo-800">Atualizar</button>
+                <button type="button" onClick={() => leiturasMobileBopp.forEach(adicionarLeituraMobile)} className="rounded-md bg-indigo-700 px-3 py-1.5 text-[10px] font-bold text-white">Adicionar todas à entrada</button>
+              </div>
             </div>
             <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
               {leiturasMobileBopp.map(item => (
