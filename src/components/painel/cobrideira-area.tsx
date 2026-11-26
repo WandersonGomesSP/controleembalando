@@ -1422,7 +1422,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-7 pt-[18px] pb-4">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             <div className="flex min-w-0 items-center gap-[18px]">
-              <img src="/logo-embalando.png" alt="Embalando Fitas Adesivas" className="block h-16 w-auto shrink-0 object-contain max-[767px]:h-12" />
+              <img src="/embalando-simbolo-preto-branco.svg" alt="Símbolo Embalando" className="block h-16 w-16 shrink-0 object-contain translate-y-[5mm] max-[767px]:h-12 max-[767px]:w-12" />
               <div aria-hidden="true" className="hidden h-12 w-px shrink-0 bg-[#cbd5e1] md:block" />
               <div className="min-w-0">
                 <h1 className="text-[24px] leading-[1.1] font-bold text-[#0b1f4d]">
