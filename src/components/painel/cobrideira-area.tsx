@@ -29,6 +29,7 @@ import { EstoqueMinimoCobrideira } from '@/components/painel/rebobinadeira-area'
 import { EstoqueAtualCobrideira } from '@/components/painel/estoque-atual'
 import { EstoqueColaCobrideira } from '@/components/painel/estoque-cola'
 import { downloadCobrideiraLabel } from '@/lib/cobrideira-label'
+import { downloadCobrideiraLabelNova } from '@/lib/cobrideira-label-modern'
 import { synchronizeCobrideiraBobina, updateCobrideiraBobina, moveCobrideiraBobinaToTrash, listCobrideiraBobinasTrash, restoreCobrideiraBobinaFromTrash, permanentlyDeleteCobrideiraBobina, listCurrentStockTrash, restoreCurrentStockRecord, permanentlyDeleteCurrentStockTrashRecord, limparHistoricoConferenciaBopp } from '@/lib/admin.functions'
 import type {
   CobrideiraBobinaInsert,
@@ -1360,7 +1361,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
         toast.success('Dados da bobina atualizados.')
       } else {
         setRegistros((atuais) => [resultado.data, ...atuais])
-        downloadCobrideiraLabel(resultado.data as CobrideiraBobinaRow)
+        downloadCobrideiraLabelNova(resultado.data as CobrideiraBobinaRow)
         toast.success('Bobina cadastrada. Etiqueta PDF baixada.')
       }
 
@@ -2294,7 +2295,8 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                                       {detalhes.map(([rotulo, valor]) => <div key={rotulo} className="min-w-0"><dt className="text-xs text-muted-foreground">{rotulo}</dt><dd className="break-words text-sm font-medium">{valor || '—'}</dd></div>)}
                                     </dl>
                                     <div className="mt-4 flex flex-wrap justify-end gap-2">
-                                      <button type="button" onClick={() => downloadCobrideiraLabel(registro)} className="rounded-full border border-border px-4 py-2 text-sm font-bold hover:bg-muted">Baixar etiqueta PDF</button>
+                                      <button type="button" onClick={() => downloadCobrideiraLabelNova(registro)} className="rounded-full bg-[#07356f] px-4 py-2 text-sm font-bold text-white hover:bg-[#05264f]">Baixar etiqueta nova 12×12</button>
+                                      <button type="button" onClick={() => downloadCobrideiraLabel(registro)} className="rounded-full border border-border px-4 py-2 text-sm font-bold hover:bg-muted">Baixar etiqueta antiga</button>
                                       <button type="button" onClick={() => void sincronizarBobina(registro)} disabled={sincronizandoBobina !== null} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-bold hover:bg-muted disabled:opacity-50">
                                         <RefreshCw className={`size-4 ${sincronizandoBobina === registro.numero_bobina ? 'animate-spin' : ''}`} />
                                         {sincronizandoBobina === registro.numero_bobina ? 'Sincronizando...' : 'Sincronizar'}
