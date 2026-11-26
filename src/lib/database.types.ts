@@ -349,6 +349,21 @@ export type Database = {
       capacidades_producao: Table<CapacidadeProducaoRow>
       stock_operation_logs: Table<StockOperationLogRow>
       stock_code_registry: Table<{ codigo: string; tabela_origem: string }>
+      coletor_leituras: Table<{
+        id: string
+        user_id: string
+        codigo: string
+        destino: 'COBRIDEIRA_PRODUCAO' | 'BOPP_ENTRADA'
+        tipo_leitura: string
+        origem: 'CAMERA' | 'FOTO' | 'MANUAL'
+        metadados: Record<string, unknown>
+        status: 'PENDENTE' | 'PROCESSADO' | 'IGNORADO'
+        created_at: string
+        sincronizado_em: string | null
+        processado_em: string | null
+        processado_por: string | null
+        observacao: string | null
+      }>
     }
     Views: Record<string, never>
     Functions: {
