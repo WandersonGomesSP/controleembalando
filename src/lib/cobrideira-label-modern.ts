@@ -60,13 +60,13 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
 
   // Marca própria e cabeçalho com o número da bobina em primeiro plano.
   rect(margin, pageHeight - margin - 31, 31, 31, navy)
-  centered('CE', margin, page - margin - 19, 31, 13, '1 1 1')
+  centered('CE', margin, pageHeight - margin - 19, 31, 13, '1 1 1')
   text('CONTROLE', margin + 37, pageHeight - margin - 12, 8.5, true, navy)
   text('EMBALANDO', margin + 37, pageHeight - margin - 23, 8.5, true, navy)
   text('PCP  |  IDENTIFICACAO DE BOBINA', margin + 37, pageHeight - margin - 30, 4.4, true, blue)
   const numberX = margin + 132
   const numberW = usable - 132
-  card(numberX, page - margin - 31, numberW, 31, 'Número da bobina', fmt(bobina.numero_bobina), true)
+  card(numberX, pageHeight - margin - 31, numberW, 31, 'Número da bobina', fmt(bobina.numero_bobina), true)
 
   let y = pageHeight - margin - 36
   const gap = 4
@@ -125,7 +125,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + pageWidth + ' ' + pageHeight + ']' /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + pageWidth + ' ' + pageHeight + '] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
     '<< /Length ' + stream.length + ' >>\nstream\n' + stream + '\nendstream',
