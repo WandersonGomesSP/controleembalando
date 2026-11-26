@@ -1,0 +1,348 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable,
+  SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
+} from 'react-native'
+import { Camera, CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera'
+import TextRecognition from '@react-native-ml-kit/text-recognition'
+import { supabase } from './src/lib/supabase'
+import { getQueue, normalizarCodigo, saveQueue, type ScanDestination, type ScanItem } from './src/lib/queue'
+
+const BLUE = '#00008B'
+const RED = '#D71920'
+const BARCODE_TYPES: any[] = ['qr', 'code128', 'code39', 'ean13', 'ean8', 'upc_a', 'upc_e', 'itf14', 'codabar', 'datamatrix', 'pdf417']
+const isCodeLike = (line: string) => {
+  const v = normalizarCodigo(line).replace(/[^A-Z0-9-]/g, '')
+  return v.length >= 5 && /[A-Z0-9]/.test(v) && !/^(FORNECEDOR|MATERIAL|BOBINA|EMBALANDO|PESO|DATA|CLIENTE|PRODUCAO)$/.test(v)
+}
+
+export default function App() {
+  const [session, setSession] = useState<any>(null)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loginBusy, setLoginBusy] = useState(false)
+  const [destination, setDestination] = useState<ScanDestination>('COBRIDEIRA_PRODUCAO')
+  const [queue, setQueue] = useState<ScanItem[]>([])
+  const [permission, requestPermission] = useCameraPermissions()
+  const [cameraReady, setCameraReady] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [manualCode, setManualCode] = useState('')
+  const [weight, setWeight] = useState('')
+  const [supplier, setSupplier] = useState('')
+  const [company, setCompany] = useState('')
+  const [nf, setNf] = useState('')
+  const [issueDate, setIssueDate] = useState('')
+  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10))
+  const [measure, setMeasure] = useState('')
+  const [lastRead, setLastRead] = useState('')
+  const [cameraEnabled, setCameraEnabled] = useState(true)
+  const cameraRef = useRef<CameraView>(null)
+  const locked = useRef(false)
+
+  useEffect(() => {
+    getQueue().then(setQueue)
+    if (!supabase) return
+    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
+    return () => data.subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => { saveQueue(queue) }, [queue])
+
+  const addCodes = useCallback((values: string[], type: string, origin: ScanItem['origem']) => {
+    const unique = [...new Set(values.map(normalizarCodigo).filter(isCodeLike))]
+    if (!unique.length) {
+      Alert.alert('Nenhum código identificado', 'Tente aproximar a etiqueta, melhorar a iluminação ou digitar o código manualmente.')
+      return
+    }
+    setQueue(current => {
+      const existing = new Set(current.map(item => item.codigo))
+      const fresh = unique.filter(code => !existing.has(code))
+      const additions: ScanItem[] = fresh.map(codigo => ({
+        id: createId(), codigo, destino: destination, tipo_leitura: type, origem,
+        criado_em: new Date().toISOString(), sincronizado: false,
+        ...(destination === 'BOPP_ENTRADA' && weight.trim() ? { peso_kg: weight.trim().replace(',', '.') } : {}),
+      }))
+      if (fresh.length < unique.length) {
+        Alert.alert('Leitura conferida', (unique.length - fresh.length) + ' código(s) já estavam na fila e não foram duplicados.')
+      }
+      setLastRead(fresh.join(', ') || unique.join(', '))
+      return [...additions, ...current]
+    })
+  }, [destination, weight])
+
+  const onBarcode = useCallback((event: BarcodeScanningResult) => {
+    if (locked.current) return
+    locked.current = true
+    addCodes([event.data], event.type, 'CAMERA')
+    setTimeout(() => { locked.current = false }, 1200)
+  }, [addCodes])
+
+  const captureAndRead = async () => {
+    if (!cameraRef.current || !cameraReady || busy) return
+    setBusy(true)
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.9 })
+      if (!photo?.uri) throw new Error('Não foi possível capturar a foto.')
+      const [barcodes, text] = await Promise.all([
+        Camera.scanFromURLAsync(photo.uri, BARCODE_TYPES).catch(() => []),
+        TextRecognition.recognize(photo.uri).catch(() => ({ text: '' })),
+      ])
+      const barcodeValues = barcodes.map(item => item.data)
+      const ocrLines = (text.text || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+      const candidates = [...barcodeValues, ...ocrLines.filter(isCodeLike)]
+      if (candidates.length) addCodes(candidates, barcodeValues.length ? 'CODIGO_DE_BARRAS_QR_OCR' : 'OCR_TEXTO', 'FOTO')
+      else Alert.alert('Não encontrei um código', 'A foto foi analisada, mas não encontrei QR Code, código de barras ou texto com aparência de código.')
+    } catch (error: any) {
+      Alert.alert('Falha na leitura', error?.message || 'Tente novamente.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const signIn = async () => {
+    if (!supabase) return Alert.alert('Configuração necessária', 'Preencha EXPO_PUBLIC_SUPABASE_URL e EXPO_PUBLIC_SUPABASE_ANON_KEY no arquivo mobile/.env.')
+    setLoginBusy(true)
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+    setLoginBusy(false)
+    if (error) Alert.alert('Não foi possível entrar', error.message)
+    else setSession(data.session)
+  }
+
+  const syncQueue = async () => {
+    if (!supabase || syncing) return
+    const pending = queue.filter(item => !item.sincronizado)
+    if (!pending.length) return Alert.alert('Fila sincronizada', 'Não há leituras pendentes neste celular.')
+    setSyncing(true)
+    try {
+      const { data: auth } = await supabase.auth.getUser()
+      if (!auth.user) throw new Error('Sua sessão expirou. Entre novamente.')
+      const rows = pending.map(item => ({
+        id: item.id,
+        user_id: auth.user!.id,
+        codigo: item.codigo,
+        destino: item.destino,
+        tipo_leitura: item.tipo_leitura,
+        origem: item.origem,
+        metadados: {
+          peso_kg: item.peso_kg || null,
+          fornecedor: supplier || null,
+          empresa: company || null,
+          nf: nf || null,
+          data_emissao: issueDate || null,
+          data_entrada: entryDate || null,
+          medida: measure || null,
+          observacao: item.observacao || null,
+        },
+        status: 'PENDENTE',
+      }))
+      const { error } = await supabase.from('coletor_leituras').upsert(rows, { onConflict: 'id' })
+      if (error) throw error
+      const ids = new Set(pending.map(item => item.id))
+      setQueue(current => current.map(item => ids.has(item.id) ? { ...item, sincronizado: true } : item))
+      Alert.alert('Enviado ao ERP', pending.length + ' leitura(s) foram enviadas e estão pendentes de conferência no Controle Embalando.')
+    } catch (error: any) {
+      Alert.alert('Não foi possível sincronizar', error?.message || 'As leituras continuam salvas neste celular.')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const signOut = async () => {
+    await supabase?.auth.signOut()
+    setSession(null)
+  }
+
+  const removeItem = (id: string) => setQueue(current => current.filter(item => item.id !== id))
+  const clearSynced = () => setQueue(current => current.filter(item => !item.sincronizado))
+  const addManual = () => {
+    const code = normalizarCodigo(manualCode)
+    if (!isCodeLike(code)) return Alert.alert('Código inválido', 'Digite um código com pelo menos 5 caracteres.')
+    addCodes([code], 'DIGITADO', 'MANUAL')
+    setManualCode('')
+  }
+
+  const pendingCount = queue.filter(item => !item.sincronizado).length
+  const syncedCount = queue.length - pendingCount
+
+  if (!session) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView style={styles.loginWrap} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.logo}><Text style={styles.logoMark}>E</Text><Text style={styles.logoText}>EMBALANDO</Text></View>
+          <Text style={styles.title}>Coletor de códigos</Text>
+          <Text style={styles.muted}>Entre com o mesmo usuário e senha do Controle Embalando.</Text>
+          <TextInput style={styles.input} placeholder="E-mail" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail}/>
+          <TextInput style={styles.input} placeholder="Senha" secureTextEntry value={password} onChangeText={setPassword}/>
+          <Pressable style={styles.primary} onPress={signIn} disabled={loginBusy}>{loginBusy ? <ActivityIndicator color="#fff"/> : <Text style={styles.primaryText}>Entrar no ERP</Text>}</Pressable>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    )
+  }
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.header}>
+        <View><Text style={styles.brand}>CONTROLE EMBALANDO</Text><Text style={styles.headerTitle}>Coletor de códigos</Text></View>
+        <Pressable onPress={signOut}><Text style={styles.logout}>Sair</Text></Pressable>
+      </View>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.sectionTitle}>Para onde enviar?</Text>
+        <View style={styles.destinations}>
+          <Pressable onPress={() => setDestination('COBRIDEIRA_PRODUCAO')} style={[styles.destination, destination === 'COBRIDEIRA_PRODUCAO' && styles.destinationActive]}>
+            <Text style={[styles.destinationTitle, destination === 'COBRIDEIRA_PRODUCAO' && styles.white]}>Produção Cobrideira</Text>
+            <Text style={[styles.destinationHint, destination === 'COBRIDEIRA_PRODUCAO' && styles.white]}>Códigos aguardando cadastro</Text>
+          </Pressable>
+          <Pressable onPress={() => setDestination('BOPP_ENTRADA')} style={[styles.destination, destination === 'BOPP_ENTRADA' && styles.destinationActive]}>
+            <Text style={[styles.destinationTitle, destination === 'BOPP_ENTRADA' && styles.white]}>Entrada de BOPP</Text>
+            <Text style={[styles.destinationHint, destination === 'BOPP_ENTRADA' && styles.white]}>Recebimento de material</Text>
+          </Pressable>
+        </View>
+
+        {destination === 'BOPP_ENTRADA' && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Dados da entrada</Text>
+            <Text style={styles.muted}>Preencha uma vez; os dados acompanham cada código desta fila.</Text>
+            <View style={styles.twoCols}>
+              <TextInput style={styles.inputHalf} placeholder="Fornecedor" value={supplier} onChangeText={setSupplier}/>
+              <TextInput style={styles.inputHalf} placeholder="Empresa" value={company} onChangeText={setCompany}/>
+              <TextInput style={styles.inputHalf} placeholder="NF" value={nf} onChangeText={setNf}/>
+              <TextInput style={styles.inputHalf} placeholder="Medida (ex. 1270.20)" value={measure} onChangeText={setMeasure}/>
+              <TextInput style={styles.inputHalf} placeholder="Data emissão (AAAA-MM-DD)" value={issueDate} onChangeText={setIssueDate}/>
+              <TextInput style={styles.inputHalf} placeholder="Data entrada (AAAA-MM-DD)" value={entryDate} onChangeText={setEntryDate}/>
+            </View>
+            <TextInput style={styles.input} placeholder="Peso da próxima bobina em kg (opcional)" keyboardType="decimal-pad" value={weight} onChangeText={setWeight}/>
+          </View>
+        )}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Capturar códigos</Text>
+          {!permission?.granted ? (
+            <View style={styles.permissionBox}>
+              <Text style={styles.muted}>Precisamos da câmera para ler etiquetas, QR Codes e códigos de barras.</Text>
+              <Pressable style={styles.primary} onPress={requestPermission}><Text style={styles.primaryText}>Liberar câmera</Text></Pressable>
+            </View>
+          ) : (
+            <View style={styles.cameraFrame}>
+              {cameraEnabled ? (
+                <CameraView
+                  ref={cameraRef}
+                  style={styles.camera}
+                  facing="back"
+                  enableTorch={false}
+                  barcodeScannerSettings={{ barcodeTypes: BARCODE_TYPES }}
+                  onBarcodeScanned={onBarcode}
+                  onCameraReady={() => setCameraReady(true)}
+                />
+              ) : <View style={styles.cameraOff}><Text style={styles.white}>Câmera pausada</Text></View>}
+              <View style={styles.cameraActions}>
+                <Pressable style={styles.capture} onPress={captureAndRead} disabled={busy || !cameraReady}>
+                  {busy ? <ActivityIndicator color="#fff"/> : <Text style={styles.captureText}>FOTOGRAFAR E LER</Text>}
+                </Pressable>
+                <Pressable style={styles.cameraToggle} onPress={() => setCameraEnabled(v => !v)}><Text style={styles.white}>{cameraEnabled ? 'Pausar' : 'Abrir câmera'}</Text></Pressable>
+              </View>
+            </View>
+          )}
+          {!!lastRead && <Text style={styles.successText}>Última leitura: {lastRead}</Text>}
+          <Text style={styles.muted}>Aponte para ler automaticamente o código de barras/QR ou fotografe a etiqueta para procurar também códigos impressos por OCR.</Text>
+          <View style={styles.manualRow}>
+            <TextInput style={[styles.input, styles.manualInput]} placeholder="Ou digite um código" value={manualCode} onChangeText={setManualCode} autoCapitalize="characters"/>
+            <Pressable style={styles.smallPrimary} onPress={addManual}><Text style={styles.primaryText}>Adicionar</Text></Pressable>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.queueHeader}>
+            <View><Text style={styles.sectionTitle}>Fila deste celular</Text><Text style={styles.muted}>{queue.length} códigos • {pendingCount} não enviados • {syncedCount} enviados</Text></View>
+            <Pressable onPress={clearSynced}><Text style={styles.link}>Limpar enviados</Text></Pressable>
+          </View>
+          <FlatList
+            data={queue}
+            scrollEnabled={false}
+            keyExtractor={item => item.id}
+            ListEmptyComponent={<Text style={styles.empty}>Nenhum código capturado ainda.</Text>}
+            renderItem={({ item }) => (
+              <View style={styles.queueItem}>
+                <View style={styles.queueIcon}><Text style={styles.queueIconText}>▦</Text></View>
+                <View style={styles.queueInfo}>
+                  <Text style={styles.code}>{item.codigo}</Text>
+                  <Text style={styles.queueMeta}>{item.destino === 'BOPP_ENTRADA' ? 'Entrada BOPP' : 'Produção Cobrideira'} • {item.tipo_leitura}</Text>
+                  {item.peso_kg ? <Text style={styles.queueMeta}>Peso: {item.peso_kg} kg</Text> : null}
+                </View>
+                <Text style={item.sincronizado ? styles.synced : styles.unsynced}>{item.sincronizado ? 'ENVIADO' : 'PENDENTE'}</Text>
+                <Pressable onPress={() => removeItem(item.id)} style={styles.remove}><Text style={styles.removeText}>×</Text></Pressable>
+              </View>
+            )}
+          />
+          <Pressable style={[styles.primary, styles.syncButton]} onPress={syncQueue} disabled={syncing || pendingCount === 0}>
+            {syncing ? <ActivityIndicator color="#fff"/> : <Text style={styles.primaryText}>Enviar {pendingCount} leitura(s) ao ERP</Text>}
+          </Pressable>
+        </View>
+        <Text style={styles.footer}>As leituras ficam guardadas no aparelho até serem sincronizadas. A sincronização usa um identificador único para não duplicar envios em caso de queda de internet.</Text>
+      </ScrollView>
+    </SafeAreaView>
+  )
+}
+
+function createId() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
+  })
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#F3F5FA' },
+  header: { backgroundColor: BLUE, paddingHorizontal: 18, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  brand: { color: '#C8D2FF', fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
+  headerTitle: { color: '#fff', fontSize: 21, fontWeight: '800', marginTop: 3 },
+  logout: { color: '#fff', fontWeight: '700', padding: 8 },
+  content: { padding: 14, paddingBottom: 34, gap: 14 },
+  sectionTitle: { color: '#17213B', fontSize: 16, fontWeight: '800', marginBottom: 8 },
+  muted: { color: '#64708A', fontSize: 12, lineHeight: 18 },
+  destinations: { flexDirection: 'row', gap: 10 },
+  destination: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#DCE2EE', borderRadius: 12, padding: 13 },
+  destinationActive: { backgroundColor: BLUE, borderColor: BLUE },
+  destinationTitle: { color: '#17213B', fontWeight: '800', fontSize: 13 },
+  destinationHint: { color: '#64708A', fontSize: 11, marginTop: 5 },
+  white: { color: '#fff' },
+  card: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#E3E8F1', gap: 9 },
+  twoCols: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#D5DCE8', borderRadius: 9, paddingHorizontal: 12, paddingVertical: 11, color: '#18213A', fontSize: 14 },
+  inputHalf: { width: '48%', flexGrow: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#D5DCE8', borderRadius: 9, paddingHorizontal: 10, paddingVertical: 10, color: '#18213A', fontSize: 12 },
+  cameraFrame: { height: 290, borderRadius: 12, overflow: 'hidden', backgroundColor: '#0B1020' },
+  camera: { flex: 1 },
+  cameraOff: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  cameraActions: { position: 'absolute', bottom: 12, left: 12, right: 12, flexDirection: 'row', gap: 8 },
+  capture: { flex: 1, backgroundColor: RED, padding: 14, borderRadius: 10, alignItems: 'center' },
+  captureText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+  cameraToggle: { backgroundColor: '#111827CC', padding: 14, borderRadius: 10, justifyContent: 'center' },
+  permissionBox: { gap: 10 },
+  primary: { backgroundColor: RED, borderRadius: 10, paddingVertical: 13, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  primaryText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  smallPrimary: { backgroundColor: RED, borderRadius: 9, paddingHorizontal: 12, justifyContent: 'center' },
+  successText: { color: '#087443', fontSize: 12, fontWeight: '700' },
+  manualRow: { flexDirection: 'row', gap: 8, marginTop: 5 },
+  manualInput: { flex: 1 },
+  queueHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  link: { color: BLUE, fontSize: 11, fontWeight: '800' },
+  empty: { color: '#78839A', textAlign: 'center', paddingVertical: 18, fontSize: 12 },
+  queueItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#EDF0F5', gap: 8 },
+  queueIcon: { width: 34, height: 34, backgroundColor: '#EEF1FF', borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  queueIconText: { color: BLUE, fontSize: 18, fontWeight: '900' },
+  queueInfo: { flex: 1 },
+  code: { color: '#111827', fontWeight: '900', fontSize: 14 },
+  queueMeta: { color: '#68748C', fontSize: 10, marginTop: 2 },
+  synced: { color: '#087443', fontSize: 9, fontWeight: '900' },
+  unsynced: { color: '#B45309', fontSize: 9, fontWeight: '900' },
+  remove: { paddingHorizontal: 7, paddingVertical: 2 },
+  removeText: { color: '#C5222A', fontSize: 23, fontWeight: '500' },
+  syncButton: { marginTop: 8 },
+  footer: { color: '#778198', fontSize: 10, lineHeight: 16, textAlign: 'center', paddingHorizontal: 10 },
+  loginWrap: { flex: 1, justifyContent: 'center', padding: 24, gap: 13 },
+  logo: { width: 74, height: 74, borderRadius: 22, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  logoMark: { color: '#fff', fontWeight: '900', fontSize: 42, lineHeight: 45 },
+  logoText: { color: '#fff', fontSize: 7, fontWeight: '900', letterSpacing: 0.8 },
+  title: { color: '#111827', fontSize: 27, fontWeight: '900' },
+})
