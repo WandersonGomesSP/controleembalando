@@ -29,7 +29,6 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [manualCode, setManualCode] = useState('')
-  const [weight, setWeight] = useState('')
   const [supplier, setSupplier] = useState('')
   const [company, setCompany] = useState('')
   const [nf, setNf] = useState('')
@@ -74,6 +73,7 @@ export default function App() {
           observacao: item.observacao || null,
         },
         status: 'PENDENTE',
+        sincronizado_em: new Date().toISOString(),
       }))
       const { error } = await supabase.from('coletor_leituras').upsert(rows, { onConflict: 'id' })
       if (error) throw error
@@ -95,7 +95,7 @@ export default function App() {
     const additions: ScanItem[] = fresh.map(codigo => ({
       id: createId(), codigo, destino: destination, tipo_leitura: type, origem,
       criado_em: new Date().toISOString(), sincronizado: false,
-      ...(destination === 'BOPP_ENTRADA' && weight.trim() ? { peso_kg: weight.trim().replace(',', '.') } : {}),
+      
     }))
     if (fresh.length < unique.length) {
       Alert.alert('Leitura conferida', (unique.length - fresh.length) + ' código(s) já estavam na fila e não foram duplicados.')
@@ -134,6 +134,23 @@ export default function App() {
     } finally {
       setBusy(false)
     }
+  }
+
+  const atualizarPesoLeitura = (id: string, value: string) => {
+    setQueue(current => current.map(item => item.id === id ? { ...item, peso_kg: value.replace(',', '.') } : item))
+  }
+
+  const salvarPesoLeituraNoErp = async (item: ScanItem, value: string) => {
+    if (!item.sincronizado || !supabase) return
+    const { error } = await supabase.from('coletor_leituras').update({
+      metadados: {
+        peso_kg: value.trim() ? value.trim().replace(',', '.') : null,
+        fornecedor: supplier || null, empresa: company || null, nf: nf || null,
+        data_emissao: issueDate || null, data_entrada: entryDate || null,
+        medida: measure || null, observacao: item.observacao || null,
+      },
+    }).eq('id', item.id)
+    if (error) Alert.alert('Peso não atualizado no ERP', 'O peso continua salvo no celular e será reenviado na próxima sincronização.')
   }
 
   const signIn = async () => {
@@ -247,7 +264,6 @@ export default function App() {
               <TextInput style={styles.inputHalf} placeholder="Data emissão (AAAA-MM-DD)" value={issueDate} onChangeText={setIssueDate}/>
               <TextInput style={styles.inputHalf} placeholder="Data entrada (AAAA-MM-DD)" value={entryDate} onChangeText={setEntryDate}/>
             </View>
-            <TextInput style={styles.input} placeholder="Peso da próxima bobina em kg (opcional)" keyboardType="decimal-pad" value={weight} onChangeText={setWeight}/>
           </View>
         )}
 
@@ -303,7 +319,16 @@ export default function App() {
                 <View style={styles.queueInfo}>
                   <Text style={styles.code}>{item.codigo}</Text>
                   <Text style={styles.queueMeta}>{item.destino === 'BOPP_ENTRADA' ? 'Entrada BOPP' : 'Produção Cobrideira'} • {item.tipo_leitura}</Text>
-                  {item.peso_kg ? <Text style={styles.queueMeta}>Peso: {item.peso_kg} kg</Text> : null}
+                  {item.destino === 'BOPP_ENTRADA' && (
+                    <TextInput
+                      style={styles.weightInput}
+                      placeholder="Peso individual (kg)"
+                      keyboardType="decimal-pad"
+                      value={item.peso_kg || ''}
+                      onChangeText={value => atualizarPesoLeitura(item.id, value)}
+                      onEndEditing={event => void salvarPesoLeituraNoErp(item, event.nativeEvent.text)}
+                    />
+                  )}
                 </View>
                 <Text style={item.sincronizado ? styles.synced : styles.unsynced}>{item.sincronizado ? 'ENVIADO' : 'PENDENTE'}</Text>
                 <Pressable onPress={() => removeItem(item.id)} style={styles.remove}><Text style={styles.removeText}>×</Text></Pressable>
@@ -369,6 +394,7 @@ const styles = StyleSheet.create({
   queueInfo: { flex: 1 },
   code: { color: '#111827', fontWeight: '900', fontSize: 14 },
   queueMeta: { color: '#68748C', fontSize: 10, marginTop: 2 },
+  weightInput: { marginTop: 5, maxWidth: 150, backgroundColor: '#fff', borderWidth: 1, borderColor: '#D5DCE8', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 5, color: '#18213A', fontSize: 11 },
   synced: { color: '#087443', fontSize: 9, fontWeight: '900' },
   unsynced: { color: '#B45309', fontSize: 9, fontWeight: '900' },
   remove: { paddingHorizontal: 7, paddingVertical: 2 },
