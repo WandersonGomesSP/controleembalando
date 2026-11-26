@@ -14,8 +14,8 @@ Requisitos: Node.js 22.13+, pnpm/npm, Android Studio, Android SDK e um celular A
 
 ```powershell
 cd mobile
-pnpm install
-pnpm android
+npm install
+npm run android
 ```
 
 A primeira compilação instala o módulo nativo de OCR. Expo Go não é suficiente; este projeto usa um development build.
