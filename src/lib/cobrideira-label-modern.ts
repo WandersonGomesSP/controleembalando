@@ -1,6 +1,6 @@
 import type { CobrideiraBobinaRow } from '@/lib/database.types'
 
-const PAGE_W = 140 * 72 / 25.4
+const PAGE_W = 120 * 72 / 25.4
 const PAGE_H = 100 * 72 / 25.4
 const MM = 72 / 25.4
 
