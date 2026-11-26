@@ -8,7 +8,7 @@
     "newArchEnabled": true,
     "android": {
       "package": "com.embalando.controlecoletor",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#00008B",
         "foregroundImage": "./assets/logo-embalando.png"
