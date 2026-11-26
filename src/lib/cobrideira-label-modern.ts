@@ -12,8 +12,27 @@ function pdfHex(value: string) {
 }
 
 function textWidth(value: string, size: number) {
-  const factors: Record<string, number> = { ' ': 0.278, i: 0.222, l: 0.222, I: 0.278, '.': 0.278, ',': 0.278, ':': 0.278, ';': 0.278, '!': 0.333, '|': 0.26, M: 0.833, W: 0.944, '@': 0.92, '%': 0.889, f: 0.333, r: 0.389, t: 0.333, '(': 0.333, ')': 0.333, '-': 0.333, '/': 0.278 }
-  return Array.from(value).reduce((sum, char) => sum + (factors[char] ?? 0.556) * size, 0)
+  // Métricas AFM da Helvetica Bold (fonte usada nos campos da etiqueta).
+  // Valores em milésimos de em; evita subestimar palavras em caixa alta,
+  // como PREMIUM PLASTIC e VERDE, que estavam ultrapassando os campos.
+  const widths: Record<string, number> = {
+    ' ': 278, '!': 333, '"': 474, '#': 556, '$': 556, '%': 889, '&': 722,
+    "'": 238, '(': 333, ')': 333, '*': 389, '+': 584, ',': 278, '-': 333,
+    '.': 278, '/': 278, '0': 556, '1': 556, '2': 556, '3': 556, '4': 556,
+    '5': 556, '6': 556, '7': 556, '8': 556, '9': 556, ':': 333, ';': 333,
+    '<': 584, '=': 584, '>': 584, '?': 611, '@': 975,
+    A: 722, B: 667, C: 667, D: 722, E: 611, F: 556, G: 778, H: 722,
+    I: 278, J: 556, K: 667, L: 556, M: 833, N: 722, O: 778, P: 611,
+    Q: 778, R: 667, S: 556, T: 611, U: 722, V: 667, W: 944, X: 667,
+    Y: 667, Z: 611, '[': 333, '\\': 278, ']': 333, '^': 584, '_': 556,
+    '`': 333, a: 556, b: 611, c: 556, d: 611, e: 556, f: 333, g: 611,
+    h: 611, i: 278, j: 278, k: 556, l: 278, m: 889, n: 611, o: 611,
+    p: 611, q: 611, r: 389, s: 556, t: 333, u: 611, v: 556, w: 778,
+    x: 556, y: 556, z: 500, '{': 389, '|': 280, '}': 389, '~': 584,
+  };
+  const units = Array.from(value).reduce((sum, char) => sum + (widths[char] ?? 667), 0);
+  // Margem adicional de 3% para tolerar arredondamento e diferenças de impressão.
+  return units * size / 1000 * 1.03;
 }
 
 function fitSize(value: string, maxWidth: number, maximum: number, minimum = 4.5) {
