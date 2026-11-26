@@ -183,7 +183,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
 
   // Cabeçalho: logotipo, número da bobina, data e operador/turno.
   const logoX = x0, logoY = rows.l1, d = 6.5
-  const cx = logoX + d / 2, cyTop = logoY + heights.l1 - 1 - d / 2
+  const cx = logoX + d / 2, cyTop = logoY + heights.l1 - 1 - d / 2 - 10
   commands.push(`0 0 0 rg ${mm(cx+d/2).toFixed(2)} ${yTop(cyTop).toFixed(2)} m ${mm(cx+d/2).toFixed(2)} ${yTop(cyTop-d/2).toFixed(2)} ${mm(cx+d/2*0.5522847498).toFixed(2)} ${yTop(cyTop-d/2).toFixed(2)} ${mm(cx).toFixed(2)} ${yTop(cyTop-d/2).toFixed(2)} c ${mm(cx-d/2*0.5522847498).toFixed(2)} ${yTop(cyTop-d/2).toFixed(2)} ${mm(cx-d/2).toFixed(2)} ${yTop(cyTop-d/2*0.5522847498).toFixed(2)} ${mm(cx-d/2).toFixed(2)} ${yTop(cyTop).toFixed(2)} c ${mm(cx-d/2).toFixed(2)} ${yTop(cyTop+d/2*0.5522847498).toFixed(2)} ${mm(cx-d/2*0.5522847498).toFixed(2)} ${yTop(cyTop+d/2).toFixed(2)} ${mm(cx).toFixed(2)} ${yTop(cyTop+d/2).toFixed(2)} c ${mm(cx+d/2*0.5522847498).toFixed(2)} ${yTop(cyTop+d/2).toFixed(2)} ${mm(cx+d/2).toFixed(2)} ${yTop(cyTop+d/2*0.5522847498).toFixed(2)} ${mm(cx+d/2).toFixed(2)} ${yTop(cyTop).toFixed(2)} c f`)
   commands.push(`1 1 1 rg ${mm(cx-2.3).toFixed(2)} ${yTop(cyTop+0.2).toFixed(2)} ${mm(3.2).toFixed(2)} ${mm(1.5).toFixed(2)} re f ${mm(cx-0.9).toFixed(2)} ${yTop(cyTop-1.7).toFixed(2)} ${mm(3.2).toFixed(2)} ${mm(1.5).toFixed(2)} re f`)
   drawText('Controle', logoX+d+1, 8.4, 7.5, 'F3')
@@ -244,7 +244,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   const qrH = heights.l6 + gap + heights.l7
   const module = 0.72, side = module * 21, quiet = 1
   const originX = qrX + (qrW - side - quiet * 2) / 2 + quiet
-  const originTop = qrTop + (qrH - side - quiet * 2) / 2 + quiet
+  const originTop = qrTop + (qrH - side - quiet * 2) / 2 + quiet - 10
   commands.push(`1 1 1 rg ${mm(originX-quiet).toFixed(2)} ${yTop(originTop+side+quiet).toFixed(2)} ${mm(side+quiet*2).toFixed(2)} ${mm(side+quiet*2).toFixed(2)} re f 0 0 0 rg`)
   matrix.forEach((row, rowIndex) => row.forEach((dark, colIndex) => {
     if (dark) commands.push(`${mm(originX+colIndex*module).toFixed(3)} ${yTop(originTop+(rowIndex+1)*module).toFixed(2)} ${mm(module).toFixed(3)} ${mm(module).toFixed(3)} re f`)
