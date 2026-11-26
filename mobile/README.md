@@ -1,6 +1,6 @@
-# Controle Embalando — Coletor Android
+# Controle Embalando — Coletor Android e iOS
 
-Aplicativo Android independente para fotografar etiquetas, reconhecer QR Codes/códigos de barras e ler códigos impressos por OCR local (Google ML Kit).
+Aplicativo para Android e iOS para fotografar etiquetas, reconhecer QR Codes/códigos de barras e ler códigos impressos por OCR local (Google ML Kit).
 
 ## Configuração
 
@@ -10,7 +10,7 @@ Aplicativo Android independente para fotografar etiquetas, reconhecer QR Codes/c
 
 ## Instalação local no Windows
 
-Requisitos: Node.js 22.13+, pnpm/npm, Android Studio, Android SDK e um celular Android com depuração USB ativada.
+Requisitos: Node.js 22.13+ e uma conta Expo. O EAS compila na nuvem; não é necessário instalar Android Studio, Android SDK ou Xcode para gerar os arquivos de instalação.
 
 ```powershell
 cd mobile
@@ -18,7 +18,7 @@ npm install
 npm run android
 ```
 
-A primeira compilação instala o módulo nativo de OCR. Expo Go não é suficiente; este projeto usa um development build.
+A primeira compilação instala o módulo nativo de OCR. Expo Go não é suficiente; este projeto usa um build próprio. Para gerar APK de teste: `eas build --platform android --profile preview`. Para iOS: `eas build --platform ios --profile preview` (instalação em iPhone exige distribuição/certificados Apple adequados).
 
 ## Fluxo
 
