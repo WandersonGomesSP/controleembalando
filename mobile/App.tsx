@@ -257,7 +257,7 @@ export default function App() {
     return (
       <SafeAreaView style={styles.safe}>
         <KeyboardAvoidingView style={styles.loginWrap} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={styles.logo}><Image source={require('../public/logo-embalando.png')} style={styles.logoImage} resizeMode="contain" /></View>
+          <View style={styles.logo}><Image source={require('./assets/logo-embalando.png')} style={styles.logoImage} resizeMode="contain" /></View>
           <Text style={styles.title}>Coletor de códigos</Text>
           <Text style={styles.muted}>Entre com o mesmo usuário e senha do Controle Embalando.</Text>
           <TextInput style={styles.input} placeholder="E-mail" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail}/>
