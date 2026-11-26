@@ -135,13 +135,13 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
     const black = Boolean(options.black)
     pathRound(x, top, w, h, 1.6, black)
     const labelSize = fitSize(label, mm(w - 2), options.labelMax ?? 6.5, 5)
-    centerText(label, x, top, w, 3.15, labelSize, black)
+    centerText(label, x, top, w, 2.1 + (0.718 * labelSize / MM) / 2, labelSize, black)
     commands.push(\`\${black ? '1 1 1' : '0 0 0'} RG 0.9 w \${mm(x+2).toFixed(2)} \${yTop(top+4.2).toFixed(2)} m \${mm(x+w-2).toFixed(2)} \${yTop(top+4.2).toFixed(2)} l S\`)
     const content = fmt(value)
     const size = fitSize(content, mm(w - 4), options.max ?? 15, 4.5)
     const valueArea = h - 4.2
     const glyphHeight = 0.718 * size / MM
-    const baseline = h - (4.2 + valueArea / 2 - glyphHeight / 2)
+    const baseline = h / 2 + 2.1 + glyphHeight / 2
     centerText(content, x, top, w, baseline, size, black)
   }
 
@@ -163,7 +163,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   drawText('de Produção', logoX, 18.9, 5.3, 'F4')
 
   const shift = String(bobina.turno ?? '').replace(/\s*TURNO\s*/i, '').trim()
-  let x = 32.5 + gap
+  let x = 31
   field('Nº DA BOBINA', bobina.numero_bobina, x, rows.l1, 29, heights.l1, { black: true, max: 24 })
   x += 29 + gap
   field('DATA DA PRODUÇÃO', dateBR(bobina.data), x, rows.l1, 26, heights.l1, { max: 14 })
