@@ -54,64 +54,31 @@ function Stop-DevServer {
 function Update-Repository {
   param([switch]$Announce)
 
-  $status = Invoke-Git @('status', '--porcelain')
+  # Nao usa git stash: em configuracoes locais do Expo (app.json/eas.json)
+  # o indice pode estar marcado como desatualizado e o stash falha.
+  # O pull --ff-only nunca descarta alteracoes locais; se houver conflito,
+  # o Git recusa a atualizacao e o servidor local continua funcionando.
+  $status = Invoke-Git @('status', '--short')
   if ($status.ExitCode -ne 0) {
     Write-Host "Nao consegui verificar os arquivos locais: $($status.Text)" -ForegroundColor Red
     return $false
   }
 
-  $hasLocalChanges = -not [string]::IsNullOrWhiteSpace($status.Text)
-  $stashBefore = Invoke-Git @('rev-parse', '-q', '--verify', 'refs/stash')
-  $stashBeforeHash = if ($stashBefore.ExitCode -eq 0) { $stashBefore.Text } else { '' }
-  $stashCreated = $false
-
-  if ($hasLocalChanges) {
-    Write-Host ""
-    Write-Host "Foram encontradas alteracoes locais. Guardando-as temporariamente..." -ForegroundColor Yellow
-    $save = Invoke-Git @('stash', 'push', '--include-untracked', '-m', 'Auto-save antes da atualizacao do Controle Embalando')
-    if ($save.ExitCode -ne 0) {
-      Write-Host "Nao consegui guardar as alteracoes locais. Nada sera apagado." -ForegroundColor Red
-      Write-Host $save.Text
-      return $false
-    }
-    $stashAfter = Invoke-Git @('rev-parse', '-q', '--verify', 'refs/stash')
-    $stashAfterHash = if ($stashAfter.ExitCode -eq 0) { $stashAfter.Text } else { '' }
-    $stashCreated = ($stashAfterHash -ne '' -and $stashAfterHash -ne $stashBeforeHash)
+  if (-not [string]::IsNullOrWhiteSpace($status.Text)) {
+    Write-Host "Existem arquivos locais modificados. Vou atualizar somente se o Git conseguir fazer fast-forward sem sobrescreve-los." -ForegroundColor Yellow
   }
 
   Write-Host "Baixando a atualizacao do GitHub..." -ForegroundColor Cyan
   $pull = Invoke-Git @('pull', '--ff-only', 'origin', 'desenvolvimento')
   if ($pull.ExitCode -ne 0) {
-    Write-Host "O Git pull nao conseguiu concluir. Vou tentar devolver seus arquivos locais..." -ForegroundColor Red
-    if ($stashCreated) {
-      $restore = Invoke-Git @('stash', 'apply', '--index', 'stash@{0}')
-      if ($restore.ExitCode -eq 0) {
-        [void](Invoke-Git @('stash', 'drop', 'stash@{0}'))
-        Write-Host "Suas alteracoes locais foram restauradas." -ForegroundColor Green
-      } else {
-        Write-Host "As alteracoes continuam guardadas no stash do Git. Nao foram apagadas." -ForegroundColor Yellow
-        Write-Host $restore.Text
-      }
-    }
+    Write-Host "Nao foi possivel aplicar a atualizacao sem mexer nos arquivos locais." -ForegroundColor Yellow
+    Write-Host "Nenhuma alteracao local foi apagada. O sistema sera iniciado com os arquivos que ja estao nesta pasta." -ForegroundColor Yellow
     Write-Host $pull.Text
     return $false
   }
 
-  if ($stashCreated) {
-    Write-Host "Reaplicando suas alteracoes locais..." -ForegroundColor Cyan
-    $restore = Invoke-Git @('stash', 'apply', '--index', 'stash@{0}')
-    if ($restore.ExitCode -ne 0) {
-      Write-Host "A atualizacao foi baixada, mas houve conflito ao reaplicar arquivos locais." -ForegroundColor Red
-      Write-Host "Seu trabalho continua salvo no stash; nao foi descartado." -ForegroundColor Yellow
-      Write-Host $restore.Text
-      return $false
-    }
-    [void](Invoke-Git @('stash', 'drop', 'stash@{0}'))
-    Write-Host "Suas alteracoes locais foram reaplicadas com sucesso." -ForegroundColor Green
-  }
-
   if ($Announce) {
-    Write-Host "Atualizacao concluida. O CMD sera reaberto automaticamente." -ForegroundColor Green
+    Write-Host "Atualizacao concluida. Reiniciando o servidor local..." -ForegroundColor Green
   }
   return $true
 }
@@ -126,15 +93,12 @@ if ($branchResult.ExitCode -ne 0 -or $branchResult.Text -ne 'desenvolvimento') {
 Write-Host "Buscando atualizacoes do GitHub..." -ForegroundColor Cyan
 $fetch = Invoke-Git @('fetch', 'origin', 'desenvolvimento')
 if ($fetch.ExitCode -ne 0) {
-  Write-Host "Nao foi possivel consultar o GitHub. Confira sua conexao." -ForegroundColor Red
+  Write-Host "Nao foi possivel consultar o GitHub. O sistema sera iniciado com a versao local." -ForegroundColor Yellow
   Write-Host $fetch.Text
-  Read-Host "Pressione Enter para sair"
-  exit 1
-}
-
-if (-not (Update-Repository)) {
-  Read-Host "Nao foi possivel concluir a atualizacao automaticamente. Pressione Enter para sair"
-  exit 1
+} else {
+  if (-not (Update-Repository)) {
+    Write-Host "A atualizacao ficou pendente. O sistema sera iniciado com a versao local." -ForegroundColor Yellow
+  }
 }
 
 $server = Start-DevServer
