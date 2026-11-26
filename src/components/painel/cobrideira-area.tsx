@@ -588,6 +588,22 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
   const [historicoConferenciasBopp, setHistoricoConferenciasBopp] = React.useState<ConferenciaBaixaBopp[]>([])
   const [painelConferenciaBoppAberto, setPainelConferenciaBoppAberto] = React.useState(false)
   const [carregandoConferenciasBopp, setCarregandoConferenciasBopp] = React.useState(false)
+  const [leiturasMobilePendentes, setLeiturasMobilePendentes] = React.useState<Array<{ id: string; codigo: string; created_at: string }>>([])
+  const [leituraMobileSelecionada, setLeituraMobileSelecionada] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    let ativo = true
+    void (async () => {
+      const { data, error } = await supabase.from('coletor_leituras')
+        .select('id,codigo,created_at')
+        .eq('destino', 'COBRIDEIRA_PRODUCAO')
+        .eq('status', 'PENDENTE')
+        .order('created_at', { ascending: false })
+        .limit(100)
+      if (ativo && !error) setLeiturasMobilePendentes(data ?? [])
+    })()
+    return () => { ativo = false }
+  }, [])
 
   async function carregarConferenciasBopp(notificarErro = false) {
     setCarregandoConferenciasBopp(true)
@@ -1323,6 +1339,18 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             .single()
       if (resultado.error) throw resultado.error
 
+      if (!editandoNumero && leituraMobileSelecionada) {
+        const { error: leituraError } = await supabase.from('coletor_leituras')
+          .update({ status: 'PROCESSADO', processado_em: new Date().toISOString() })
+          .eq('id', leituraMobileSelecionada)
+        if (leituraError) {
+          toast.warning('Bobina cadastrada, mas a leitura do celular continua pendente.', { description: leituraError.message })
+        } else {
+          setLeiturasMobilePendentes(atual => atual.filter(item => item.id !== leituraMobileSelecionada))
+        }
+        setLeituraMobileSelecionada(null)
+      }
+
       if (editandoNumero) {
         setRegistros((atuais) =>
           atuais.map((registro) =>
@@ -1534,6 +1562,29 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
                       maxLength={100}
                     />
                     {consultandoCodigoBopp && <p className="mt-1 text-[10px] text-slate-500">Pesquisando código no Estoque Atual Virgem...</p>}
+                    {leiturasMobilePendentes.length > 0 && (
+                      <div className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50 p-2">
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <strong className="text-[10px] text-indigo-950">Códigos recebidos pelo Coletor Android ({leiturasMobilePendentes.length})</strong>
+                          <button type="button" onClick={async () => {
+                            const { data } = await supabase.from('coletor_leituras').select('id,codigo,created_at').eq('destino','COBRIDEIRA_PRODUCAO').eq('status','PENDENTE').order('created_at',{ascending:false}).limit(100)
+                            setLeiturasMobilePendentes(data ?? [])
+                          }} className="text-[10px] font-bold text-indigo-800">Atualizar</button>
+                        </div>
+                        <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto">
+                          {leiturasMobilePendentes.map(item => (
+                            <button key={item.id} type="button" onClick={() => {
+                              atualizar('codBob', item.codigo)
+                              setLeituraMobileSelecionada(item.id)
+                              setEstoqueBoppEncontrado(null)
+                            }} className={`rounded-md border px-2 py-1 font-mono text-[10px] font-bold ${leituraMobileSelecionada === item.id ? 'border-indigo-700 bg-indigo-700 text-white' : 'border-indigo-200 bg-white text-indigo-950 hover:bg-indigo-100'}`}>
+                              {item.codigo}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="mt-1 text-[9px] text-indigo-800">Selecione um código para preencher o cadastro. Ele sai da fila após salvar a bobina.</p>
+                      </div>
+                    )}
                     {sugestoesBopp.length > 0 && (
                       <div className="mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
                         {sugestoesBopp.map(item => (
