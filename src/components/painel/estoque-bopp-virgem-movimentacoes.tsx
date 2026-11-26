@@ -80,8 +80,19 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
   const [excluindoItemEntrada, setExcluindoItemEntrada] = React.useState<string | null>(null)
   const [leiturasMobileBopp, setLeiturasMobileBopp] = React.useState<Array<{ id: string; codigo: string; metadados: any; created_at: string }>>([])
   const [leiturasMobileSelecionadas, setLeiturasMobileSelecionadas] = React.useState<string[]>([])
+  const [grupoMobileBoppSelecionado, setGrupoMobileBoppSelecionado] = React.useState<string | null>(null)
+
+  const chaveGrupoMobile = (meta: any) => [
+    meta?.fornecedor, meta?.empresa, meta?.nf, meta?.data_emissao, meta?.data_entrada, meta?.medida,
+  ].map(value => String(value ?? '').trim().toUpperCase()).join('|')
 
   const adicionarLeituraMobile = (item: { id: string; codigo: string; metadados: any }) => {
+    const grupo = chaveGrupoMobile(item.metadados)
+    if (grupoMobileBoppSelecionado && grupoMobileBoppSelecionado !== grupo) {
+      toast.error('Esses códigos pertencem a outra entrada.', { description: 'Salve a entrada atual antes de selecionar códigos de outro fornecedor, NF ou medida.' })
+      return
+    }
+    setGrupoMobileBoppSelecionado(grupo)
     const peso = item.metadados?.peso_kg ? String(item.metadados.peso_kg).replace('.', ',') : ''
     setCodigosEntrada(atual => {
       const jaExiste = lerLinhasEntrada(atual).some(linha => linha.codigo.toUpperCase() === item.codigo.toUpperCase())
@@ -235,6 +246,7 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
           setLeiturasMobileBopp(atual => atual.filter(item => !leiturasMobileSelecionadas.includes(item.id)))
         }
         setLeiturasMobileSelecionadas([])
+        setGrupoMobileBoppSelecionado(null)
       }
       toast.success(`Entrada salva: ${codigos.length} bobina(s), total de ${formatarKg(peso)}.`)
       setMedida(''); setCodigosEntrada('')
@@ -339,7 +351,11 @@ export function BoppVirgemMovimentacoes({ aba }: { aba: AbaBopp }) {
               <strong className="text-xs text-indigo-950">Leituras recebidas pelo Coletor Android ({leiturasMobileBopp.length})</strong>
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => void carregar()} className="rounded-md border border-indigo-300 bg-white px-3 py-1.5 text-[10px] font-bold text-indigo-800">Atualizar</button>
-                <button type="button" onClick={() => leiturasMobileBopp.forEach(adicionarLeituraMobile)} className="rounded-md bg-indigo-700 px-3 py-1.5 text-[10px] font-bold text-white">Adicionar todas à entrada</button>
+                <button type="button" onClick={() => {
+                  const grupos = new Set(leiturasMobileBopp.map(item => chaveGrupoMobile(item.metadados)))
+                  if (grupos.size > 1) return toast.error('Há mais de uma entrada na fila.', { description: 'Selecione os códigos de uma mesma NF/fornecedor/medida por vez.' })
+                  leiturasMobileBopp.forEach(adicionarLeituraMobile)
+                }} className="rounded-md bg-indigo-700 px-3 py-1.5 text-[10px] font-bold text-white">Adicionar todas da mesma entrada</button>
               </div>
             </div>
             <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
