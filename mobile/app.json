@@ -28,6 +28,11 @@
     "icon": "../public/logo-embalando.png",
     "ios": {
       "bundleIdentifier": "com.embalando.controlecoletor"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "aae801e9-3790-44c7-8ab6-2d597a56e070"
+      }
     }
   }
 }
