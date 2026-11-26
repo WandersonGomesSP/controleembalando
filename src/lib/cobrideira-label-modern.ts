@@ -260,7 +260,7 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   centerText('VALIDADE: 06 MESES   |   ESCANEIE ESTA BOBINA', rightX, rows.l7, rightW, 4.55, 8)
 
   // Centraliza a arte na mídia de 140 mm: desloca 10 mm à direita.
-  const stream = `28.3465 0 cm\n${commands.join('\n')}`
+  const stream = `1 0 0 1 28.3465 0 cm\n${commands.join('\n')}`
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
