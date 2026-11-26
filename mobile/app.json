@@ -9,7 +9,6 @@
     "android": {
       "package": "com.embalando.controlecoletor",
       "versionCode": 1,
-      "permissions": ["CAMERA"],
       "adaptiveIcon": {
         "backgroundColor": "#00008B"
       }
@@ -25,10 +24,5 @@
         }
       ]
     ],
-    "extra": {
-      "eas": {
-        "projectId": ""
-      }
-    }
   }
 }
