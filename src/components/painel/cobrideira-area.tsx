@@ -1339,7 +1339,7 @@ export function CobrideiraArea({ onChangeArea, isDeveloper = false }: { onChange
             .single()
       if (resultado.error) throw resultado.error
 
-      if (!editandoNumero && leituraMobileSelecionada) {
+      if (!editandoNumero && leituraMobileSelecionada && leiturasMobilePendentes.find(item => item.id === leituraMobileSelecionada)?.codigo === insercao.cod_bob) {
         const { error: leituraError } = await supabase.from('coletor_leituras')
           .update({ status: 'PROCESSADO', processado_em: new Date().toISOString() })
           .eq('id', leituraMobileSelecionada)
