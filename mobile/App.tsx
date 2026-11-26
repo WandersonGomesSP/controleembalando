@@ -137,7 +137,7 @@ export default function App() {
       // Pausa o preview nativo imediatamente após a primeira leitura para evitar
       // callbacks repetidos enquanto o QR continua enquadrado.
       setScanPaused(true)
-      try { beepPlayer.seekTo(0); beepPlayer.play() } catch { /* O bip não deve interromper a leitura. */ }
+      void beepPlayer.seekTo(0).then(() => beepPlayer.play()).catch(() => { /* O bip não deve interromper a leitura. */ })
       setTimeout(() => {
         locked.current = false
         setScanPaused(false)
@@ -327,7 +327,7 @@ export default function App() {
                 <CameraView
                   ref={cameraRef}
                   style={styles.camera}
-                  active={cameraEnabled && !scanPaused}
+                  active={cameraEnabled}
                   facing="back"
                   enableTorch={false}
                   barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128', 'code39', 'code93', 'ean13', 'ean8', 'upc_a', 'upc_e', 'itf14', 'pdf417', 'datamatrix', 'aztec'] }}
