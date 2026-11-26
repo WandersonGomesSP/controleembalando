@@ -277,11 +277,11 @@ export default function App() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sectionTitle}>Para onde enviar?</Text>
         <View style={styles.destinations}>
-          <Pressable onPress={() => setDestination('COBRIDEIRA_PRODUCAO')} style={[styles.destination, destination === 'COBRIDEIRA_PRODUCAO' && styles.destinationActive]}>
+          <Pressable onPress={() => { setDestination('COBRIDEIRA_PRODUCAO'); setScanPaused(false) }} style={[styles.destination, destination === 'COBRIDEIRA_PRODUCAO' && styles.destinationActive]}>
             <Text style={[styles.destinationTitle, destination === 'COBRIDEIRA_PRODUCAO' && styles.white]}>Produção Cobrideira</Text>
             <Text style={[styles.destinationHint, destination === 'COBRIDEIRA_PRODUCAO' && styles.white]}>Códigos aguardando cadastro</Text>
           </Pressable>
-          <Pressable onPress={() => setDestination('BOPP_ENTRADA')} style={[styles.destination, destination === 'BOPP_ENTRADA' && styles.destinationActive]}>
+          <Pressable onPress={() => { setDestination('BOPP_ENTRADA'); setScanPaused(false) }} style={[styles.destination, destination === 'BOPP_ENTRADA' && styles.destinationActive]}>
             <Text style={[styles.destinationTitle, destination === 'BOPP_ENTRADA' && styles.white]}>Entrada de BOPP</Text>
             <Text style={[styles.destinationHint, destination === 'BOPP_ENTRADA' && styles.white]}>Recebimento de material</Text>
           </Pressable>
