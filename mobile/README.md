@@ -5,7 +5,7 @@ Aplicativo Android independente para fotografar etiquetas, reconhecer QR Codes/c
 ## Configuração
 
 1. Copie `.env.example` para `.env`.
-2. Preencha `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_ANON_KEY` com os valores públicos do mesmo projeto Supabase usado pelo ERP. Nunca coloque a service-role key no aplicativo.
+2. Copie os valores de `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` do `.env` do ERP para `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_ANON_KEY` no arquivo `mobile/.env`. A URL já está preenchida no exemplo; falta a chave anon pública. Nunca coloque a service-role key no aplicativo.
 3. Entre com o mesmo e-mail e senha usados no Controle Embalando.
 
 ## Instalação local no Windows
