@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable,
+  ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Platform, Pressable,
   SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native'
 import { Camera, CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera'
@@ -26,6 +26,7 @@ export default function App() {
   const [queueLoaded, setQueueLoaded] = useState(false)
   const [permission, requestPermission] = useCameraPermissions()
   const [cameraReady, setCameraReady] = useState(false)
+  const [scanPaused, setScanPaused] = useState(false)
   const [busy, setBusy] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [manualCode, setManualCode] = useState('')
@@ -119,11 +120,20 @@ export default function App() {
   }, [destination, queue, enviarLeituras])
 
   const onBarcode = useCallback((event: BarcodeScanningResult) => {
-    if (locked.current) return
+    if (locked.current || scanPaused) return
+    const value = typeof event?.data === 'string' ? event.data.trim() : ''
+    if (!value) return
     locked.current = true
-    addCodes([event.data], event.type, 'CAMERA')
-    setTimeout(() => { locked.current = false }, 1200)
-  }, [addCodes])
+    setScanPaused(true)
+    try {
+      addCodes([value], typeof event.type === 'string' ? event.type : 'QR_CODE', 'CAMERA')
+    } catch {
+      Alert.alert('Falha na leitura', 'Não foi possível processar esse código. Tente novamente.')
+      setScanPaused(false)
+    } finally {
+      locked.current = false
+    }
+  }, [addCodes, scanPaused])
 
   const captureAndRead = async () => {
     if (!cameraRef.current || !cameraReady || busy) return
@@ -247,7 +257,7 @@ export default function App() {
     return (
       <SafeAreaView style={styles.safe}>
         <KeyboardAvoidingView style={styles.loginWrap} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={styles.logo}><Text style={styles.logoMark}>E</Text><Text style={styles.logoText}>EMBALANDO</Text></View>
+          <View style={styles.logo}><Image source={require('../public/logo-embalando.png')} style={styles.logoImage} resizeMode="contain" /></View>
           <Text style={styles.title}>Coletor de códigos</Text>
           <Text style={styles.muted}>Entre com o mesmo usuário e senha do Controle Embalando.</Text>
           <TextInput style={styles.input} placeholder="E-mail" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail}/>
@@ -305,18 +315,24 @@ export default function App() {
                 <CameraView
                   ref={cameraRef}
                   style={styles.camera}
+                  active={cameraEnabled}
                   facing="back"
                   enableTorch={false}
-                  barcodeScannerSettings={{ barcodeTypes: BARCODE_TYPES }}
-                  onBarcodeScanned={onBarcode}
+                  barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128', 'code39', 'code93', 'ean13', 'ean8', 'upc_a', 'upc_e', 'itf14', 'pdf417', 'datamatrix', 'aztec'] }}
+                  onBarcodeScanned={scanPaused ? undefined : onBarcode}
                   onCameraReady={() => setCameraReady(true)}
+                  onMountError={(event) => Alert.alert('Câmera indisponível', event.message || 'Feche outros aplicativos que estejam usando a câmera e tente novamente.')}
                 />
               ) : <View style={styles.cameraOff}><Text style={styles.white}>Câmera pausada</Text></View>}
               <View style={styles.cameraActions}>
                 <Pressable style={styles.capture} onPress={captureAndRead} disabled={busy || !cameraReady}>
                   {busy ? <ActivityIndicator color="#fff"/> : <Text style={styles.captureText}>FOTOGRAFAR E LER</Text>}
                 </Pressable>
-                <Pressable style={styles.cameraToggle} onPress={() => setCameraEnabled(v => !v)}><Text style={styles.white}>{cameraEnabled ? 'Pausar' : 'Abrir câmera'}</Text></Pressable>
+                <Pressable style={styles.cameraToggle} onPress={() => {
+                  if (!cameraEnabled) { setCameraEnabled(true); setScanPaused(false) }
+                  else if (scanPaused) setScanPaused(false)
+                  else setCameraEnabled(false)
+                }}><Text style={styles.white}>{!cameraEnabled ? 'Abrir câmera' : scanPaused ? 'Ler próximo' : 'Pausar'}</Text></Pressable>
               </View>
             </View>
           )}
@@ -427,8 +443,7 @@ const styles = StyleSheet.create({
   syncButton: { marginTop: 8 },
   footer: { color: '#778198', fontSize: 10, lineHeight: 16, textAlign: 'center', paddingHorizontal: 10 },
   loginWrap: { flex: 1, justifyContent: 'center', padding: 24, gap: 13 },
-  logo: { width: 74, height: 74, borderRadius: 22, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  logoMark: { color: '#fff', fontWeight: '900', fontSize: 42, lineHeight: 45 },
-  logoText: { color: '#fff', fontSize: 7, fontWeight: '900', letterSpacing: 0.8 },
+  logo: { width: 190, height: 92, backgroundColor: '#fff', borderRadius: 14, alignItems: 'center', justifyContent: 'center', padding: 8, marginBottom: 6 },
+  logoImage: { width: '100%', height: '100%' },
   title: { color: '#111827', fontSize: 27, fontWeight: '900' },
 })
