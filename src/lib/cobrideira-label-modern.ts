@@ -72,7 +72,7 @@ function dateBR(value: unknown) {
 // O desenho é composto por módulos vetoriais, sem PNG ou suavização.
 function qrMatrix(input: string): boolean[][] {
   // QR Model 2 v1-L, modo numérico: 19 bytes de dados e 7 de correção.
-  if (!/^\\d{1,41}$/.test(input)) throw new Error('Número da bobina deve conter de 1 a 41 dígitos.')
+  if (!/^\d{1,41}$/.test(input)) throw new Error('Número da bobina deve conter de 1 a 41 dígitos.')
   const bits:number[]=[]
   const append=(v:number,n:number)=>{for(let i=n-1;i>=0;i--)bits.push((v>>>i)&1)}
   append(1,4); append(input.length,10)
