@@ -1,6 +1,6 @@
 import type { CobrideiraBobinaRow } from '@/lib/database.types'
 
-const PAGE_W = 120 * 72 / 25.4
+const PAGE_W = 140 * 72 / 25.4
 const PAGE_H = 100 * 72 / 25.4
 const MM = 72 / 25.4
 
@@ -259,7 +259,8 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
   pathRound(rightX, rows.l7, rightW, heights.l7, 1.6, false)
   centerText('VALIDADE: 06 MESES   |   ESCANEIE ESTA BOBINA', rightX, rows.l7, rightW, 4.55, 8)
 
-  const stream = commands.join('\n')
+  // Centraliza a arte na mídia de 140 mm: desloca 10 mm à direita.
+  const stream = `28.3465 0 cm\n${commands.join('\n')}`
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
