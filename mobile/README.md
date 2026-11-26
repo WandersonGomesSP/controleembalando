@@ -28,4 +28,4 @@ A primeira compilação instala o módulo nativo de OCR. Expo Go não é suficie
 
 ## Banco
 
-Execute a migration `supabase/migrations/202611260001_coletor_leituras_mobile.sql` no projeto Supabase `aifuunmqdgwceneshksc`. Ela cria a caixa de entrada de leituras com RLS. O ERP deve consumir as leituras com status PENDENTE e marcar como PROCESSADO quando concluir o cadastro/entrada.
+Execute a migration `supabase/migrations/202611260001_coletor_leituras_mobile.sql` no projeto Supabase `aifuunmqdgwceneshksc`. Ela cria a caixa de entrada de leituras com RLS. O formulário da Cobrideira mostra códigos pendentes para seleção e os conclui após salvar a bobina. A Entrada de BOPP mostra as leituras recebidas; após selecionar os códigos e salvar a entrada agrupada, o ERP marca as leituras como PROCESSADO.
