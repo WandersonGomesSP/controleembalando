@@ -134,9 +134,17 @@ export default function App() {
     locked.current = true
     const added = addCodes([value], typeof event.type === 'string' ? event.type : 'QR_CODE', 'CAMERA', false)
     if (added) {
+      // Pausa o preview nativo imediatamente após a primeira leitura para evitar
+      // callbacks repetidos enquanto o QR continua enquadrado.
+      setScanPaused(true)
       try { beepPlayer.seekTo(0); beepPlayer.play() } catch { /* O bip não deve interromper a leitura. */ }
+      setTimeout(() => {
+        locked.current = false
+        setScanPaused(false)
+      }, 900)
+    } else {
+      setTimeout(() => { locked.current = false }, 500)
     }
-    setTimeout(() => { locked.current = false }, 1200)
   }, [addCodes, beepPlayer, scanPaused])
 
   const captureAndRead = async () => {
@@ -319,7 +327,7 @@ export default function App() {
                 <CameraView
                   ref={cameraRef}
                   style={styles.camera}
-                  active={cameraEnabled}
+                  active={cameraEnabled && !scanPaused}
                   facing="back"
                   enableTorch={false}
                   barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128', 'code39', 'code93', 'ean13', 'ean8', 'upc_a', 'upc_e', 'itf14', 'pdf417', 'datamatrix', 'aztec'] }}
