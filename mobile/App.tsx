@@ -81,7 +81,7 @@ export default function App() {
           medida: measure || null,
           observacao: item.observacao || null,
         },
-        status: 'PENDENTE',
+        status: 'PENDENTE' as const,
         sincronizado_em: new Date().toISOString(),
       }))
       if (rows.length) {
