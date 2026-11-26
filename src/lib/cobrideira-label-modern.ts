@@ -178,11 +178,11 @@ function buildPdf(bobina: CobrideiraBobinaRow) {
     `NUMERO DA BOBINA: ${String(bobina.numero_bobina ?? '').trim()}`,
     `CODIGO DA BOBINA: ${String(bobina.cod_bob ?? '').trim()}`,
     `PESO TOTAL: ${Number(bobina.peso_final ?? 0).toFixed(2)} KG`,
-  ].join('\\n')
+  ].join('\n')
   const matrix = qrMatrix(qrPayload)
   const qrX = x0, qrTop = rows.l7, qrW = 21
   const qrH = heights.l6 + gap + heights.l7
-  const module = 0.48, side = module * matrix.length, quiet = module * 4
+  const module = 0.44, side = module * matrix.length, quiet = module * 4
   const originX = qrX + (qrW - side - quiet * 2) / 2 + quiet
   const originTop = qrTop + (qrH - side - quiet * 2) / 2 + quiet - 15
   commands.push(`1 1 1 rg ${mm(originX-quiet).toFixed(2)} ${yTop(originTop+side+quiet).toFixed(2)} ${mm(side+quiet*2).toFixed(2)} ${mm(side+quiet*2).toFixed(2)} re f 0 0 0 rg`)
