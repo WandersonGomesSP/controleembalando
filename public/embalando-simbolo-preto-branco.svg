@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="35 10 205 165" role="img" aria-label="Símbolo Embalando">
+  <path d="M90 205 265 35 520 205 265 375Z" fill="#000000" stroke="#ffffff" stroke-width="10" transform="scale(0.45)"/>
+  <path d="M215 112h76c54 0 98 39 98 87 0 28-15 52-39 68l-42-69c11-8 17-18 17-29 0-18-16-32-36-32h-74z" fill="#ffffff" transform="scale(0.45)"/>
+  <path d="M215 112v55h-42v-55zM215 167h-42v54h42zM215 221h-42l-22 38h64z" fill="#ffffff" transform="scale(0.45)"/>
+  <path d="M290 112c54 0 98 39 98 87 0 28-15 52-39 68l-61-101c13-8 19-18 19-29 0-14-12-25-29-25z" fill="#ffffff" transform="scale(0.45)"/>
+</svg>
