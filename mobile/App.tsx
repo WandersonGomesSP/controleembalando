@@ -55,7 +55,16 @@ export default function App() {
     try {
       const { data: auth } = await supabase.auth.getUser()
       if (!auth.user) return
-      const rows = items.map(item => ({
+      const destinationForBatch = items[0].destino
+      const { data: alreadyPending, error: duplicateCheckError } = await supabase.from('coletor_leituras')
+        .select('codigo')
+        .eq('destino', destinationForBatch)
+        .eq('status', 'PENDENTE')
+        .in('codigo', items.map(item => item.codigo))
+      if (duplicateCheckError) throw duplicateCheckError
+      const existingCodes = new Set((alreadyPending ?? []).map(row => row.codigo))
+      const itemsToSend = items.filter(item => !existingCodes.has(item.codigo))
+      const rows = itemsToSend.map(item => ({
         id: item.id,
         user_id: auth.user!.id,
         codigo: item.codigo,
@@ -75,8 +84,10 @@ export default function App() {
         status: 'PENDENTE',
         sincronizado_em: new Date().toISOString(),
       }))
-      const { error } = await supabase.from('coletor_leituras').upsert(rows, { onConflict: 'id' })
-      if (error) throw error
+      if (rows.length) {
+        const { error } = await supabase.from('coletor_leituras').upsert(rows, { onConflict: 'id' })
+        if (error) throw error
+      }
       const ids = new Set(items.map(item => item.id))
       setQueue(current => current.map(item => ids.has(item.id) ? { ...item, sincronizado: true } : item))
     } catch {
@@ -207,8 +218,21 @@ export default function App() {
     setSession(null)
   }
 
-  const removeItem = (id: string) => setQueue(current => current.filter(item => item.id !== id))
-  const clearSynced = () => setQueue(current => current.filter(item => !item.sincronizado))
+  const removeItem = async (id: string) => {
+    const item = queue.find(row => row.id === id)
+    if (item?.sincronizado && supabase) {
+      const { error } = await supabase.from('coletor_leituras')
+        .update({ status: 'IGNORADO', observacao: 'Removido pelo usuário no Coletor Android.' })
+        .eq('id', id).eq('status', 'PENDENTE')
+      if (error) return Alert.alert('Não foi possível remover do ERP', error.message)
+    }
+    setQueue(current => current.filter(row => row.id !== id))
+  }
+  const clearSynced = () => Alert.alert(
+    'Limpar leituras enviadas?',
+    'Isso remove apenas os itens enviados desta lista do celular. Eles continuam pendentes no ERP.',
+    [{ text: 'Cancelar', style: 'cancel' }, { text: 'Limpar', style: 'destructive', onPress: () => setQueue(current => current.filter(item => !item.sincronizado)) }]
+  )
   const addManual = () => {
     const code = normalizarCodigo(manualCode)
     if (!isCodeLike(code)) return Alert.alert('Código inválido', 'Digite um código com pelo menos 5 caracteres.')
@@ -307,7 +331,7 @@ export default function App() {
         <View style={styles.card}>
           <View style={styles.queueHeader}>
             <View><Text style={styles.sectionTitle}>Fila deste celular</Text><Text style={styles.muted}>{queue.length} códigos • {pendingCount} não enviados • {syncedCount} enviados</Text></View>
-            <Pressable onPress={clearSynced}><Text style={styles.link}>Limpar enviados</Text></Pressable>
+            <Pressable onPress={clearSynced}><Text style={styles.link}>Limpar enviados do celular</Text></Pressable>
           </View>
           <FlatList
             data={queue}
