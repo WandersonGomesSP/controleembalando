@@ -16,9 +16,19 @@ function textWidth(value: string, size: number) {
   return Array.from(value).reduce((sum, char) => sum + (factors[char] ?? 0.556) * size, 0)
 }
 
-function fitSize(value: string, maxWidth: number, maximum: number, minimum = 5) {
+function fitSize(value: string, maxWidth: number, maximum: number, minimum = 4.5) {
+  // Reduz em passos de 0,5 pt até o texto caber na largura útil do campo.
+  // O limite inferior é menor que o tamanho padrão para acomodar nomes longos
+  // (principalmente CLIENTE, FORNECEDOR, LOTE e códigos) sem invadir as bordas.
   let size = maximum
-  while (size > minimum && textWidth(value, size) > maxWidth) size = Math.max(minimum, size - 0.5)
+  while (size > minimum && textWidth(value, size) > maxWidth) {
+    size = Math.max(minimum, size - 0.5)
+  }
+  // Se ainda não couber no tamanho mínimo, continua reduzindo de forma
+  // proporcional para nunca desenhar texto além da caixa.
+  if (textWidth(value, size) > maxWidth && textWidth(value, size) > 0) {
+    size = Math.max(3, size * maxWidth / textWidth(value, size))
+  }
   return size
 }
 
