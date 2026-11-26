@@ -3,11 +3,18 @@ setlocal
 title Controle Embalando - iniciar e atualizar
 cd /d "%~dp0"
 
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0acompanhar-atualizacoes.ps1"
-set "RESULTADO=%ERRORLEVEL%"
+echo Verificando atualizacoes do Controle Embalando...
+git fetch origin desenvolvimento
+if errorlevel 1 (
+  echo Nao foi possivel consultar o GitHub. Vou iniciar a versao local.
+) else (
+  git pull --ff-only origin desenvolvimento
+  if errorlevel 1 echo A atualizacao foi recusada para proteger seus arquivos locais. Vou iniciar a versao local.
+)
 
-if not "%RESULTADO%"=="0" (
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0acompanhar-atualizacoes.ps1"
+if errorlevel 1 (
   echo.
-  echo Ocorreu um erro. Confira a mensagem acima.
-  pause
+  echo O monitor de atualizacoes nao iniciou. Abrindo o sistema local sem atualizar...
+  npm run dev
 )
