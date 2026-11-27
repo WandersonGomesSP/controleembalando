@@ -113,9 +113,8 @@ export default function App() {
     const existing = new Set(queue.map(item => item.codigo))
     const fresh = unique.filter(code => !existing.has(code))
     const additions: ScanItem[] = fresh.map(codigo => ({
-      id: createId(), codigo, destino: destination, tipo_leitura: type, origem,
+      id: createId(), codigo, destino: destination, tipo_leitura: type, origem: origin,
       criado_em: new Date().toISOString(), sincronizado: false,
-      
     }))
     // Códigos já presentes são ignorados silenciosamente durante a leitura contínua.
     setLastRead(fresh.join(', ') || unique.join(', '))
@@ -130,20 +129,22 @@ export default function App() {
     if (locked.current || scanPaused) return
     const value = typeof event?.data === 'string' ? event.data.trim() : ''
     if (!value) return
-    // Evita processar dezenas de callbacks do mesmo QR enquanto ele permanece diante da câmera.
+    // Trava imediata: a câmera dispara o callback várias vezes por segundo para o mesmo QR.
+    // Importante: NÃO alternar a propriedade onBarcodeScanned (isso recria o pipeline nativo da câmera).
     locked.current = true
-    const added = addCodes([value], typeof event.type === 'string' ? event.type : 'QR_CODE', 'CAMERA', false)
-    if (added) {
-      // Pausa o preview nativo imediatamente após a primeira leitura para evitar
-      // callbacks repetidos enquanto o QR continua enquadrado.
-      setScanPaused(true)
-      void beepPlayer.seekTo(0).then(() => beepPlayer.play()).catch(() => { /* O bip não deve interromper a leitura. */ })
-      setTimeout(() => {
-        locked.current = false
-        setScanPaused(false)
-      }, 900)
-    } else {
-      setTimeout(() => { locked.current = false }, 500)
+    let added = false
+    try {
+      added = addCodes([value], typeof event.type === 'string' ? event.type : 'QR_CODE', 'CAMERA', false)
+      if (added) {
+        try {
+          void beepPlayer.seekTo(0).then(() => beepPlayer.play()).catch(() => { /* O bip não deve interromper a leitura. */ })
+        } catch { /* idem */ }
+      }
+    } catch (error) {
+      // Nenhuma falha de processamento pode derrubar o aplicativo.
+      console.warn('Falha ao processar leitura', error)
+    } finally {
+      setTimeout(() => { locked.current = false }, added ? 1500 : 700)
     }
   }, [addCodes, beepPlayer, scanPaused])
 
@@ -331,7 +332,7 @@ export default function App() {
                   facing="back"
                   enableTorch={false}
                   barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128', 'code39', 'code93', 'ean13', 'ean8', 'upc_a', 'upc_e', 'itf14', 'pdf417', 'datamatrix', 'aztec'] }}
-                  onBarcodeScanned={scanPaused ? undefined : onBarcode}
+                  onBarcodeScanned={onBarcode}
                   onCameraReady={() => setCameraReady(true)}
                   onMountError={(event) => Alert.alert('Câmera indisponível', event.message || 'Feche outros aplicativos que estejam usando a câmera e tente novamente.')}
                 />
