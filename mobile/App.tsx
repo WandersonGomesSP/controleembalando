@@ -273,8 +273,8 @@ export default function App() {
           <View style={styles.logo}><Image source={require('./assets/logo-embalando.png')} style={styles.logoImage} resizeMode="contain" /></View>
           <Text style={styles.title}>Coletor de códigos</Text>
           <Text style={styles.muted}>Entre com o mesmo usuário e senha do Controle Embalando.</Text>
-          <TextInput style={styles.input} placeholder="E-mail" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail}/>
-          <TextInput style={styles.input} placeholder="Senha" secureTextEntry value={password} onChangeText={setPassword}/>
+          <TextInput style={styles.input} placeholder="E-mail" placeholderTextColor="#7B8498" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail}/>
+          <TextInput style={styles.input} placeholder="Senha" placeholderTextColor="#7B8498" secureTextEntry value={password} onChangeText={setPassword}/>
           <Pressable style={styles.primary} onPress={signIn} disabled={loginBusy}>{loginBusy ? <ActivityIndicator color="#fff"/> : <Text style={styles.primaryText}>Entrar no ERP</Text>}</Pressable>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -305,12 +305,12 @@ export default function App() {
             <Text style={styles.sectionTitle}>Dados da entrada</Text>
             <Text style={styles.muted}>Preencha uma vez; os dados acompanham cada código desta fila.</Text>
             <View style={styles.twoCols}>
-              <TextInput style={styles.inputHalf} placeholder="Fornecedor" value={supplier} onChangeText={setSupplier}/>
-              <TextInput style={styles.inputHalf} placeholder="Empresa" value={company} onChangeText={setCompany}/>
-              <TextInput style={styles.inputHalf} placeholder="NF" value={nf} onChangeText={setNf}/>
-              <TextInput style={styles.inputHalf} placeholder="Medida (ex. 1270.20)" value={measure} onChangeText={setMeasure}/>
-              <TextInput style={styles.inputHalf} placeholder="Data emissão (AAAA-MM-DD)" value={issueDate} onChangeText={setIssueDate}/>
-              <TextInput style={styles.inputHalf} placeholder="Data entrada (AAAA-MM-DD)" value={entryDate} onChangeText={setEntryDate}/>
+              <TextInput style={styles.inputHalf} placeholder="Fornecedor" placeholderTextColor="#7B8498" value={supplier} onChangeText={setSupplier}/>
+              <TextInput style={styles.inputHalf} placeholder="Empresa" placeholderTextColor="#7B8498" value={company} onChangeText={setCompany}/>
+              <TextInput style={styles.inputHalf} placeholder="NF" placeholderTextColor="#7B8498" value={nf} onChangeText={setNf}/>
+              <TextInput style={styles.inputHalf} placeholder="Medida (ex. 1270.20)" placeholderTextColor="#7B8498" value={measure} onChangeText={setMeasure}/>
+              <TextInput style={styles.inputHalf} placeholder="Data emissão (AAAA-MM-DD)" placeholderTextColor="#7B8498" value={issueDate} onChangeText={setIssueDate}/>
+              <TextInput style={styles.inputHalf} placeholder="Data entrada (AAAA-MM-DD)" placeholderTextColor="#7B8498" value={entryDate} onChangeText={setEntryDate}/>
             </View>
           </View>
         )}
@@ -352,7 +352,7 @@ export default function App() {
           {!!lastRead && <Text style={styles.successText}>Última leitura: {lastRead}</Text>}
           <Text style={styles.muted}>Aponte para ler automaticamente o código de barras/QR ou fotografe a etiqueta para procurar também códigos impressos por OCR.</Text>
           <View style={styles.manualRow}>
-            <TextInput style={[styles.input, styles.manualInput]} placeholder="Ou digite um código" value={manualCode} onChangeText={setManualCode} autoCapitalize="characters"/>
+            <TextInput style={[styles.input, styles.manualInput]} placeholder="Ou digite um código" placeholderTextColor="#7B8498" value={manualCode} onChangeText={setManualCode} autoCapitalize="characters"/>
             <Pressable style={styles.smallPrimary} onPress={addManual}><Text style={styles.primaryText}>Adicionar</Text></Pressable>
           </View>
         </View>
@@ -376,7 +376,7 @@ export default function App() {
                   {item.destino === 'BOPP_ENTRADA' && (
                     <TextInput
                       style={styles.weightInput}
-                      placeholder="Peso individual (kg)"
+                      placeholder="Peso individual (kg)" placeholderTextColor="#7B8498"
                       keyboardType="decimal-pad"
                       value={item.peso_kg || ''}
                       onChangeText={value => atualizarPesoLeitura(item.id, value)}
